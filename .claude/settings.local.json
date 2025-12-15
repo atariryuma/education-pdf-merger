@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe:*)",
+      "Bash(dir:*)",
+      "Bash(cmd /c \"build.bat\")",
+      "Bash(python -m PyInstaller:*)",
+      "Bash(build_installer.bat)",
+      "Bash(cmd /c \"cd installer && build_installer.bat\")",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(cmd /c \"cd installer & build_installer.bat\")",
+      "Bash(\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" c:Projectsinstallersetup.iss)",
+      "Bash(\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" \"c:\\Projects\\installer\\setup.iss\")",
+      "Bash(cat:*)",
+      "Bash(copy \"dist\\教育計画PDFマージ.exe\" \"dist\\教育計画PDFマージシステム.exe\")",
+      "Bash(cmd /c copy \"dist\\教育計画PDFマージ.exe\" \"dist\\教育計画PDFマージシステム.exe\")",
+      "Bash(wait)",
+      "Bash(build.bat)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

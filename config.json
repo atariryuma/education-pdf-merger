@@ -1,0 +1,37 @@
+{
+  "year": "令和７年度(2025)",
+  "year_short": "R7",
+  "base_paths": {
+    "google_drive": "G:\\マイドライブ\\ドキュメント",
+    "network": "\\\\10.206.2.16\\天久小\\share",
+    "local_temp": ""
+  },
+  "fonts": {
+    "mincho": "C:\\Windows\\Fonts\\msmincho.ttc"
+  },
+  "ghostscript": {
+    "executable": "C:\\Program Files\\gs\\gs10.05.0\\bin\\gswin64c.exe"
+  },
+  "directories": {
+    "education_plan_base": "00 {year_short}教育計画・教科年計",
+    "education_plan": "①　{year_short} 教育計画",
+    "event_plan": "②　{year_short} 行事計画",
+    "guidance_plan": "7 各種指導計画"
+  },
+  "files": {
+    "separator_template": "Separator.docx",
+    "excel_reference": "【天久小】Excel小学校年間行事計画（編集用）.xlsx",
+    "excel_target": "04-05　天久小学校　様式4の2～4の3（小）.xls",
+    "excel_reference_sheet": "メインデータ",
+    "excel_target_sheet": "様式４の３ (小)"
+  },
+  "output": {
+    "merged_pdf": "merged_output.pdf"
+  },
+  "ichitaro": {
+    "ichitaro_ready_timeout": 30,
+    "max_retries": 3,
+    "down_arrow_count": 5,
+    "save_wait_seconds": 20
+  }
+}

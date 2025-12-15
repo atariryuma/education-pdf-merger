@@ -1,0 +1,38 @@
+{
+  "year": "令和７年度(2025)",
+  "year_short": "R7",
+  "base_paths": {
+    "google_drive": "",
+    "network": "",
+    "local_temp": ""
+  },
+  "fonts": {
+    "mincho": "C:\\Windows\\Fonts\\msmincho.ttc"
+  },
+  "ghostscript": {
+    "executable": ""
+  },
+  "directories": {
+    "education_plan_base": "00 {year_short}教育計画・教科年計",
+    "education_plan": "①　{year_short} 教育計画",
+    "event_plan": "②　{year_short} 行事計画",
+    "guidance_plan": "7 各種指導計画"
+  },
+  "files": {
+    "separator_template": "Separator.docx",
+    "excel_reference": "",
+    "excel_target": "",
+    "excel_reference_sheet": "メインデータ",
+    "excel_target_sheet": "様式４の３ (小)"
+  },
+  "output": {
+    "merged_pdf": "merged_output.pdf"
+  },
+  "ichitaro": {
+    "open_wait_seconds": 5,
+    "connect_timeout_seconds": 30,
+    "max_retries": 3,
+    "down_arrow_count": 5,
+    "save_wait_seconds": 20
+  }
+}

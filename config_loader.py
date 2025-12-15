@@ -1,0 +1,257 @@
+"""
+設定ファイル読み込みモジュール
+"""
+import logging
+import os
+import sys
+import json
+from typing import Any, Dict, Optional, Union
+
+from exceptions import ConfigurationError
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
+
+
+class ConfigLoader:
+    """設定ファイルを読み込み、パスを構築するクラス"""
+
+    # デフォルトの設定ファイル名
+    DEFAULT_CONFIG_FILENAME = 'config.json'
+
+    def __init__(self, config_path: Optional[str] = None) -> None:
+        """
+        設定ファイルを読み込む
+
+        Args:
+            config_path: 設定ファイルのパス（省略時はこのモジュールと同じディレクトリのconfig.json）
+        """
+        if config_path is None:
+            # PyInstallerでビルドされた場合は実行ファイルと同じディレクトリを使用
+            if getattr(sys, 'frozen', False):
+                # PyInstallerでビルドされている場合
+                module_dir = os.path.dirname(sys.executable)
+            else:
+                # 通常のPythonスクリプトとして実行されている場合
+                module_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(module_dir, self.DEFAULT_CONFIG_FILENAME)
+
+        self.config_path: str = config_path
+        self.config: Dict[str, Any] = self._load_config()
+        self.year: str = self.config['year']
+        self.year_short: str = self.config['year_short']
+
+    def _load_config(self) -> Dict[str, Any]:
+        """
+        設定ファイルを読み込む
+
+        Returns:
+            Dict[str, Any]: 設定辞書
+
+        Raises:
+            ConfigurationError: ファイルが見つからない場合またはJSON形式が不正な場合
+        """
+        try:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logger.error(f"設定ファイルが見つかりません: {self.config_path}")
+            raise ConfigurationError(
+                f"設定ファイルが見つかりません: {self.config_path}",
+                config_key="config_path"
+            )
+        except json.JSONDecodeError as e:
+            logger.error(f"設定ファイルのJSON形式が不正です: {e}")
+            raise ConfigurationError(
+                f"設定ファイルのJSON形式が不正です: {e}",
+                config_key="json_format"
+            )
+
+    def build_path(self, *parts: Union[str, Any]) -> str:
+        """
+        設定値のプレースホルダーを置換してパスを構築
+
+        Args:
+            *parts: パスの各部分
+
+        Returns:
+            str: 構築されたパス
+        """
+        result = []
+        for part in parts:
+            if isinstance(part, str):
+                part = part.replace('{year}', self.year).replace('{year_short}', self.year_short)
+            result.append(part)
+        return os.path.join(*result)
+
+    def get(self, *keys: str, default: Any = None) -> Any:
+        """
+        ネストされた設定値を取得
+
+        Args:
+            *keys: 設定のキー（例: 'base_paths', 'google_drive'）
+            default: デフォルト値
+
+        Returns:
+            設定値
+        """
+        value: Any = self.config
+        for key in keys:
+            if isinstance(value, dict) and key in value:
+                value = value[key]
+            else:
+                return default
+        return value
+
+    def get_path(self, *path_keys: Union[str, Any], validate: bool = False) -> str:
+        """
+        設定からパスを取得し、プレースホルダーを置換
+
+        Args:
+            *path_keys: パスを構成する設定キーのリスト
+            validate: Trueの場合、パスの存在を検証する
+
+        Returns:
+            str: 構築されたパス
+
+        Raises:
+            ValueError: validate=Trueでパスが存在しない場合
+        """
+        parts = []
+        for key_path in path_keys:
+            if isinstance(key_path, str) and '.' in key_path:
+                # ドット区切りのキー（例: 'base_paths.google_drive'）
+                keys = key_path.split('.')
+                value = self.get(*keys)
+            else:
+                value = key_path
+            if value:
+                parts.append(value)
+
+        result_path = self.build_path(*parts) if parts else ""
+
+        if validate and result_path and not os.path.exists(result_path):
+            raise ValueError(f"パスが存在しません: {result_path}")
+
+        return result_path
+
+    def get_education_plan_path(self) -> str:
+        """教育計画のディレクトリパスを取得"""
+        return self.get_path(
+            'base_paths.google_drive',
+            self.year,
+            'directories.education_plan_base',
+            'directories.education_plan'
+        )
+
+    def get_event_plan_path(self) -> str:
+        """行事計画のディレクトリパスを取得"""
+        return self.get_path(
+            'base_paths.google_drive',
+            self.year,
+            'directories.education_plan_base',
+            'directories.event_plan'
+        )
+
+    def get_template_path(self) -> str:
+        """区切りページテンプレートのパスを取得"""
+        return self.get_path(
+            'base_paths.google_drive',
+            self.year,
+            'directories.education_plan_base',
+            'files.separator_template'
+        )
+
+    def get_temp_dir(self, cleanup_old: bool = False, max_age_hours: int = 24) -> str:
+        """
+        一時ディレクトリのパスを取得
+
+        Args:
+            cleanup_old: 古いファイルをクリーンアップするか
+            max_age_hours: 削除対象とするファイルの経過時間（時間）
+
+        Returns:
+            str: 一時ディレクトリのパス
+        """
+        temp_dir = self.get('base_paths', 'local_temp')
+
+        # 設定が空または存在しない場合、デフォルトの一時フォルダを使用
+        if not temp_dir:
+            appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
+            temp_dir = os.path.join(appdata, 'PDFMergeSystem', 'temp')
+
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+
+        if cleanup_old:
+            self._cleanup_old_temp_files(temp_dir, max_age_hours)
+
+        return temp_dir
+
+    def _cleanup_old_temp_files(self, temp_dir: str, max_age_hours: int) -> None:
+        """
+        古い一時ファイルをクリーンアップ
+
+        Args:
+            temp_dir: 一時ディレクトリのパス
+            max_age_hours: 削除対象とするファイルの経過時間（時間）
+        """
+        import time
+        current_time = time.time()
+        max_age_seconds = max_age_hours * 3600
+
+        try:
+            for filename in os.listdir(temp_dir):
+                file_path = os.path.join(temp_dir, filename)
+                if os.path.isfile(file_path):
+                    file_age = current_time - os.path.getmtime(file_path)
+                    if file_age > max_age_seconds:
+                        try:
+                            os.remove(file_path)
+                            logger.debug(f"古い一時ファイルを削除: {filename}")
+                        except Exception as e:
+                            logger.warning(f"一時ファイルの削除に失敗: {filename} - {e}")
+        except Exception as e:
+            logger.warning(f"一時ファイルのクリーンアップに失敗: {e}")
+
+    def set(self, *keys: str, value: Any) -> None:
+        """
+        ネストされた設定値を設定
+
+        Args:
+            *keys: 設定のキー（例: 'base_paths', 'google_drive'）
+            value: 設定する値
+        """
+        if len(keys) == 0:
+            return
+
+        current = self.config
+        for key in keys[:-1]:
+            if key not in current:
+                current[key] = {}
+            current = current[key]
+        current[keys[-1]] = value
+
+    def save_config(self) -> bool:
+        """設定をファイルに保存"""
+        try:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, ensure_ascii=False, indent=2)
+            logger.info(f"設定ファイルを保存しました: {self.config_path}")
+            return True
+        except Exception as e:
+            logger.error(f"設定ファイルの保存に失敗しました: {e}")
+            return False
+
+    def update_year(self, year: str, year_short: str) -> None:
+        """
+        年度情報を更新
+
+        Args:
+            year: 年度（例: 令和８年度(2026)）
+            year_short: 年度略称（例: R8）
+        """
+        self.year = year
+        self.year_short = year_short
+        self.config['year'] = year
+        self.config['year_short'] = year_short

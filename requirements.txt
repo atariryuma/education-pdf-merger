@@ -1,0 +1,21 @@
+# 教育計画PDFマージシステム - 必要なライブラリ
+
+# GUI関連
+customtkinter>=5.2.0
+
+# Windows Office操作
+pywin32>=306
+
+# PDF処理
+PyPDF2>=3.0.0
+pymupdf>=1.23.0
+reportlab>=4.0.0
+
+# 画像処理
+Pillow>=10.0.0
+
+# UIオートメーション（一太郎用）
+pywinauto>=0.6.8
+
+# Excel処理
+openpyxl>=3.1.0

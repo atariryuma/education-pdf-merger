@@ -1,0 +1,325 @@
+"""
+PDF処理モジュール
+
+PDFのマージ、圧縮、ページ番号付加、目次作成などの機能を提供
+"""
+import logging
+import os
+import subprocess
+from typing import List, Optional, Tuple, TYPE_CHECKING
+
+import fitz  # PyMuPDF
+from PyPDF2 import PdfMerger
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, PageBreak, Frame, PageTemplate, Table, TableStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
+
+from exceptions import PDFProcessingError
+
+if TYPE_CHECKING:
+    from config_loader import ConfigLoader
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
+
+
+class PDFProcessor:
+    """PDF処理を行うクラス"""
+
+    # ページ番号表示位置の調整値（ポイント単位）
+    PAGE_NUMBER_X_OFFSET = 10  # 中央からの左オフセット
+    PAGE_NUMBER_BOTTOM_MARGIN = 30  # 下端からのマージン
+    PAGE_NUMBER_FONT_SIZE = 12
+
+    # デフォルトページ数（取得失敗時のフォールバック）
+    DEFAULT_PAGE_COUNT = 1
+
+    def __init__(self, config: "ConfigLoader") -> None:
+        """
+        Args:
+            config: ConfigLoaderインスタンス
+        """
+        self.config = config
+        self._register_fonts()
+
+    def _register_fonts(self) -> None:
+        """フォントを登録"""
+        font_path = self.config.get('fonts', 'mincho')
+        try:
+            pdfmetrics.registerFont(TTFont('Mincho', font_path))
+            logger.debug("Minchoフォントを登録しました")
+        except Exception as e:
+            logger.warning(f"Minchoフォントの登録に失敗しました。フォントファイルを確認してください: {font_path} - {e}")
+
+    def merge_pdfs(self, pdf_paths: List[str], output_file: str) -> None:
+        """
+        複数のPDFを1つにマージ
+
+        Args:
+            pdf_paths: PDFファイルパスのリスト
+            output_file: 出力先ファイルパス
+        """
+        merger = PdfMerger()
+        try:
+            for pdf in pdf_paths:
+                if pdf and os.path.exists(pdf):
+                    merger.append(pdf)
+            merger.write(output_file)
+            logger.info(f"PDFをマージしました: {output_file}")
+        finally:
+            merger.close()
+
+    def compress_pdf(self, pdf_path: str) -> None:
+        """
+        GhostscriptでPDFを圧縮
+
+        Args:
+            pdf_path: 圧縮対象のPDFパス
+        """
+        tmp_file = pdf_path + ".tmp"
+        try:
+            gs_executable = self.config.get('ghostscript', 'executable')
+
+            gs_command = [
+                gs_executable,
+                "-sDEVICE=pdfwrite",
+                "-dCompatibilityLevel=1.4",
+                "-dPDFSETTINGS=/ebook",
+                "-dNOPAUSE",
+                "-dQUIET",
+                "-dBATCH",
+                f"-sOutputFile={tmp_file}",
+                pdf_path
+            ]
+
+            subprocess.run(gs_command, check=True, timeout=120)
+            os.replace(tmp_file, pdf_path)
+            logger.info(f"Ghostscriptを使用してPDFを圧縮しました: {pdf_path}")
+        except subprocess.TimeoutExpired:
+            logger.error(f"Ghostscriptがタイムアウトしました: {pdf_path}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Ghostscript実行エラー ({pdf_path}): {e}")
+        except Exception as e:
+            logger.error(f"PDF圧縮エラー ({pdf_path}): {e}")
+        finally:
+            if os.path.exists(tmp_file):
+                try:
+                    os.remove(tmp_file)
+                except OSError:
+                    pass
+
+    def get_page_count(self, pdf_path: str) -> int:
+        """
+        PDFのページ数を取得
+
+        Args:
+            pdf_path: PDFファイルパス
+
+        Returns:
+            int: ページ数（取得失敗時はDEFAULT_PAGE_COUNT）
+        """
+        doc = None
+        try:
+            doc = fitz.open(pdf_path)
+            return doc.page_count
+        except Exception as e:
+            logger.warning(f"ページ数の取得に失敗しました（デフォルト値{self.DEFAULT_PAGE_COUNT}を使用）: {pdf_path} - {e}")
+            return self.DEFAULT_PAGE_COUNT
+        finally:
+            if doc is not None:
+                doc.close()
+
+    def add_page_numbers(self, pdf_file: str, exclude_first_pages: int = 1) -> None:
+        """
+        PDFにページ番号を追加
+
+        Args:
+            pdf_file: PDFファイルパス
+            exclude_first_pages: ページ番号を表示しない先頭ページ数
+        """
+        doc = None
+        try:
+            doc = fitz.open(pdf_file)
+            total_pages = doc.page_count
+
+            for i in range(total_pages):
+                # 先頭ページはスキップ
+                if i < exclude_first_pages:
+                    continue
+
+                number_text = str(i + 1)
+                page = doc.load_page(i)
+                rect = page.rect
+                # ページ中央下部に配置
+                point = fitz.Point(
+                    rect.width / 2 - self.PAGE_NUMBER_X_OFFSET,
+                    rect.height - self.PAGE_NUMBER_BOTTOM_MARGIN
+                )
+                page.insert_text(
+                    point, number_text,
+                    fontsize=self.PAGE_NUMBER_FONT_SIZE,
+                    fontname="helv",
+                    color=(0, 0, 0)
+                )
+
+            tmp_file = pdf_file + ".tmp"
+            doc.save(tmp_file)
+            doc.close()
+            doc = None
+            os.replace(tmp_file, pdf_file)
+            logger.info(f"ページ番号を追加しました: {pdf_file} (先頭{exclude_first_pages}ページはスキップ)")
+        finally:
+            if doc is not None:
+                doc.close()
+
+    def set_pdf_outlines(self, pdf_file: str, toc_entries: List[Tuple[str, int, int]]) -> None:
+        """
+        PDFにアウトライン（しおり）を設定
+
+        Args:
+            pdf_file: PDFファイルパス
+            toc_entries: 目次エントリのリスト [(title, level, page), ...]
+        """
+        doc = None
+        try:
+            doc = fitz.open(pdf_file)
+            page_count = doc.page_count
+
+            corrected_outlines = []
+            for title, level, page in toc_entries:
+                # ページ番号を有効範囲に補正
+                if page < 1:
+                    page = 1
+                if page > page_count:
+                    page = page_count
+                corrected_outlines.append([level, title, page])
+
+            # PyMuPDFの制約：最初の項目は必ずレベル1
+            if corrected_outlines and corrected_outlines[0][0] != 1:
+                corrected_outlines[0][0] = 1
+
+            logger.debug(f"PDFアウトラインを設定: {corrected_outlines}")
+
+            try:
+                doc.set_toc(corrected_outlines)
+            except Exception as e:
+                logger.error(f"PDFアウトラインの設定に失敗しました: {e}")
+
+            tmp_file = pdf_file + ".tmp"
+            doc.save(tmp_file, incremental=False)
+            doc.close()
+            doc = None
+            os.replace(tmp_file, pdf_file)
+            logger.info("PDFアウトライン（しおり）を設定しました")
+        finally:
+            if doc is not None:
+                doc.close()
+
+    def create_toc_pdf(self, toc_entries: List[Tuple[str, int, int]], output_path: str) -> str:
+        """
+        目次ページのPDFを作成
+
+        Args:
+            toc_entries: 目次エントリのリスト [(title, level, page), ...]
+            output_path: 出力先PDFパス
+
+        Returns:
+            str: 作成したPDFのパス
+        """
+        doc = BaseDocTemplate(output_path, pagesize=A4)
+        frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height)
+        doc.addPageTemplates([PageTemplate(id='normal', frames=[frame])])
+
+        # テーブルデータの作成
+        table_data = []
+        for title, level, page in toc_entries:
+            # レベル2の項目はインデント
+            indent = "    " if level == 2 else ""
+            title_text = indent + title
+            table_data.append([title_text, str(page)])
+
+        if not table_data:
+            table_data = [["目次なし", ""]]
+
+        # テーブルの作成
+        col_widths = [doc.width * 0.8, doc.width * 0.2]
+        toc_table = Table(table_data, colWidths=col_widths)
+        toc_table.setStyle(TableStyle([
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Mincho'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('LEFTPADDING', (0, 0), (-1, -1), 2),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+            ('LINEBELOW', (0, 0), (-1, -1), 0.25, colors.grey),
+        ]))
+
+        # ストーリーの構築
+        story = []
+        title_style = ParagraphStyle('toc_title', fontName='Mincho', fontSize=18, spaceAfter=12)
+        story.append(Paragraph("目次", title_style))
+        story.append(Spacer(1, 0.2 * inch))
+        story.append(toc_table)
+        story.append(PageBreak())
+
+        doc.build(story)
+        logger.info(f"目次PDFを作成しました: {output_path}")
+        return output_path
+
+    def split_pdf(self, pdf_path: str, output_dir: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        PDFを表紙と残りのページに分割
+
+        Args:
+            pdf_path: 分割対象のPDFパス
+            output_dir: 出力先ディレクトリ
+
+        Returns:
+            tuple: (表紙PDFパス, 残りのPDFパス) 失敗時はNone
+        """
+        doc = None
+        cover_doc = None
+        remainder_doc = None
+
+        try:
+            doc = fitz.open(pdf_path)
+
+            cover_pdf = os.path.join(output_dir, "cover.pdf")
+            remainder_pdf = os.path.join(output_dir, "remainder.pdf")
+
+            # 表紙（1ページ目）
+            cover_doc = fitz.open()
+            cover_doc.insert_pdf(doc, from_page=0, to_page=0)
+            cover_doc.save(cover_pdf)
+            cover_doc.close()
+            cover_doc = None
+
+            # 残りのページ
+            remainder_doc = fitz.open()
+            if doc.page_count > 1:
+                remainder_doc.insert_pdf(doc, from_page=1, to_page=doc.page_count - 1)
+            remainder_doc.save(remainder_pdf)
+            remainder_doc.close()
+            remainder_doc = None
+
+            doc.close()
+            doc = None
+
+            logger.debug(f"PDFを分割しました: 表紙={cover_pdf}, 残り={remainder_pdf}")
+            return cover_pdf, remainder_pdf
+
+        except Exception as e:
+            logger.error(f"PDF分割エラー ({pdf_path}): {e}")
+            return None, None
+
+        finally:
+            if cover_doc is not None:
+                cover_doc.close()
+            if remainder_doc is not None:
+                remainder_doc.close()
+            if doc is not None:
+                doc.close()
