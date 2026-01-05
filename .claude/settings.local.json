@@ -45,7 +45,8 @@
       "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Inno Setup 6\\\\ISCC.exe\" installersetup.iss)",
       "Bash(del:*)",
       "Bash(copy config.json distconfig.json)",
-      "Bash(cmd /c \"del SCROLL_FIX_DIAGRAM.txt SCROLL_FIX_REPORT.md test_scroll.py\")"
+      "Bash(cmd /c \"del SCROLL_FIX_DIAGRAM.txt SCROLL_FIX_REPORT.md test_scroll.py\")",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
