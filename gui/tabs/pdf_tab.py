@@ -153,6 +153,10 @@ class PDFTab(BaseTab):
 
                 if is_valid and validated_path:
                     self.input_dir_var.set(str(validated_path))
+
+                    # フォルダ構造の自動判定
+                    self._detect_and_set_plan_type(validated_path)
+
                     self.update_status(f"入力ディレクトリを選択: {validated_path.name}")
                     logger.info(f"入力ディレクトリを選択: {validated_path}")
                 else:
@@ -397,3 +401,62 @@ class PDFTab(BaseTab):
 
         thread = threading.Thread(target=task, daemon=True)
         thread.start()
+
+    def _detect_and_set_plan_type(self, directory_path: Path) -> None:
+        """
+        フォルダ構造を自動判定してplan_type_varを更新
+
+        Args:
+            directory_path: 判定対象のディレクトリPath
+        """
+        try:
+            from folder_structure_detector import FolderStructureDetector
+
+            detector = FolderStructureDetector()
+            result = detector.detect_structure(str(directory_path))
+
+            if result.plan_type == FolderStructureDetector.PlanType.AMBIGUOUS:
+                # 判定が曖昧な場合はダイアログで確認
+                self._show_plan_type_selection_dialog(result)
+            else:
+                # 確定判定の場合は自動設定
+                self.plan_type_var.set(result.plan_type.value)
+                self._update_plan_type_display(result)
+
+        except Exception as e:
+            logger.error(f"フォルダ構造判定エラー: {e}", exc_info=True)
+            # エラー時はデフォルト動作（手動選択のまま）
+
+    def _update_plan_type_display(self, result) -> None:
+        """
+        判定結果をステータスラベルに表示
+
+        Args:
+            result: DetectionResult
+        """
+        plan_name = "教育計画" if result.plan_type.value == "education" else "行事計画"
+        confidence_pct = int(result.confidence * 100)
+
+        message = f"自動判定: {plan_name} (確信度: {confidence_pct}%)"
+        self.status_label.config(text=message, fg="green")
+        self.log(f"{message}", "info")
+
+    def _show_plan_type_selection_dialog(self, result) -> None:
+        """
+        判定が曖昧な場合の選択ダイアログを表示
+
+        Args:
+            result: DetectionResult
+        """
+        from gui.plan_type_selection_dialog import PlanTypeSelectionDialog
+
+        def on_selection(plan_type: str):
+            """ダイアログでの選択結果を処理"""
+            if plan_type:
+                self.plan_type_var.set(plan_type)
+                plan_name = "教育計画" if plan_type == "education" else "行事計画"
+                self.update_status(f"計画種別を選択: {plan_name}")
+                self.log(f"手動選択: {plan_name}", "info")
+
+        dialog = PlanTypeSelectionDialog(self.tab, result, on_selection)
+        self.tab.wait_window(dialog)

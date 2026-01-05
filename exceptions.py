@@ -170,6 +170,21 @@ class ExcelProcessingError(PDFMergeError):
         super().__init__(message)
 
 
+class FolderStructureError(PDFMergeError):
+    """フォルダ構造分析エラー"""
+
+    def __init__(self, message: str, directory_path: str = None):
+        """
+        Args:
+            message: エラーメッセージ
+            directory_path: 分析対象のディレクトリパス
+        """
+        self.directory_path = directory_path
+        super().__init__(message)
+        if directory_path:
+            self.add_context('directory', directory_path)
+
+
 class CancelledError(PDFMergeError):
     """処理がキャンセルされたことを示す例外"""
     pass
