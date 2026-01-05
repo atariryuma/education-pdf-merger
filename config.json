@@ -31,7 +31,6 @@
   "ichitaro": {
     "ichitaro_ready_timeout": 30,
     "max_retries": 3,
-    "down_arrow_count": 5,
     "save_wait_seconds": 20
   }
 }

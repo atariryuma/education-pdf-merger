@@ -3,11 +3,29 @@
 
 PDFマージシステム用のカスタム例外を定義
 """
+from datetime import datetime
+from typing import Optional, Any
 
 
 class PDFMergeError(Exception):
     """PDF統合エラーの基底クラス"""
-    pass
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.timestamp = datetime.now()
+        self.context = {}
+
+    def add_context(self, key: str, value: Any):
+        """エラーコンテキストに情報を追加"""
+        self.context[key] = value
+        return self
+
+    def __str__(self):
+        base_msg = super().__str__()
+        if self.context:
+            ctx_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            return f"{base_msg} [{ctx_str}]"
+        return base_msg
 
 
 class PDFConversionError(PDFMergeError):
@@ -25,16 +43,25 @@ class PDFConversionError(PDFMergeError):
             self.file_path = None
             self.operation = None
             self.original_error = original_error
+            self.original_format = None
             message = message_or_file_path
         else:
             # 詳細な情報付きの場合
             self.file_path = message_or_file_path
             self.operation = operation
             self.original_error = original_error
+            # ファイル拡張子から元の形式を取得
+            import os
+            self.original_format = os.path.splitext(message_or_file_path)[1].lower() if message_or_file_path else None
             message = f"{operation}失敗: {message_or_file_path}"
             if original_error:
                 message += f" - {original_error}"
         super().__init__(message)
+        # タイムスタンプと形式情報をコンテキストに追加
+        if self.original_format:
+            self.add_context('format', self.original_format)
+        if self.file_path:
+            self.add_context('file_path', self.file_path)
 
 
 class ConfigurationError(PDFMergeError):

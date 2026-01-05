@@ -36,14 +36,22 @@ class ConfigLoader:
                 module_dir = os.path.dirname(os.path.abspath(__file__))
             config_path = os.path.join(module_dir, self.DEFAULT_CONFIG_FILENAME)
 
-        self.config_path: str = config_path
+        self.config_path: str = config_path  # デフォルト設定（読み取り専用）
+
+        # ユーザー設定ファイルのパス（AppData内、読み書き可能）
+        appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
+        user_config_dir = os.path.join(appdata, 'PDFMergeSystem')
+        if not os.path.exists(user_config_dir):
+            os.makedirs(user_config_dir)
+        self.user_config_path = os.path.join(user_config_dir, 'user_config.json')
+
         self.config: Dict[str, Any] = self._load_config()
         self.year: str = self.config['year']
         self.year_short: str = self.config['year_short']
 
     def _load_config(self) -> Dict[str, Any]:
         """
-        設定ファイルを読み込む
+        設定ファイルを読み込む（デフォルト設定 + ユーザー設定をマージ）
 
         Returns:
             Dict[str, Any]: 設定辞書
@@ -51,9 +59,10 @@ class ConfigLoader:
         Raises:
             ConfigurationError: ファイルが見つからない場合またはJSON形式が不正な場合
         """
+        # デフォルト設定を読み込み
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                config = json.load(f)
         except FileNotFoundError:
             logger.error(f"設定ファイルが見つかりません: {self.config_path}")
             raise ConfigurationError(
@@ -66,6 +75,33 @@ class ConfigLoader:
                 f"設定ファイルのJSON形式が不正です: {e}",
                 config_key="json_format"
             )
+
+        # ユーザー設定を読み込んでマージ
+        if os.path.exists(self.user_config_path):
+            try:
+                with open(self.user_config_path, 'r', encoding='utf-8') as f:
+                    user_config = json.load(f)
+                # ディープマージ
+                self._deep_merge(config, user_config)
+                logger.info(f"ユーザー設定を読み込みました: {self.user_config_path}")
+            except Exception as e:
+                logger.warning(f"ユーザー設定の読み込みに失敗しました: {e}")
+
+        return config
+
+    def _deep_merge(self, base: dict, override: dict) -> None:
+        """
+        辞書を再帰的にマージ（overrideの値でbaseを上書き）
+
+        Args:
+            base: ベースとなる辞書（この辞書が更新される）
+            override: 上書きする辞書
+        """
+        for key, value in override.items():
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                self._deep_merge(base[key], value)
+            else:
+                base[key] = value
 
     def build_path(self, *parts: Union[str, Any]) -> str:
         """
@@ -137,29 +173,30 @@ class ConfigLoader:
 
     def get_education_plan_path(self) -> str:
         """教育計画のディレクトリパスを取得"""
-        return self.get_path(
-            'base_paths.google_drive',
+        # Google Driveまたはネットワークパスを取得（どちらか設定されている方を使用）
+        base_path = self.get('base_paths', 'google_drive') or self.get('base_paths', 'network')
+        if not base_path:
+            return ""
+
+        return self.build_path(
+            base_path,
             self.year,
-            'directories.education_plan_base',
-            'directories.education_plan'
+            self.get('directories', 'education_plan_base'),
+            self.get('directories', 'education_plan')
         )
 
     def get_event_plan_path(self) -> str:
         """行事計画のディレクトリパスを取得"""
-        return self.get_path(
-            'base_paths.google_drive',
-            self.year,
-            'directories.education_plan_base',
-            'directories.event_plan'
-        )
+        # Google Driveまたはネットワークパスを取得
+        base_path = self.get('base_paths', 'google_drive') or self.get('base_paths', 'network')
+        if not base_path:
+            return ""
 
-    def get_template_path(self) -> str:
-        """区切りページテンプレートのパスを取得"""
-        return self.get_path(
-            'base_paths.google_drive',
+        return self.build_path(
+            base_path,
             self.year,
-            'directories.education_plan_base',
-            'files.separator_template'
+            self.get('directories', 'education_plan_base'),
+            self.get('directories', 'event_plan')
         )
 
     def get_temp_dir(self, cleanup_old: bool = False, max_age_hours: int = 24) -> str:
@@ -233,14 +270,14 @@ class ConfigLoader:
         current[keys[-1]] = value
 
     def save_config(self) -> bool:
-        """設定をファイルに保存"""
+        """設定をユーザー設定ファイルに保存"""
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.user_config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
-            logger.info(f"設定ファイルを保存しました: {self.config_path}")
+            logger.info(f"ユーザー設定を保存しました: {self.user_config_path}")
             return True
         except Exception as e:
-            logger.error(f"設定ファイルの保存に失敗しました: {e}")
+            logger.error(f"ユーザー設定の保存に失敗しました: {e}")
             return False
 
     def update_year(self, year: str, year_short: str) -> None:

@@ -227,8 +227,14 @@ class ExcelTab(BaseTab):
                 if not result:
                     return
 
+        except ImportError as e:
+            # win32com.clientがインストールされていない場合
+            logger.warning(f"pywin32モジュールが利用できません: {e}")
+        except AttributeError as e:
+            # Excelアプリケーションが見つからない場合
+            logger.debug(f"Excel COMオブジェクトへのアクセスに失敗: {e}")
         except Exception as e:
-            # Excelアプリケーションへの接続失敗等（Excelが起動していない場合など）
+            # その他の予期しないエラー（Excelが起動していない場合など）
             logger.debug(f"Excelファイル状態の事前確認をスキップ: {e}")
 
         def task():
@@ -237,8 +243,20 @@ class ExcelTab(BaseTab):
                 self.update_status("Excelデータ更新を実行中...")
                 self.log("=== Excelデータ更新開始 ===", "info")
 
-                import update_excel_files
-                update_excel_files.main()
+                try:
+                    import update_excel_files
+                    update_excel_files.main()
+                except ModuleNotFoundError:
+                    error_msg = (
+                        "Excel自動更新機能（update_excel_files.py）が見つかりません。\n\n"
+                        "この機能は現在利用できません。\n"
+                        "手動でExcelファイルの更新を行ってください。"
+                    )
+                    self.log(f"モジュールエラー: update_excel_files.py が見つかりません", "error")
+                    set_button_state(self.run_button, True, self.status_label, "❌ エラー")
+                    self.update_status("Excel更新モジュールが見つかりません")
+                    messagebox.showerror("❌ モジュールエラー", error_msg)
+                    return
 
                 self.log("=== Excelデータ更新完了 ===", "success")
                 set_button_state(self.run_button, True, self.status_label, "✅ 完了")

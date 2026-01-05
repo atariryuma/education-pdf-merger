@@ -21,8 +21,11 @@ import logging
 from logging_config import setup_logging
 setup_logging(level=logging.DEBUG)
 
-# アプリケーションの起動
-from gui.app import main
+# アプリケーションの起動（遅延ロード）
+def main():
+    """メインアプリケーションを起動"""
+    from gui.app import main as app_main
+    app_main()
 
 if __name__ == "__main__":
     main()

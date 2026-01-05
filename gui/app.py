@@ -3,9 +3,10 @@
 
 GUIアプリケーションのメインクラス
 """
+import json
+import logging
 import os
 import sys
-import json
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional
@@ -17,6 +18,9 @@ from gui.tabs.pdf_tab import PDFTab
 from gui.tabs.excel_tab import ExcelTab
 from gui.tabs.file_tab import FileTab
 from gui.tabs.settings_tab import SettingsTab
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 
 def get_app_dir() -> str:
@@ -74,25 +78,31 @@ class PDFMergeApp:
     def _init_variables(self, last_settings: dict) -> None:
         """変数を初期化"""
         default_input = self.config.get_education_plan_path()
+
+        # Google Driveまたはネットワークパスを取得
+        base_path = self.config.get('base_paths', 'google_drive') or self.config.get('base_paths', 'network')
         default_output = self.config.build_path(
-            self.config.get('base_paths', 'google_drive'),
+            base_path,
             self.config.year,
             self.config.get('directories', 'education_plan_base'),
             self.config.get('output', 'merged_pdf')
-        )
+        ) if base_path else ""
 
-        # PDF統合タブ用
-        self.input_dir_var = tk.StringVar(
-            value=last_settings.get('input_dir', default_input if os.path.exists(default_input) else "")
-        )
-        self.output_file_var = tk.StringVar(value=last_settings.get('output_file', default_output))
+        # PDF統合タブ用（入力・出力パスは常にデフォルト値、計画種別のみlast_settingsから復元）
+        self.input_dir_var = tk.StringVar(value=default_input)
+        self.output_file_var = tk.StringVar(value=default_output)
         self.plan_type_var = tk.StringVar(value=last_settings.get('plan_type', 'education'))
 
         # 設定タブ用
         self.year_var = tk.StringVar(value=self.config.year)
         self.year_short_var = tk.StringVar(value=self.config.year_short)
-        self.gdrive_var = tk.StringVar(value=self.config.get('base_paths', 'google_drive'))
-        self.network_var = tk.StringVar(value=self.config.get('base_paths', 'network'))
+
+        # Google DriveとNetworkパスのデフォルト値を設定
+        gdrive_path = self.config.get('base_paths', 'google_drive') or ""
+        network_path = self.config.get('base_paths', 'network') or ""
+
+        self.gdrive_var = tk.StringVar(value=gdrive_path)
+        self.network_var = tk.StringVar(value=network_path)
 
         # 一時フォルダ：空の場合はデフォルトパスを設定してconfig.jsonに保存
         temp_path = self.config.get('base_paths', 'local_temp')
@@ -146,8 +156,7 @@ class PDFMergeApp:
             if current_tab == 1:  # Excel処理タブ
                 self.excel_tab.check_files_status()
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).debug(f"F5キー処理でエラー: {e}")
+            logger.debug(f"F5キー処理でエラー: {e}")
         return 'break'
 
     def _on_closing(self) -> None:

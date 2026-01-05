@@ -82,3 +82,8 @@ build_exe/
 *.tmp
 *.bak
 *.orig
+test_*.py
+*_DIAGRAM.txt
+*_REPORT.md
+*_FIX_*.txt
+*_FIX_*.md

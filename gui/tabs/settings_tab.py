@@ -7,9 +7,11 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import Any, Callable
+from pathlib import Path
 
 from gui.tabs.base_tab import BaseTab
 from gui.utils import create_hover_button
+from path_validator import PathValidator
 
 
 class SettingsTab(BaseTab):
@@ -45,8 +47,40 @@ class SettingsTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
-        # メインコンテナ（中央配置用）
-        main_container = tk.Frame(self.tab)
+        # スクロール可能なメインコンテナ
+        canvas = tk.Canvas(self.tab, highlightthickness=0)
+        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+
+        # scrollregionを更新する関数
+        def update_scrollregion(event=None):
+            canvas.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_frame.bind("<Configure>", update_scrollregion)
+
+        # create_windowでウィンドウIDを保存
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Canvasのサイズに合わせてscrollable_frameの幅を調整
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        # マウスホイールでのスクロールを有効化
+        def on_mousewheel(event):
+            if canvas.yview() != (0.0, 1.0):
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+
+        canvas.bind("<Configure>", on_canvas_configure)
+        canvas.bind("<MouseWheel>", on_mousewheel)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # メインコンテナ（スクロール可能フレーム内）
+        main_container = scrollable_frame
         main_container.pack(fill="both", expand=True, padx=15, pady=10)
 
         # 共通のラベル幅とパディング
@@ -110,9 +144,8 @@ class SettingsTab(BaseTab):
         # 設定値の読み込み
         self.max_retries_var = tk.StringVar(value=str(self.config.get('ichitaro', 'max_retries') or 3))
         self.save_wait_var = tk.StringVar(value=str(self.config.get('ichitaro', 'save_wait_seconds') or 20))
-        self.down_arrow_var = tk.StringVar(value=str(self.config.get('ichitaro', 'down_arrow_count') or 5))
 
-        # 1行目: リトライ回数と保存待機時間
+        # 設定行: リトライ回数、保存待機時間、テストボタン
         settings_row1 = tk.Frame(ichitaro_frame)
         settings_row1.pack(fill="x", padx=10, pady=PAD_Y)
         tk.Label(settings_row1, text="リトライ:").pack(side="left")
@@ -123,25 +156,22 @@ class SettingsTab(BaseTab):
         tk.Label(settings_row1, text="秒").pack(side="left", padx=(2, 15))
         tk.Button(settings_row1, text="🧪 テスト", command=self._test_ichitaro_conversion, font=("メイリオ", 8)).pack(side="left", padx=5)
 
-        # 2行目: 下矢印回数（プリンタ選択）
-        settings_row2 = tk.Frame(ichitaro_frame)
-        settings_row2.pack(fill="x", padx=10, pady=PAD_Y)
-        tk.Label(settings_row2, text="↓回数:").pack(side="left")
-        tk.Entry(settings_row2, textvariable=self.down_arrow_var, width=3).pack(side="left", padx=(3, 0))
-        tk.Label(settings_row2, text="回").pack(side="left", padx=(2, 5))
-        tk.Label(settings_row2, text="（Microsoft Print to PDFまでの下矢印キー押下回数）", fg="#666", font=("メイリオ", 8)).pack(side="left")
-
         # 説明ラベル
         help_label = tk.Label(
             ichitaro_frame,
-            text="💡 ヒント: プリンタの並び順が変わった場合は「↓回数」を調整してください。",
+            text="💡 Microsoft Print to PDFを自動選択します（環境非依存）",
             fg="#0066cc",
             font=("メイリオ", 8)
         )
         help_label.pack(anchor="w", padx=10, pady=(0, 3))
 
         # ステータス表示
-        self.ichitaro_status_label = tk.Label(ichitaro_frame, text="処理手順: Ctrl+P → ↓キー×N回 → Enter → ファイル名 → Enter", fg="#666", font=("メイリオ", 8))
+        self.ichitaro_status_label = tk.Label(
+            ichitaro_frame,
+            text="処理手順: Ctrl+P → プリンター自動選択 → Enter → ファイル名 → Enter",
+            fg="#666",
+            font=("メイリオ", 8)
+        )
         self.ichitaro_status_label.pack(anchor="w", padx=10, pady=(0, 3))
 
         # ログファイルボタン
@@ -200,21 +230,26 @@ class SettingsTab(BaseTab):
         )
         edit_btn.pack(side="left", padx=5)
 
-    def _browse_folder(self, var: tk.StringVar) -> None:
-        """フォルダを参照"""
-        try:
-            current_path = var.get().strip()
-            if current_path and os.path.exists(current_path) and os.path.isdir(current_path):
-                initial_dir = current_path
-            elif current_path and os.path.dirname(current_path) and os.path.exists(os.path.dirname(current_path)):
-                initial_dir = os.path.dirname(current_path)
-            else:
-                initial_dir = os.path.expanduser("~")
+        # scrollregionを明示的に初期化
+        scrollable_frame.update_idletasks()
+        update_scrollregion()
 
-            directory = filedialog.askdirectory(title="フォルダを選択", initialdir=initial_dir)
+    def _browse_folder(self, var: tk.StringVar) -> None:
+        """フォルダを参照（PathValidatorベース）"""
+        try:
+            current_path_str = var.get().strip()
+            initial_dir = PathValidator.get_safe_initial_dir(current_path_str, Path.home())
+
+            directory = filedialog.askdirectory(title="フォルダを選択", initialdir=str(initial_dir))
             if directory:
-                var.set(directory)
-                self.update_status(f"フォルダを選択: {os.path.basename(directory)}")
+                is_valid, error_msg, validated_path = PathValidator.validate_directory(
+                    directory, must_exist=True
+                )
+                if is_valid and validated_path:
+                    var.set(str(validated_path))
+                    self.update_status(f"フォルダを選択: {validated_path.name}")
+                else:
+                    messagebox.showerror("パスエラー", error_msg or "フォルダが無効です")
         except Exception as e:
             messagebox.showerror("参照エラー", f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}")
 
@@ -236,6 +271,7 @@ class SettingsTab(BaseTab):
             )
             if file_path:
                 self.gs_var.set(file_path)
+                self._update_gs_status()
                 self.update_status(f"Ghostscript: {os.path.basename(file_path)}")
         except Exception as e:
             messagebox.showerror("参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
@@ -263,32 +299,34 @@ class SettingsTab(BaseTab):
             messagebox.showerror("参照エラー", f"Excelファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
 
     def _open_temp_folder(self) -> None:
-        """一時フォルダをエクスプローラーで開く"""
-        temp_path = self.temp_var.get().strip()
+        """一時フォルダをエクスプローラーで開く（PathValidatorベース）"""
+        temp_path_str = self.temp_var.get().strip()
 
         # パスが空の場合はデフォルトパスを使用
-        if not temp_path:
+        if not temp_path_str:
             appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-            temp_path = os.path.join(appdata, 'PDFMergeSystem', 'temp')
+            temp_path_str = os.path.join(appdata, 'PDFMergeSystem', 'temp')
+
+        temp_path = Path(temp_path_str)
 
         # フォルダが存在しない場合は作成
-        if not os.path.exists(temp_path):
+        if not temp_path.exists():
             try:
-                os.makedirs(temp_path)
-                self.update_status(f"一時フォルダを作成しました: {temp_path}")
+                temp_path.mkdir(parents=True, exist_ok=True)
+                self.update_status(f"一時フォルダを作成しました: {temp_path.name}")
             except Exception as e:
                 messagebox.showerror("エラー", f"一時フォルダの作成に失敗しました。\n\n{e}")
                 return
 
         # エクスプローラーで開く
         try:
-            os.startfile(temp_path)
+            os.startfile(str(temp_path))
             self.update_status(f"一時フォルダを開きました")
         except Exception as e:
             messagebox.showerror("エラー", f"フォルダを開けませんでした。\n\n{e}")
 
     def save_settings(self) -> None:
-        """設定を保存"""
+        """設定を保存（入力検証付き - ベストプラクティス準拠）"""
         year = self.year_var.get().strip()
         year_short = self.year_short_var.get().strip()
 
@@ -304,19 +342,32 @@ class SettingsTab(BaseTab):
         self.config.set('files', 'excel_reference', value=self.excel_ref_var.get())
         self.config.set('files', 'excel_target', value=self.excel_target_var.get())
 
-        # 一太郎設定の保存
+        # 一太郎設定の保存（入力検証付き）
+        validation_errors = []
+
         try:
-            self.config.set('ichitaro', 'max_retries', value=int(self.max_retries_var.get()))
+            retry_value = int(self.max_retries_var.get())
+            if retry_value < 0 or retry_value > 10:
+                validation_errors.append("• リトライ回数は0～10の範囲で入力してください")
+            else:
+                self.config.set('ichitaro', 'max_retries', value=retry_value)
         except ValueError:
-            pass
+            validation_errors.append("• リトライ回数は整数で入力してください")
+
         try:
-            self.config.set('ichitaro', 'save_wait_seconds', value=int(self.save_wait_var.get()))
+            wait_value = int(self.save_wait_var.get())
+            if wait_value < 5 or wait_value > 120:
+                validation_errors.append("• 保存待機時間は5～120秒の範囲で入力してください")
+            else:
+                self.config.set('ichitaro', 'save_wait_seconds', value=wait_value)
         except ValueError:
-            pass
-        try:
-            self.config.set('ichitaro', 'down_arrow_count', value=int(self.down_arrow_var.get()))
-        except ValueError:
-            pass
+            validation_errors.append("• 保存待機時間は整数で入力してください")
+
+        # 検証エラーがあれば表示して保存を中断
+        if validation_errors:
+            error_message = "入力値に誤りがあります:\n\n" + "\n".join(validation_errors)
+            messagebox.showwarning("⚠️ 入力エラー", error_message)
+            return
 
         if self.config.save_config():
             self.update_status("設定を保存しました")
@@ -327,6 +378,7 @@ class SettingsTab(BaseTab):
     def reload_settings(self) -> None:
         """設定を再読み込み"""
         self.on_reload()
+        self._update_gs_status()
 
     def open_config_file(self) -> None:
         """config.jsonをテキストエディタで開く"""
@@ -401,10 +453,6 @@ class SettingsTab(BaseTab):
                     pass
                 try:
                     ichitaro_settings['save_wait_seconds'] = int(self.save_wait_var.get())
-                except ValueError:
-                    pass
-                try:
-                    ichitaro_settings['down_arrow_count'] = int(self.down_arrow_var.get())
                 except ValueError:
                     pass
 

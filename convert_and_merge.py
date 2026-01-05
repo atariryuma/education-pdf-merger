@@ -29,10 +29,9 @@ def main(plan_type: str = "education") -> None:
 
     # 各モジュールの初期化
     temp_dir = config.get_temp_dir()
-    converter = PDFConverter(temp_dir)
+    converter = PDFConverter(temp_dir, config=config)
     processor = PDFProcessor(config)
-    template_path = config.get_template_path()
-    collector = DocumentCollector(converter, processor, template_path)
+    collector = DocumentCollector(converter, processor)
 
     # オーケストレーターの初期化
     orchestrator = PDFMergeOrchestrator(config, converter, processor, collector)

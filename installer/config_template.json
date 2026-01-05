@@ -29,10 +29,8 @@
     "merged_pdf": "merged_output.pdf"
   },
   "ichitaro": {
-    "open_wait_seconds": 5,
-    "connect_timeout_seconds": 30,
+    "ichitaro_ready_timeout": 30,
     "max_retries": 3,
-    "down_arrow_count": 5,
     "save_wait_seconds": 20
   }
 }

@@ -1,8 +1,13 @@
 ; 教育計画PDFマージシステム - Inno Setup Script
 ; Inno Setup 6.0+ required
+;
+; Version 3.2.4 - 一太郎変換改善版（警告ダイアログ＆リトライ機能）
+; - 一太郎変換中の警告ダイアログ（非モーダル、常に最前面）
+; - 変換失敗時の自動リトライ（最大3回）
+; - リトライ状況をリアルタイム表示
 
 #define MyAppName "教育計画PDFマージシステム"
-#define MyAppVersion "3.2"
+#define MyAppVersion "3.2.4"
 #define MyAppPublisher "School Tools"
 #define MyAppExeName "教育計画PDFマージシステム.exe"
 
@@ -59,10 +64,13 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 ; アンインストール時に削除するファイル・フォルダ
 Type: files; Name: "{app}\config.json"
 Type: files; Name: "{app}\*.log"
+Type: files; Name: "{app}\*.pyc"
+Type: files; Name: "{app}\*.pyo"
+Type: files; Name: "{localappdata}\PDFMergeSystem\user_config.json"
 Type: files; Name: "{localappdata}\PDFMergeSystem\.last_settings.json"
 Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem\logs"
 Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem\temp"
-Type: dirifempty; Name: "{localappdata}\PDFMergeSystem"
+Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem"
 
 [Run]
 ; Ghostscript自動検出（インストール完了後、アプリ起動前に実行）
@@ -73,6 +81,63 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 [Code]
 var
   GhostscriptFound: Boolean;
+
+// プロセスが実行中かチェック
+function IsAppRunning(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if Exec('tasklist.exe', '/FI "IMAGENAME eq 教育計画PDFマージシステム.exe"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Result := (ResultCode = 0);
+  end;
+end;
+
+// プロセスを強制終了
+function KillApp(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec('taskkill.exe', '/F /IM "教育計画PDFマージシステム.exe"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+// インストール開始前の処理
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+
+  // アプリが実行中の場合
+  if IsAppRunning() then
+  begin
+    if MsgBox('教育計画PDFマージシステムが実行中です。' + #13#10 +
+              'アプリケーションを終了してからインストールを続行しますか？',
+              mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      KillApp();
+      Sleep(1000);  // 終了を待つ
+    end
+    else
+    begin
+      Result := False;  // インストールをキャンセル
+    end;
+  end;
+end;
+
+// アンインストール開始前の処理
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+
+  // アプリが実行中の場合は強制終了
+  if IsAppRunning() then
+  begin
+    KillApp();
+    Sleep(1000);  // 終了を待つ
+  end;
+end;
+
+var
   GhostscriptPath: AnsiString;
 
 function GetPostInstallResult(): Boolean;

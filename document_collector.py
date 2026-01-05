@@ -32,19 +32,16 @@ class DocumentCollector:
         self,
         pdf_converter: PDFConverter,
         pdf_processor: PDFProcessor,
-        template_path: str,
         cancel_check: Optional[Callable[[], bool]] = None
     ) -> None:
         """
         Args:
             pdf_converter: PDFConverterインスタンス
             pdf_processor: PDFProcessorインスタンス
-            template_path: 区切りページテンプレートのパス
             cancel_check: キャンセル状態をチェックするコールバック関数
         """
         self.converter = pdf_converter
         self.processor = pdf_processor
-        self.template_path = template_path
         self._cancel_check = cancel_check or (lambda: False)
 
     def is_cancelled(self) -> bool:
@@ -101,7 +98,7 @@ class DocumentCollector:
         if create_separator:
             # サブフォルダにも区切りページを作成
             logger.info(f"区切りページを作成: {sub_heading}")
-            sep_pdf = self.converter.create_separator_page(sub_heading, self.template_path)
+            sep_pdf = self.converter.create_separator_page(sub_heading)
             if sep_pdf:
                 content_pdfs.append(sep_pdf)
                 toc_entries.append((sub_heading, self.HEADING_LEVEL_SUB, current_page))
@@ -110,9 +107,10 @@ class DocumentCollector:
             # 区切りページなしで目次にのみ登録
             toc_entries.append((sub_heading, self.HEADING_LEVEL_SUB, current_page))
 
-        # サブフォルダ内のファイルを処理
-        files = sorted(os.listdir(subfolder_path))
-        logger.info(f"サブフォルダ内のファイル数: {len(files)}")
+        # サブフォルダ内のファイルを処理（ディレクトリは除外）
+        all_items = sorted(os.listdir(subfolder_path))
+        files = [f for f in all_items if os.path.isfile(os.path.join(subfolder_path, f))]
+        logger.info(f"サブフォルダ内のファイル数: {len(files)} (全アイテム: {len(all_items)})")
         for filename in files:
             file_path = os.path.join(subfolder_path, filename)
             current_page = self._convert_and_add_pdf(file_path, content_pdfs, current_page)
@@ -135,7 +133,7 @@ class DocumentCollector:
 
         # 大見出し用の区切りページを作成
         logger.info(f"大見出し区切りページを作成: {heading}")
-        sep_pdf = self.converter.create_separator_page(heading, self.template_path)
+        sep_pdf = self.converter.create_separator_page(heading)
         if sep_pdf:
             content_pdfs.append(sep_pdf)
             toc_entries.append((heading_for_toc, self.HEADING_LEVEL_MAIN, current_page))
@@ -210,7 +208,7 @@ class DocumentCollector:
         for idx, item in enumerate(items, 1):
             if self.is_cancelled():
                 logger.info("ドキュメント収集がキャンセルされました")
-                return toc_entries, content_pdfs
+                raise CancelledError("ドキュメント収集がキャンセルされました")
 
             item_path = os.path.join(target_dir, item)
             logger.info(f"--- 処理中 [{idx}/{total_items}]: {item} ---")
@@ -312,12 +310,6 @@ class PDFMergeOrchestrator:
         logger.info("[Step 4/6] 表紙とコンテンツを分割中...")
         cover_pdf, remainder_pdf = self.processor.split_pdf(temp_merged, self.temp_dir)
         self._check_cancel()
-
-        # 分割結果の検証
-        if not cover_pdf or not os.path.exists(cover_pdf):
-            raise PDFProcessingError("分割", "表紙PDFが作成されませんでした")
-        if not remainder_pdf or not os.path.exists(remainder_pdf):
-            raise PDFProcessingError("分割", "コンテンツPDFが作成されませんでした")
 
         # 5. 最終的にマージ（表紙 + 目次 + 残り）
         logger.info("[Step 5/6] 最終PDFをマージ中...")

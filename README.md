@@ -50,7 +50,7 @@ pip install -r requirements-dev.txt
 
 ### 方法2: インストーラーを使用（推奨）
 
-1. [Releases](https://github.com/yourusername/pdf-merge-system/releases) から最新の `PDFMergeSystem_Setup_x.x.exe` をダウンロード
+1. 最新の `PDFMergeSystem_Setup_x.x.exe` をダウンロード
 2. インストーラーを実行
 3. デスクトップアイコンから起動
 
@@ -320,7 +320,7 @@ MIT License - 詳細は [LICENSE](LICENSE) をご覧ください。
 
 ## 🙋 サポート
 
-問題が発生した場合は、[GitHub Issues](https://github.com/yourusername/pdf-merge-system/issues) で報告してください。
+問題が発生した場合は、プロジェクト管理者にご連絡ください。
 
 報告時は以下の情報を含めてください：
 - エラーメッセージ（完全な内容）
