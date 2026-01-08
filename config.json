@@ -20,7 +20,7 @@
   },
   "files": {
     "separator_template": "Separator.docx",
-    "excel_reference": "【天久小】Excel小学校年間行事計画（編集用）.xlsx",
+    "excel_reference": "【R7天久小】Excel小学校年間行事計画（編集用）.xlsx",
     "excel_target": "04-05　天久小学校　様式4の2～4の3（小）.xls",
     "excel_reference_sheet": "メインデータ",
     "excel_target_sheet": "様式４の３ (小)"

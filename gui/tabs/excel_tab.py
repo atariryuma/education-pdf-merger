@@ -11,7 +11,7 @@ import threading
 from typing import Any
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import set_button_state, create_hover_button
+from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -34,8 +34,18 @@ class ExcelTab(BaseTab):
         info_text = "年間行事計画（編集用）から様式4へ自動的にデータを転記します。"
         tk.Label(info_frame, text=info_text, justify="left", font=("メイリオ", 10)).pack(pady=(15, 5), padx=15)
 
-        steps_text = "実行手順:\n1️⃣ 下記の2つのExcelファイルをExcelで開く\n2️⃣ 「Excelデータ更新を実行」ボタンをクリック\n3️⃣ 処理完了後、内容を確認して保存"
-        tk.Label(info_frame, text=steps_text, justify="left", font=("メイリオ", 9), fg="#555").pack(pady=(5, 15), padx=15, anchor="w")
+        steps_text = (
+            "📝 実行手順（必ずこの順番で操作してください）\n\n"
+            "1️⃣ 下記の2つのExcelファイルを「Excelアプリ」で開く\n"
+            "   ※ ファイル名をダブルクリックすると開きます\n"
+            "   ※ 「📁 開く」ボタンでも開けます\n\n"
+            "2️⃣ ●マークが緑色になったことを確認\n"
+            "   ※ 緑色 = ファイルが開いています\n"
+            "   ※ F5キーで状態を更新できます\n\n"
+            "3️⃣ 「Excelデータ更新を実行」ボタンをクリック\n\n"
+            "4️⃣ 処理完了後、内容を確認してExcelで保存"
+        )
+        tk.Label(info_frame, text=steps_text, justify="left", font=("メイリオ", 9), fg="#333").pack(pady=(5, 15), padx=15, anchor="w")
 
         # ファイル選択フレーム
         file_frame = tk.LabelFrame(self.tab, text="📂 対象ファイル", font=("メイリオ", 11, "bold"))
@@ -56,17 +66,21 @@ class ExcelTab(BaseTab):
         )
         self.ref_label.pack(side="left", fill="x", expand=True, padx=10)
         self.ref_label.bind("<Button-1>", lambda e: self._open_excel_file(self.config.get('files', 'excel_reference')))
+        create_tooltip(self.ref_label, "クリックでExcelファイルを開きます")
 
-        tk.Button(
+        ref_open_btn = tk.Button(
             ref_frame,
             text="📁 開く",
             command=lambda: self._open_excel_file(self.config.get('files', 'excel_reference')),
             width=8,
             font=("メイリオ", 9)
-        ).pack(side="right", padx=2)
+        )
+        ref_open_btn.pack(side="right", padx=2)
+        create_tooltip(ref_open_btn, "参照元ファイルをExcelで開きます")
 
         self.ref_status = tk.Label(ref_frame, text="●", fg="gray", font=("メイリオ", 12))
         self.ref_status.pack(side="right")
+        create_tooltip(self.ref_status, "緑色 = ファイルが開いています")
 
         # 対象ファイル
         target_frame = tk.Frame(file_frame)
@@ -83,30 +97,36 @@ class ExcelTab(BaseTab):
         )
         self.target_label.pack(side="left", fill="x", expand=True, padx=10)
         self.target_label.bind("<Button-1>", lambda e: self._open_excel_file(self.config.get('files', 'excel_target')))
+        create_tooltip(self.target_label, "クリックでExcelファイルを開きます")
 
-        tk.Button(
+        target_open_btn = tk.Button(
             target_frame,
             text="📁 開く",
             command=lambda: self._open_excel_file(self.config.get('files', 'excel_target')),
             width=8,
             font=("メイリオ", 9)
-        ).pack(side="right", padx=2)
+        )
+        target_open_btn.pack(side="right", padx=2)
+        create_tooltip(target_open_btn, "対象ファイルをExcelで開きます")
 
         self.target_status = tk.Label(target_frame, text="●", fg="gray", font=("メイリオ", 12))
         self.target_status.pack(side="right")
+        create_tooltip(self.target_status, "緑色 = ファイルが開いています")
 
         # ファイル状態確認ボタン
         check_frame = tk.Frame(file_frame)
         check_frame.pack(pady=10)
-        tk.Button(
+        check_btn = tk.Button(
             check_frame,
             text="🔄 ファイル状態を確認 (F5)",
             command=self.check_files_status,
             font=("メイリオ", 9),
             width=25
-        ).pack()
+        )
+        check_btn.pack()
+        create_tooltip(check_btn, "●マークの色を更新します（F5キーでも可）")
 
-        # 実行ボタン
+        # 実行ボタン（現在は無効化）
         button_frame = tk.Frame(self.tab)
         button_frame.pack(pady=15)
 
@@ -114,12 +134,20 @@ class ExcelTab(BaseTab):
             button_frame,
             text="▶ Excelデータ更新を実行",
             command=self._run_excel_update,
-            color="secondary",
+            color="primary",
             font=("メイリオ", 11, "bold"),
             width=32,
             height=2
         )
         self.run_button.pack()
+
+        # 使用方法の説明
+        tk.Label(
+            button_frame,
+            text="※ 両方のExcelファイルを開いてから実行してください",
+            font=("メイリオ", 9),
+            fg="#0288D1"  # Material Light Blue 700
+        ).pack(pady=(5, 0))
 
         # ステータスラベル
         self.status_label = tk.Label(self.tab, text="", font=("メイリオ", 9), fg="gray")
@@ -131,31 +159,51 @@ class ExcelTab(BaseTab):
 
     def _open_excel_file(self, filename: str) -> None:
         """Excelファイルを開く"""
-        try:
-            base_path = self.config.get('base_paths', 'google_drive')
-            year = self.config.year
-            education_base = self.config.get('directories', 'education_plan_base')
-            file_path = os.path.join(base_path, year, education_base, filename)
+        base_path = self.config.get('base_paths', 'google_drive')
+        year = self.config.year
+        year_short = self.config.year_short
+        education_base = self.config.get('directories', 'education_plan_base')
 
-            if not os.path.exists(file_path):
-                messagebox.showerror(
-                    "❌ ファイルが見つかりません",
-                    f"以下のファイルが見つかりません:\n\n{filename}\n\nパス:\n{file_path}"
-                )
-                return
+        # {year_short}プレースホルダーを実際の値に置き換える
+        education_base = education_base.replace('{year_short}', year_short)
 
-            os.startfile(file_path)
+        file_path = os.path.join(base_path, year, education_base, filename)
+
+        def on_error(error_msg: str):
+            messagebox.showerror("エラー", error_msg)
+            self.log(f"Excelファイルを開けませんでした: {filename}", "error")
+
+        if open_file_or_folder(file_path, on_error):
             self.log(f"Excelでファイルを開きました: {filename}", "info")
             self.update_status(f"Excelでファイルを開きました: {filename}")
 
-        except Exception as e:
-            messagebox.showerror("❌ ファイルオープンエラー", f"ファイルを開けませんでした。\n\n詳細: {e}")
+    def _check_excel_files_open(self) -> tuple[bool, bool]:
+        """
+        Excelファイルが開かれているか確認
 
-    def check_files_status(self) -> None:
-        """Excelファイルの状態を確認"""
+        Returns:
+            tuple[bool, bool]: (参照元が開いているか, 対象が開いているか)
+        """
+        excel = None
+        com_initialized = False
         try:
             import win32com.client
-            excel = win32com.client.Dispatch("Excel.Application")
+            import pythoncom
+
+            # COM初期化（失敗時のクリーンアップのためフラグ管理）
+            try:
+                pythoncom.CoInitialize()
+                com_initialized = True
+            except Exception as e:
+                logger.error(f"COM初期化エラー: {e}")
+                return False, False
+
+            # win32comが未インストールの場合の対応
+            try:
+                excel = win32com.client.Dispatch("Excel.Application")
+            except ImportError as e:
+                logger.error(f"win32comがインストールされていません: {e}")
+                return False, False
 
             ref_filename = self.config.get('files', 'excel_reference')
             target_filename = self.config.get('files', 'excel_target')
@@ -168,6 +216,42 @@ class ExcelTab(BaseTab):
                     ref_open = True
                 if target_filename in wb.Name:
                     target_open = True
+
+            return ref_open, target_open
+
+        except ImportError as e:
+            logger.error(f"win32comのインポートエラー: {e}")
+            return False, False
+
+        except Exception as e:
+            logger.warning(f"Excel状態チェックエラー: {e}")
+            return False, False
+
+        finally:
+            # COMオブジェクトを完全に解放（例外時も必ず実行）
+            if excel is not None:
+                try:
+                    del excel
+                except Exception as e:
+                    logger.warning(f"COMオブジェクト削除エラー: {e}")
+                excel = None
+
+            # ガベージコレクションを促進
+            import gc
+            gc.collect()
+
+            # COM終了処理（初期化成功時のみ実行）
+            if com_initialized:
+                try:
+                    import pythoncom
+                    pythoncom.CoUninitialize()
+                except Exception as cleanup_error:
+                    logger.warning(f"COM終了処理エラー: {cleanup_error}")
+
+    def check_files_status(self) -> None:
+        """Excelファイルの状態を確認"""
+        try:
+            ref_open, target_open = self._check_excel_files_open()
 
             self.ref_status.config(text="●", fg="green" if ref_open else "gray")
             self.target_status.config(text="●", fg="green" if target_open else "gray")
@@ -197,45 +281,24 @@ class ExcelTab(BaseTab):
     def _run_excel_update(self) -> None:
         """Excelデータ更新を実行"""
         # 実行前にファイル状態を確認
-        try:
-            import win32com.client
-            excel = win32com.client.Dispatch("Excel.Application")
+        ref_open, target_open = self._check_excel_files_open()
 
+        if not (ref_open and target_open):
             ref_filename = self.config.get('files', 'excel_reference')
             target_filename = self.config.get('files', 'excel_target')
 
-            ref_open = False
-            target_open = False
+            missing = []
+            if not ref_open:
+                missing.append(f"• {ref_filename}")
+            if not target_open:
+                missing.append(f"• {target_filename}")
 
-            for wb in excel.Workbooks:
-                if ref_filename in wb.Name:
-                    ref_open = True
-                if target_filename in wb.Name:
-                    target_open = True
-
-            if not (ref_open and target_open):
-                missing = []
-                if not ref_open:
-                    missing.append(f"• {ref_filename}")
-                if not target_open:
-                    missing.append(f"• {target_filename}")
-
-                result = messagebox.askokcancel(
-                    "⚠️ ファイル未オープン",
-                    f"以下のファイルが開かれていません:\n\n" + "\n".join(missing) + "\n\n続行しますか？"
-                )
-                if not result:
-                    return
-
-        except ImportError as e:
-            # win32com.clientがインストールされていない場合
-            logger.warning(f"pywin32モジュールが利用できません: {e}")
-        except AttributeError as e:
-            # Excelアプリケーションが見つからない場合
-            logger.debug(f"Excel COMオブジェクトへのアクセスに失敗: {e}")
-        except Exception as e:
-            # その他の予期しないエラー（Excelが起動していない場合など）
-            logger.debug(f"Excelファイル状態の事前確認をスキップ: {e}")
+            result = messagebox.askokcancel(
+                "ファイル未オープン",
+                f"以下のファイルが開かれていません:\n\n" + "\n".join(missing) + "\n\n続行しますか？"
+            )
+            if not result:
+                return
 
         def task():
             try:
@@ -243,30 +306,42 @@ class ExcelTab(BaseTab):
                 self.update_status("Excelデータ更新を実行中...")
                 self.log("=== Excelデータ更新開始 ===", "info")
 
-                try:
-                    import update_excel_files
-                    update_excel_files.main()
-                except ModuleNotFoundError:
-                    error_msg = (
-                        "Excel自動更新機能（update_excel_files.py）が見つかりません。\n\n"
-                        "この機能は現在利用できません。\n"
-                        "手動でExcelファイルの更新を行ってください。"
-                    )
-                    self.log(f"モジュールエラー: update_excel_files.py が見つかりません", "error")
-                    set_button_state(self.run_button, True, self.status_label, "❌ エラー")
-                    self.update_status("Excel更新モジュールが見つかりません")
-                    messagebox.showerror("❌ モジュールエラー", error_msg)
-                    return
+                # 設定から値を取得
+                ref_filename = self.config.get('files', 'excel_reference')
+                target_filename = self.config.get('files', 'excel_target')
+                ref_sheet = self.config.get('files', 'excel_reference_sheet')
+                target_sheet = self.config.get('files', 'excel_target_sheet')
+
+                self.log(f"参照ファイル: {ref_filename}", "info")
+                self.log(f"反映ファイル: {target_filename}", "info")
+
+                # 進捗コールバック関数を定義
+                def progress_callback(message: str) -> None:
+                    """進捗状況をGUIに反映"""
+                    self.log(message, "info")
+                    self.update_status(message)
+
+                # Excel転記処理を実行
+                import update_excel_files
+                transfer = update_excel_files.ExcelTransfer(
+                    ref_filename, target_filename, ref_sheet, target_sheet,
+                    progress_callback=progress_callback
+                )
+                transfer.execute()
 
                 self.log("=== Excelデータ更新完了 ===", "success")
-                set_button_state(self.run_button, True, self.status_label, "✅ 完了")
+                set_button_state(self.run_button, True, self.status_label, "")
                 self.update_status("Excelデータ更新が完了しました")
-                messagebox.showinfo("✅ 完了", "Excelデータ更新が完了しました！\n\n内容を確認して保存してください。")
+                messagebox.showinfo(
+                    "完了",
+                    "Excelデータ更新が完了しました。\n\n"
+                    "内容を確認して保存してください。"
+                )
             except Exception as e:
                 self.log(f"エラー: {e}", "error")
-                set_button_state(self.run_button, True, self.status_label, "❌ エラー")
-                self.update_status("Excelデータ更新でエラーが発生しました")
-                messagebox.showerror("❌ 実行エラー", f"エラーが発生しました。\n\n詳細:\n{e}")
+                set_button_state(self.run_button, True, self.status_label, "")
+                self.update_status("エラーが発生しました")
+                messagebox.showerror("実行エラー", f"エラーが発生しました。\n\n詳細:\n{e}")
 
         thread = threading.Thread(target=task, daemon=True)
         thread.start()

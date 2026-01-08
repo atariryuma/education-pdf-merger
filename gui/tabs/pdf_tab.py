@@ -12,8 +12,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import set_button_state, create_hover_button, thread_safe_call
+from gui.utils import set_button_state, create_hover_button, thread_safe_call, open_file_or_folder, create_tooltip
 from gui.ichitaro_dialog import IchitaroConversionDialog
+from gui.styles import PADDING
+from gui.ui_constants import (
+    UIMessages, UILabels, UITooltips, UIDialogTitles,
+    UIWidgetSizes, UIIcons, UIColors
+)
 from pdf_converter import PDFConverter
 from pdf_processor import PDFProcessor
 from document_collector import DocumentCollector, PDFMergeOrchestrator, CancelledError
@@ -46,6 +51,27 @@ class PDFTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
+        # 使い方ガイド（初心者向け）
+        guide_frame = tk.LabelFrame(self.tab, text="📖 使い方", font=("メイリオ", 10, "bold"))
+        guide_frame.pack(fill="x", padx=PADDING['xlarge'], pady=(PADDING['large'], PADDING['medium']))
+
+        guide_text = (
+            "① PDFにしたいファイルが入っているフォルダを選択\n"
+            "② 作成するPDFファイルの保存先と名前を決める\n"
+            "③ 教育計画か行事計画を選ぶ\n"
+            "④ 「PDF統合を実行」ボタンをクリック"
+        )
+        guide_label = tk.Label(
+            guide_frame,
+            text=guide_text,
+            justify="left",
+            font=("メイリオ", 9),
+            fg="#333",
+            padx=15,
+            pady=10
+        )
+        guide_label.pack(anchor="w")
+
         # 入力フォームのフレーム
         form_frame = tk.Frame(self.tab)
         form_frame.pack(fill="x", padx=20, pady=15)
@@ -55,12 +81,32 @@ class PDFTab(BaseTab):
         # 入力ディレクトリ選択
         tk.Label(form_frame, text="入力ディレクトリ:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(15, 5), pady=6)
         tk.Entry(form_frame, textvariable=self.input_dir_var).grid(row=0, column=1, padx=5, pady=6, sticky="ew")
-        tk.Button(form_frame, text="📁 参照", command=self._select_input_dir, width=8).grid(row=0, column=2, padx=(5, 15), pady=6)
+
+        input_btn_frame = tk.Frame(form_frame)
+        input_btn_frame.grid(row=0, column=2, padx=(5, 15), pady=6)
+
+        input_select_btn = tk.Button(input_btn_frame, text="📁", command=self._select_input_dir, width=3)
+        input_select_btn.pack(side="left", padx=1)
+        create_tooltip(input_select_btn, "フォルダを選択します")
+
+        input_open_btn = tk.Button(input_btn_frame, text="📂", command=self._open_input_dir, width=3)
+        input_open_btn.pack(side="left", padx=1)
+        create_tooltip(input_open_btn, "選択したフォルダを開きます")
 
         # 出力ファイル選択
         tk.Label(form_frame, text="出力ファイル:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(15, 5), pady=6)
         tk.Entry(form_frame, textvariable=self.output_file_var).grid(row=1, column=1, padx=5, pady=6, sticky="ew")
-        tk.Button(form_frame, text="💾 参照", command=self._select_output_file, width=8).grid(row=1, column=2, padx=(5, 15), pady=6)
+
+        output_btn_frame = tk.Frame(form_frame)
+        output_btn_frame.grid(row=1, column=2, padx=(5, 15), pady=6)
+
+        output_select_btn = tk.Button(output_btn_frame, text="💾", command=self._select_output_file, width=3)
+        output_select_btn.pack(side="left", padx=1)
+        create_tooltip(output_select_btn, "保存先とファイル名を指定します")
+
+        output_open_btn = tk.Button(output_btn_frame, text="📂", command=self._open_output_dir, width=3)
+        output_open_btn.pack(side="left", padx=1)
+        create_tooltip(output_open_btn, "保存先フォルダを開きます")
 
         # 計画種別選択
         tk.Label(form_frame, text="計画種別:", width=LABEL_WIDTH, anchor="e").grid(row=2, column=0, sticky="e", padx=(15, 5), pady=6)
@@ -122,27 +168,34 @@ class PDFTab(BaseTab):
     def _select_input_dir(self) -> None:
         """入力ディレクトリを選択（pathlibベース）"""
         try:
-            current_path_str = self.input_dir_var.get().strip()
+            # initialdirの設定（フリーズ防止のため安全なパスのみ使用）
+            initial_dir = None
+            current_path = self.input_dir_var.get().strip()
 
-            # 設定からフォールバックディレクトリを取得
-            fallback = None
-            try:
-                default_input = self.config.get_education_plan_path()
-                if default_input:
-                    fallback = Path(default_input)
-            except Exception:
-                pass
+            # 現在のパスが有効な場合はそれを使用
+            if current_path:
+                try:
+                    current_dir = Path(current_path)
+                    if current_dir.exists() and current_dir.is_dir():
+                        initial_dir = str(current_dir)
+                        logger.debug(f"現在のパスを使用: {initial_dir}")
+                except Exception as e:
+                    logger.warning(f"現在のパスの検証に失敗: {e}")
 
-            # 安全な初期ディレクトリを取得
-            initial_dir = PathValidator.get_safe_initial_dir(current_path_str, fallback)
-
-            logger.debug(f"ファイルダイアログを開きます: initial_dir={initial_dir}")
+            # パスが無効な場合はinitialdirを指定しない（システムデフォルト）
+            if not initial_dir:
+                logger.debug("システムデフォルトのディレクトリから開始")
 
             # ファイルダイアログを表示
-            directory = filedialog.askdirectory(
-                title="入力ディレクトリを選択",
-                initialdir=str(initial_dir)
-            )
+            if initial_dir:
+                directory = filedialog.askdirectory(
+                    title="入力ディレクトリを選択",
+                    initialdir=initial_dir
+                )
+            else:
+                directory = filedialog.askdirectory(
+                    title="入力ディレクトリを選択"
+                )
 
             if directory:
                 # 選択されたパスを検証
@@ -153,12 +206,11 @@ class PDFTab(BaseTab):
 
                 if is_valid and validated_path:
                     self.input_dir_var.set(str(validated_path))
-
-                    # フォルダ構造の自動判定
-                    self._detect_and_set_plan_type(validated_path)
-
                     self.update_status(f"入力ディレクトリを選択: {validated_path.name}")
                     logger.info(f"入力ディレクトリを選択: {validated_path}")
+
+                    # フォルダ構造の自動判定（バックグラウンドで実行してUIフリーズを防止）
+                    self._detect_and_set_plan_type_async(validated_path)
                 else:
                     messagebox.showwarning("検証エラー", error_msg or "不明なエラー")
             else:
@@ -174,50 +226,43 @@ class PDFTab(BaseTab):
     def _select_output_file(self) -> None:
         """出力ファイルを選択（pathlibベース）"""
         try:
-            current_path_str = self.output_file_var.get().strip()
-            initial_file = "merged_output.pdf"
-
-            # 現在のパスから初期情報を取得
+            # initialdirの設定（フリーズ防止のため安全なパスのみ使用）
             initial_dir = None
-            if current_path_str:
+            initial_file = "merged_output.pdf"
+            current_path = self.output_file_var.get().strip()
+
+            # 現在のパスが有効な場合はその親ディレクトリを使用
+            if current_path:
                 try:
-                    current_path = Path(current_path_str)
-                    if current_path.parent.exists():
-                        initial_dir = current_path.parent
-                        initial_file = current_path.name
-                except:
-                    pass
+                    current_file = Path(current_path)
+                    parent_dir = current_file.parent
+                    if parent_dir.exists() and parent_dir.is_dir():
+                        initial_dir = str(parent_dir)
+                        initial_file = current_file.name
+                        logger.debug(f"現在のパスを使用: dir={initial_dir}, file={initial_file}")
+                except Exception as e:
+                    logger.warning(f"現在のパスの検証に失敗: {e}")
 
-            # フォールバック: 設定から取得
+            # パスが無効な場合はinitialdirを指定しない（システムデフォルト）
             if not initial_dir:
-                try:
-                    base_path = self.config.get('base_paths', 'google_drive')
-                    year = self.config.year
-                    education_base = self.config.get('directories', 'education_plan_base')
-                    config_dir = Path(base_path) / year / education_base
-                    if config_dir.exists():
-                        initial_dir = config_dir
-
-                    config_file = self.config.get('output', 'merged_pdf')
-                    if config_file:
-                        initial_file = config_file
-                except Exception:
-                    pass
-
-            # 最終フォールバック: ホームディレクトリ
-            if not initial_dir:
-                initial_dir = Path.home()
-
-            logger.debug(f"ファイルダイアログを開きます: initial_dir={initial_dir}, initial_file={initial_file}")
+                logger.debug("システムデフォルトのディレクトリから開始")
 
             # ファイルダイアログを表示
-            file_path = filedialog.asksaveasfilename(
-                title="出力ファイルを選択",
-                initialdir=str(initial_dir),
-                initialfile=initial_file,
-                defaultextension=".pdf",
-                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-            )
+            if initial_dir:
+                file_path = filedialog.asksaveasfilename(
+                    title="出力ファイルを選択",
+                    initialdir=initial_dir,
+                    initialfile=initial_file,
+                    defaultextension=".pdf",
+                    filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+                )
+            else:
+                file_path = filedialog.asksaveasfilename(
+                    title="出力ファイルを選択",
+                    initialfile=initial_file,
+                    defaultextension=".pdf",
+                    filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+                )
 
             if file_path:
                 # 選択されたパスを検証
@@ -242,6 +287,50 @@ class PDFTab(BaseTab):
                 "参照エラー",
                 f"出力ファイルの参照中にエラーが発生しました。\n\n詳細: {e}"
             )
+
+    def _open_input_dir(self) -> None:
+        """入力ディレクトリをエクスプローラーで開く"""
+        dir_path = self.input_dir_var.get().strip()
+        if not dir_path:
+            messagebox.showwarning(
+                "フォルダが未選択",
+                "まず「📁」ボタンでフォルダを選択してください。"
+            )
+            return
+
+        def on_error(error_msg: str):
+            messagebox.showerror(
+                "フォルダが見つかりません",
+                "指定されたフォルダが存在しません。\n\n"
+                "「📁」ボタンをクリックして、正しいフォルダを選択し直してください。"
+            )
+
+        if open_file_or_folder(dir_path, on_error):
+            self.update_status(f"フォルダを開きました: {Path(dir_path).name}")
+            logger.info(f"入力ディレクトリを開きました: {dir_path}")
+
+    def _open_output_dir(self) -> None:
+        """出力ファイルの親フォルダをエクスプローラーで開く"""
+        file_path = self.output_file_var.get().strip()
+        if not file_path:
+            messagebox.showwarning(
+                "保存先が未設定",
+                "まず「💾」ボタンで保存先を指定してください。"
+            )
+            return
+
+        dir_path = str(Path(file_path).parent)
+
+        def on_error(error_msg: str):
+            messagebox.showerror(
+                "フォルダが見つかりません",
+                "保存先のフォルダが存在しません。\n\n"
+                "「💾」ボタンをクリックして、正しい保存先を選択し直してください。"
+            )
+
+        if open_file_or_folder(dir_path, on_error):
+            self.update_status(f"フォルダを開きました: {Path(dir_path).name}")
+            logger.info(f"出力ディレクトリを開きました: {dir_path}")
 
     def _cancel_operation(self) -> None:
         """処理をキャンセル"""
@@ -317,9 +406,10 @@ class PDFTab(BaseTab):
                 thread_safe_call(self.tab, _handle)
 
             try:
+                # GUI操作はすべてスレッドセーフに実行
                 set_button_state(self.run_button, False, self.status_label, "🔄 実行中...")
-                self.cancel_button.config(state="normal")
-                self.progress.start(10)
+                thread_safe_call(self.tab, lambda: self.cancel_button.config(state="normal"))
+                thread_safe_call(self.tab, lambda: self.progress.start(10))
                 self.update_status("PDF統合を実行中...")
 
                 self.log("=== PDF統合開始 ===", "info")
@@ -370,7 +460,7 @@ class PDFTab(BaseTab):
                 set_button_state(self.run_button, True, self.status_label, "✅ 完了")
                 self.update_status("PDF統合が完了しました")
                 thread_safe_call(self.tab, lambda: messagebox.showinfo(
-                    "✅ 完了", f"PDF統合が完了しました！\n\n出力ファイル:\n{output_file_path}"
+                    "完了", f"PDF統合が完了しました！\n\n出力ファイル:\n{output_file_path}"
                 ))
 
             except CancelledError:
@@ -384,7 +474,7 @@ class PDFTab(BaseTab):
                 # スレッドセーフにダイアログを表示
                 error_msg = str(e)
                 thread_safe_call(self.tab, lambda: messagebox.showerror(
-                    "❌ 実行エラー", f"PDF統合中にエラーが発生しました。\n\n詳細:\n{error_msg}"
+                    "実行エラー", f"PDF統合中にエラーが発生しました。\n\n詳細:\n{error_msg}"
                 ))
             finally:
                 def _cleanup():
@@ -402,9 +492,52 @@ class PDFTab(BaseTab):
         thread = threading.Thread(target=task, daemon=True)
         thread.start()
 
+    def _detect_and_set_plan_type_async(self, directory_path: Path) -> None:
+        """
+        フォルダ構造を自動判定してplan_type_varを更新（非同期版・UIフリーズ防止）
+
+        Args:
+            directory_path: 判定対象のディレクトリPath
+        """
+        # ステータス更新
+        self.update_status("フォルダ構造を自動判定中...")
+
+        def task():
+            try:
+                from folder_structure_detector import FolderStructureDetector
+
+                detector = FolderStructureDetector()
+                result = detector.detect_structure(str(directory_path))
+
+                # UIスレッドで結果を反映
+                def update_ui():
+                    try:
+                        if result.plan_type == FolderStructureDetector.PlanType.AMBIGUOUS:
+                            # 判定が曖昧な場合はダイアログで確認
+                            self._show_plan_type_selection_dialog(result)
+                        else:
+                            # 確定判定の場合は自動設定
+                            self.plan_type_var.set(result.plan_type.value)
+                            self._update_plan_type_display(result)
+                    except Exception as ui_error:
+                        logger.error(f"UI更新エラー: {ui_error}", exc_info=True)
+
+                self.tab.after(0, update_ui)
+
+            except Exception as e:
+                logger.error(f"フォルダ構造判定エラー: {e}", exc_info=True)
+                # エラー時はデフォルト動作（手動選択のまま）
+                def show_error():
+                    self.update_status("フォルダ構造の自動判定をスキップしました")
+                self.tab.after(0, show_error)
+
+        # バックグラウンドスレッドで実行
+        thread = threading.Thread(target=task, daemon=True, name="FolderStructureDetection")
+        thread.start()
+
     def _detect_and_set_plan_type(self, directory_path: Path) -> None:
         """
-        フォルダ構造を自動判定してplan_type_varを更新
+        フォルダ構造を自動判定してplan_type_varを更新（同期版・後方互換性のため残す）
 
         Args:
             directory_path: 判定対象のディレクトリPath

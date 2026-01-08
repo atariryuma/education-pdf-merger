@@ -28,6 +28,72 @@ class ExcelConstants:
     XL_PART = 2  # xlPart (部分一致)
     XL_WHOLE = 1  # xlWhole (完全一致)
 
+    # Sort Order定数
+    XL_ASCENDING = 1  # xlAscending (昇順)
+    XL_DESCENDING = 2  # xlDescending (降順)
+
+    # Sort Header定数
+    XL_YES = 1  # xlYes (ヘッダー行あり)
+    XL_NO = 0   # xlNo (ヘッダー行なし)
+
+
+class ExcelTransferConstants:
+    """Excel自動転記処理の定数"""
+
+    # 行事キーワード（イベント判定用）
+    EVENT_KEYWORDS = ["儀式", "文化", "保健", "遠足", "勤労", "その", "児童"]
+
+    # 欠時キーワード
+    ABSENT_KEYWORD = "欠時"
+
+    # 処理範囲（ループ1：D8～D50）
+    LOOP1_START_ROW = 8
+    LOOP1_END_ROW = 51  # Python range用（50まで処理）
+    LOOP1_SEARCH_COL = "D"
+    LOOP1_SORT_RANGE = "A8:P50"
+    LOOP1_SORT_KEY = "B8"
+
+    # 処理範囲（ループ2：C55～C62）
+    LOOP2_START_ROW = 55
+    LOOP2_END_ROW = 63  # Python range用（62まで処理）
+    LOOP2_SEARCH_COL = "C"
+    LOOP2_SORT_RANGE = "A55:P62"
+    LOOP2_SORT_KEY = "B55"
+
+    # 処理範囲（ループ3：C67～C96）
+    LOOP3_START_ROW = 67
+    LOOP3_END_ROW = 97  # Python range用（96まで処理）
+    LOOP3_SEARCH_COL = "C"
+    LOOP3_SORT_RANGE = "A67:P96"
+    LOOP3_SORT_KEY = "B67"
+
+    # 参照ファイルの列範囲
+    REF_DATA_START_COL = "E"  # E列から開始
+    REF_DATA_END_COL = "AN"   # AN列まで（36列＝6学年×6校時）
+    REF_SEARCH_COL = 3        # C列（行事名検索用）
+    REF_DATE_COL = 1          # A列（日付取得用）
+
+    # 学年別のデータ構造
+    GRADES_COUNT = 6          # 学年数
+    PERIODS_PER_GRADE = 6     # 1学年あたりの校時数
+    TOTAL_COLUMNS = 36        # 総列数（6学年×6校時）
+
+    # 学年別マッピング（反映ファイル）
+    # {学年: (行事時数の列, 欠時数の列)}
+    GRADE_COLUMN_MAPPING = {
+        1: ("E", "F"),
+        2: ("G", "H"),
+        3: ("I", "J"),
+        4: ("K", "L"),
+        5: ("M", "N"),
+        6: ("O", "P")
+    }
+
+    # 反映ファイルの列
+    TARGET_DATE_COL = "A"           # 日付列
+    TARGET_PROCESS_DATE_COL = "B"   # 処理日列
+    TARGET_FILTER_COL = "C"         # フィルターキーワード列（D8～D50用）
+
 
 class AppConstants:
     """アプリケーション定数"""

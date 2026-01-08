@@ -16,7 +16,7 @@ from constants import AppConstants
 from gui.styles import WINDOW, FONTS
 from gui.tabs.pdf_tab import PDFTab
 from gui.tabs.excel_tab import ExcelTab
-from gui.tabs.file_tab import FileTab
+# from gui.tabs.file_tab import FileTab  # 未実装のため非表示
 from gui.tabs.settings_tab import SettingsTab
 
 # ロガーの設定
@@ -46,7 +46,19 @@ class PDFMergeApp:
         appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
         settings_dir = os.path.join(appdata, 'PDFMergeSystem')
         if not os.path.exists(settings_dir):
-            os.makedirs(settings_dir)
+            try:
+                os.makedirs(settings_dir, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                # 設定ディレクトリ作成失敗時はエラーダイアログを表示して終了
+                import tkinter.messagebox as messagebox
+                messagebox.showerror(
+                    "起動エラー",
+                    f"設定ディレクトリの作成に失敗しました。\n\n"
+                    f"パス: {settings_dir}\n"
+                    f"エラー: {e}\n\n"
+                    f"管理者権限で実行するか、アプリケーションを再インストールしてください。"
+                )
+                raise
         self.last_settings_file = os.path.join(settings_dir, ".last_settings.json")
 
         # 設定の読み込み
@@ -75,22 +87,15 @@ class PDFMergeApp:
         # 終了時の処理
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
+        # 初回起動チェック（パス未設定の場合はガイダンスを表示）
+        self.root.after(500, self._check_initial_setup)
+
     def _init_variables(self, last_settings: dict) -> None:
         """変数を初期化"""
-        default_input = self.config.get_education_plan_path()
-
-        # Google Driveまたはネットワークパスを取得
-        base_path = self.config.get('base_paths', 'google_drive') or self.config.get('base_paths', 'network')
-        default_output = self.config.build_path(
-            base_path,
-            self.config.year,
-            self.config.get('directories', 'education_plan_base'),
-            self.config.get('output', 'merged_pdf')
-        ) if base_path else ""
-
-        # PDF統合タブ用（入力・出力パスは常にデフォルト値、計画種別のみlast_settingsから復元）
-        self.input_dir_var = tk.StringVar(value=default_input)
-        self.output_file_var = tk.StringVar(value=default_output)
+        # PDF統合タブ用（入力・出力パスは空で開始、計画種別のみlast_settingsから復元）
+        # デフォルトパスを設定するとフリーズの原因になるため、空にする
+        self.input_dir_var = tk.StringVar(value="")
+        self.output_file_var = tk.StringVar(value="")
         self.plan_type_var = tk.StringVar(value=last_settings.get('plan_type', 'education'))
 
         # 設定タブ用
@@ -191,7 +196,8 @@ class PDFMergeApp:
 
         self.excel_tab = ExcelTab(self.notebook, self.config, self.status_bar)
 
-        self.file_tab = FileTab(self.notebook, self.config, self.status_bar)
+        # File Management タブは未実装のため非表示
+        # self.file_tab = FileTab(self.notebook, self.config, self.status_bar)
 
         self.settings_tab = SettingsTab(
             self.notebook, self.config, self.status_bar,
@@ -244,13 +250,13 @@ class PDFMergeApp:
             # タブのconfigを更新
             self.pdf_tab.config = self.config
             self.excel_tab.config = self.config
-            self.file_tab.config = self.config
+            # self.file_tab.config = self.config  # File Tab は非表示
             self.settings_tab.config = self.config
 
             self._update_status("設定を再読み込みしました")
-            messagebox.showinfo("✅ 再読み込み完了", "設定を再読み込みしました")
+            messagebox.showinfo("再読み込み完了", "設定を再読み込みしました")
         except Exception as e:
-            messagebox.showerror("❌ 読み込みエラー", f"設定の再読み込みに失敗しました。\n\n詳細: {e}")
+            messagebox.showerror("読み込みエラー", f"設定の再読み込みに失敗しました。\n\n詳細: {e}")
 
     def _update_status(self, message: str) -> None:
         """ステータスバーを更新"""
@@ -288,6 +294,55 @@ F5 : ファイル状態を確認
 • 不要シート削除
         """
         messagebox.showinfo("バージョン情報", version_info.strip())
+
+    def _check_initial_setup(self) -> None:
+        """初回起動時の設定チェックとガイダンス表示"""
+        try:
+            from pathlib import Path
+
+            # Google Driveパスが存在するかチェック
+            gdrive_path = self.config.get('base_paths', 'google_drive')
+            network_path = self.config.get('base_paths', 'network')
+
+            gdrive_exists = False
+            network_exists = False
+
+            if gdrive_path:
+                gdrive_exists = Path(gdrive_path).exists()
+
+            if network_path:
+                network_exists = Path(network_path).exists()
+
+            # どちらも存在しない場合はガイダンスを表示
+            if not gdrive_exists and not network_exists:
+                response = messagebox.showinfo(
+                    "📌 ようこそ！",
+                    "教育計画PDFマージシステムへようこそ！\n\n"
+                    "このアプリでは、Word・Excel・一太郎などの\n"
+                    "複数のファイルを1つのPDFにまとめることができます。\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "⚠️ 最初に設定が必要です\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "現在、Google DriveとネットワークパスがPCに接続されていません。\n\n"
+                    "【簡単3ステップ】\n\n"
+                    "1️⃣ 自動的に開く「⚙️ 設定」タブで、\n"
+                    "   Google Driveパスまたはネットワークパスを設定\n"
+                    "   ※ 「📁」ボタンでフォルダを選べます\n\n"
+                    "2️⃣ 年度情報を確認（通常は変更不要）\n\n"
+                    "3️⃣ 「💾 保存」ボタンをクリック\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "💡 わからないことがあれば\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "・各ボタンにマウスを置くと説明が表示されます\n"
+                    "・設定は後からいつでも変更できます\n"
+                    "・OKを押すと設定画面が開きます"
+                )
+                # 設定タブを自動的に開く
+                if hasattr(self, 'notebook'):
+                    self.notebook.select(3)  # 設定タブ（4番目のタブ、インデックス3）
+
+        except Exception as e:
+            logger.error(f"初回セットアップチェックエラー: {e}", exc_info=True)
 
 
 def main() -> None:
