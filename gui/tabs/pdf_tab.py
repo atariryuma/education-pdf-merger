@@ -46,8 +46,17 @@ class PDFTab(BaseTab):
         self.plan_type_var = plan_type_var
         # スレッドセーフなキャンセルフラグ（threading.Eventを使用）
         self._cancel_event = threading.Event()
+
+        # 検証状態のラベル（後で作成）
+        self.input_validation_label: Optional[tk.Label] = None
+        self.output_validation_label: Optional[tk.Label] = None
+
         self._create_ui()
         self.add_to_notebook("📄 PDF統合")
+
+        # 入力フィールドの変更を監視
+        self.input_dir_var.trace_add('write', lambda *args: self._validate_inputs())
+        self.output_file_var.trace_add('write', lambda *args: self._validate_inputs())
 
     def _create_ui(self) -> None:
         """UIを構築"""
@@ -80,33 +89,52 @@ class PDFTab(BaseTab):
 
         # 入力ディレクトリ選択
         tk.Label(form_frame, text="入力ディレクトリ:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(15, 5), pady=6)
-        tk.Entry(form_frame, textvariable=self.input_dir_var).grid(row=0, column=1, padx=5, pady=6, sticky="ew")
+
+        input_entry = tk.Entry(form_frame, textvariable=self.input_dir_var, width=UIWidgetSizes.ENTRY_LARGE_WIDTH)
+        input_entry.grid(row=0, column=1, padx=5, pady=6, sticky="ew")
+
+        # プレースホルダー効果
+        if not self.input_dir_var.get():
+            input_entry.config(fg='gray')
+            input_entry.insert(0, UILabels.PLACEHOLDER_DIR)
+            input_entry.bind('<FocusIn>', lambda e: self._clear_placeholder(input_entry, UILabels.PLACEHOLDER_DIR))
+            input_entry.bind('<FocusOut>', lambda e: self._restore_placeholder(input_entry, self.input_dir_var, UILabels.PLACEHOLDER_DIR))
 
         input_btn_frame = tk.Frame(form_frame)
-        input_btn_frame.grid(row=0, column=2, padx=(5, 15), pady=6)
+        input_btn_frame.grid(row=0, column=2, padx=(5, 0), pady=6)
 
         input_select_btn = tk.Button(input_btn_frame, text="📁", command=self._select_input_dir, width=3)
         input_select_btn.pack(side="left", padx=1)
-        create_tooltip(input_select_btn, "フォルダを選択します")
+        create_tooltip(input_select_btn, UITooltips.TIP_FOLDER_BROWSE)
 
         input_open_btn = tk.Button(input_btn_frame, text="📂", command=self._open_input_dir, width=3)
         input_open_btn.pack(side="left", padx=1)
-        create_tooltip(input_open_btn, "選択したフォルダを開きます")
+        create_tooltip(input_open_btn, UITooltips.TIP_FOLDER_OPEN)
+
+        # 検証インジケーター
+        self.input_validation_label = tk.Label(form_frame, text="", font=("メイリオ", 10), width=2)
+        self.input_validation_label.grid(row=0, column=3, padx=(5, 15), pady=6)
 
         # 出力ファイル選択
         tk.Label(form_frame, text="出力ファイル:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(15, 5), pady=6)
-        tk.Entry(form_frame, textvariable=self.output_file_var).grid(row=1, column=1, padx=5, pady=6, sticky="ew")
+
+        output_entry = tk.Entry(form_frame, textvariable=self.output_file_var, width=UIWidgetSizes.ENTRY_LARGE_WIDTH)
+        output_entry.grid(row=1, column=1, padx=5, pady=6, sticky="ew")
 
         output_btn_frame = tk.Frame(form_frame)
-        output_btn_frame.grid(row=1, column=2, padx=(5, 15), pady=6)
+        output_btn_frame.grid(row=1, column=2, padx=(5, 0), pady=6)
 
         output_select_btn = tk.Button(output_btn_frame, text="💾", command=self._select_output_file, width=3)
         output_select_btn.pack(side="left", padx=1)
-        create_tooltip(output_select_btn, "保存先とファイル名を指定します")
+        create_tooltip(output_select_btn, UITooltips.TIP_FILE_BROWSE)
 
         output_open_btn = tk.Button(output_btn_frame, text="📂", command=self._open_output_dir, width=3)
         output_open_btn.pack(side="left", padx=1)
-        create_tooltip(output_open_btn, "保存先フォルダを開きます")
+        create_tooltip(output_open_btn, UITooltips.TIP_FOLDER_OPEN)
+
+        # 検証インジケーター
+        self.output_validation_label = tk.Label(form_frame, text="", font=("メイリオ", 10), width=2)
+        self.output_validation_label.grid(row=1, column=3, padx=(5, 15), pady=6)
 
         # 計画種別選択
         tk.Label(form_frame, text="計画種別:", width=LABEL_WIDTH, anchor="e").grid(row=2, column=0, sticky="e", padx=(15, 5), pady=6)
@@ -593,3 +621,65 @@ class PDFTab(BaseTab):
 
         dialog = PlanTypeSelectionDialog(self.tab, result, on_selection)
         self.tab.wait_window(dialog)
+
+    def _clear_placeholder(self, entry: tk.Entry, placeholder: str) -> None:
+        """プレースホルダーをクリア"""
+        if entry.get() == placeholder:
+            entry.delete(0, tk.END)
+            entry.config(fg='black')
+
+    def _restore_placeholder(self, entry: tk.Entry, var: tk.StringVar, placeholder: str) -> None:
+        """プレースホルダーを復元"""
+        if not var.get():
+            entry.config(fg='gray')
+            entry.insert(0, placeholder)
+
+    def _validate_inputs(self) -> None:
+        """入力フィールドの検証とビジュアルフィードバック"""
+        # 入力ディレクトリの検証
+        input_path = self.input_dir_var.get()
+        if input_path and input_path != UILabels.PLACEHOLDER_DIR:
+            is_valid, error_msg, validated_path = PathValidator.validate_directory(input_path, must_exist=True)
+            if is_valid:
+                self.input_validation_label.config(text=UIIcons.ICON_SUCCESS, fg=UIColors.VALID)
+                create_tooltip(self.input_validation_label, "入力ディレクトリが存在します")
+            else:
+                self.input_validation_label.config(text=UIIcons.ICON_ERROR, fg=UIColors.INVALID)
+                create_tooltip(self.input_validation_label, error_msg)
+        else:
+            self.input_validation_label.config(text="", fg='black')
+
+        # 出力ファイルの検証
+        output_path = self.output_file_var.get()
+        if output_path and output_path != UILabels.PLACEHOLDER_FILE:
+            is_valid, error_msg, validated_path = PathValidator.validate_output_file(output_path, must_exist=False)
+            if is_valid:
+                self.output_validation_label.config(text=UIIcons.ICON_SUCCESS, fg=UIColors.VALID)
+                create_tooltip(self.output_validation_label, "出力先のパスが有効です")
+            else:
+                self.output_validation_label.config(text=UIIcons.ICON_ERROR, fg=UIColors.INVALID)
+                create_tooltip(self.output_validation_label, error_msg)
+        else:
+            self.output_validation_label.config(text="", fg='black')
+
+        # 実行ボタンの有効/無効を更新
+        self._update_run_button_state()
+
+    def _update_run_button_state(self) -> None:
+        """実行ボタンの状態を更新"""
+        input_path = self.input_dir_var.get()
+        output_path = self.output_file_var.get()
+
+        # 両方が入力されており、プレースホルダーでない場合のみ有効
+        if (input_path and input_path != UILabels.PLACEHOLDER_DIR and
+            output_path and output_path != UILabels.PLACEHOLDER_FILE):
+            # さらに実際にパスが有効かチェック
+            input_valid, _, _ = PathValidator.validate_directory(input_path, must_exist=True)
+            output_valid, _, _ = PathValidator.validate_output_file(output_path, must_exist=False)
+
+            if input_valid and output_valid:
+                self.run_button.config(state='normal')
+            else:
+                self.run_button.config(state='disabled')
+        else:
+            self.run_button.config(state='disabled')
