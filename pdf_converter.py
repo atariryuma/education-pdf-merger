@@ -266,12 +266,24 @@ class PDFConverter:
     def _kill_office_process(process_name: str) -> None:
         """Officeプロセスを強制終了（フォールバック）"""
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ['taskkill', '/F', '/IM', process_name],
                 capture_output=True,
-                timeout=5
+                timeout=5,
+                text=True
             )
-            logger.debug(f"プロセスを強制終了: {process_name}")
+            if result.returncode == 0:
+                logger.debug(f"プロセスを強制終了: {process_name}")
+            elif result.returncode == 128:
+                # プロセスが見つからない（既に終了済み）
+                logger.debug(f"プロセスは既に終了済み: {process_name}")
+            else:
+                logger.warning(
+                    f"プロセス強制終了に失敗 ({process_name}): "
+                    f"戻り値={result.returncode}, stderr={result.stderr}"
+                )
+        except subprocess.TimeoutExpired:
+            logger.warning(f"プロセス強制終了がタイムアウト ({process_name}): taskkillが応答しません")
         except Exception as e:
             logger.warning(f"プロセス強制終了に失敗 ({process_name}): {e}")
 
@@ -464,10 +476,15 @@ class PDFConverter:
                 logger.info(f"入力ファイル: {file_path_norm}")
                 logger.info(f"出力ファイル: {output_path_norm}")
 
-                # 既存の出力ファイルを削除
-                if os.path.exists(output_path_norm):
-                    logger.info(f"既存の出力ファイルを削除: {output_path_norm}")
+                # 既存の出力ファイルを削除（TOCTOU脆弱性回避）
+                try:
                     os.remove(output_path_norm)
+                    logger.info(f"既存の出力ファイルを削除: {output_path_norm}")
+                except FileNotFoundError:
+                    # ファイルが存在しない場合は問題なし
+                    pass
+                except Exception as e:
+                    logger.warning(f"出力ファイル削除エラー（続行します）: {e}")
 
                 # 設定値
                 max_wait = self.ichitaro_settings.get('ichitaro_ready_timeout', 30)
@@ -766,6 +783,12 @@ class PDFConverter:
         min_wait = PDFConversionConstants.ICHITARO_DIALOG_MIN_WAIT
 
         while dialog_elapsed < dialog_timeout:
+            # デッドロック防止：ループ開始時にもキャンセルチェック
+            if self.is_cancelled():
+                logger.info("一太郎変換がキャンセルされました（ダイアログ待機中）")
+                self._cleanup_ichitaro_windows()
+                raise CancelledError("一太郎変換がキャンセルされました")
+
             self._wait_with_cancel_check(dialog_wait_interval)
             dialog_elapsed += dialog_wait_interval
 

@@ -5,7 +5,7 @@
 """
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Optional
+from typing import Callable
 
 
 class PlanTypeSelectionDialog(tk.Toplevel):
@@ -26,7 +26,6 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         super().__init__(parent)
         self.detection_result = detection_result
         self.callback = callback
-        self.selected_type: Optional[str] = None
 
         # ウィンドウ設定
         self.title("計画種別の選択")
@@ -159,12 +158,10 @@ class PlanTypeSelectionDialog(tk.Toplevel):
 
     def _on_select(self, plan_type: str):
         """選択ボタンクリック時の処理"""
-        self.selected_type = plan_type
         self.destroy()
         if self.callback:
             self.callback(plan_type)
 
     def _on_cancel(self):
         """キャンセルボタンクリック時の処理"""
-        self.selected_type = None
         self.destroy()

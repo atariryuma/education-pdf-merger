@@ -148,6 +148,7 @@ class PDFProcessor:
             exclude_first_pages: ページ番号を表示しない先頭ページ数
         """
         tmp_file = pdf_file + ".tmp"
+        tmp_created = False
         try:
             with fitz.open(pdf_file) as doc:
                 total_pages = doc.page_count
@@ -173,17 +174,22 @@ class PDFProcessor:
                     )
 
                 doc.save(tmp_file)
+                tmp_created = True  # 一時ファイル作成成功をマーク
 
             os.replace(tmp_file, pdf_file)
+            tmp_created = False  # replaceでtmp_fileは消えるのでクリーンアップ不要
             logger.info(f"ページ番号を追加しました: {pdf_file} (先頭{exclude_first_pages}ページはスキップ)")
         except Exception:
-            # エラー時は一時ファイルをクリーンアップ
-            if os.path.exists(tmp_file):
+            raise
+        finally:
+            # エラー時は一時ファイルをクリーンアップ（TOCTOU回避 - exists不使用）
+            if tmp_created:
                 try:
                     os.remove(tmp_file)
-                except OSError:
-                    pass
-            raise
+                except FileNotFoundError:
+                    pass  # 既に削除済み
+                except OSError as e:
+                    logger.warning(f"一時ファイル削除失敗: {tmp_file}, エラー: {e}")
 
     def set_pdf_outlines(self, pdf_file: str, toc_entries: List[Tuple[str, int, int]]) -> None:
         """
@@ -194,6 +200,7 @@ class PDFProcessor:
             toc_entries: 目次エントリのリスト [(title, level, page), ...]
         """
         tmp_file = pdf_file + ".tmp"
+        tmp_created = False
         try:
             with fitz.open(pdf_file) as doc:
                 page_count = doc.page_count
@@ -219,17 +226,22 @@ class PDFProcessor:
                     logger.error(f"PDFアウトラインの設定に失敗しました: {e}")
 
                 doc.save(tmp_file, incremental=False)
+                tmp_created = True  # 一時ファイル作成成功をマーク
 
             os.replace(tmp_file, pdf_file)
+            tmp_created = False  # replaceでtmp_fileは消えるのでクリーンアップ不要
             logger.info("PDFアウトライン（しおり）を設定しました")
         except Exception:
-            # エラー時は一時ファイルをクリーンアップ
-            if os.path.exists(tmp_file):
+            raise
+        finally:
+            # エラー時は一時ファイルをクリーンアップ（TOCTOU回避 - exists不使用）
+            if tmp_created:
                 try:
                     os.remove(tmp_file)
-                except OSError:
-                    pass
-            raise
+                except FileNotFoundError:
+                    pass  # 既に削除済み
+                except OSError as e:
+                    logger.warning(f"一時ファイル削除失敗: {tmp_file}, エラー: {e}")
 
     def create_toc_pdf(self, toc_entries: List[Tuple[str, int, int]], output_path: str) -> str:
         """

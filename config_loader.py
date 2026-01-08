@@ -218,7 +218,22 @@ class ConfigLoader:
             temp_dir = os.path.join(appdata, 'PDFMergeSystem', 'temp')
 
         if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
+            try:
+                os.makedirs(temp_dir, exist_ok=True)
+            except PermissionError as e:
+                logger.error(f"一時ディレクトリの作成に失敗しました（権限不足）: {temp_dir}")
+                raise ConfigurationError(
+                    f"一時ディレクトリの作成権限がありません。\n"
+                    f"パス: {temp_dir}\n"
+                    f"管理者権限で実行するか、別の場所を指定してください。"
+                ) from e
+            except OSError as e:
+                logger.error(f"一時ディレクトリの作成に失敗しました: {temp_dir}, エラー: {e}")
+                raise ConfigurationError(
+                    f"一時ディレクトリの作成に失敗しました。\n"
+                    f"パス: {temp_dir}\n"
+                    f"エラー: {e}"
+                ) from e
 
         if cleanup_old:
             self._cleanup_old_temp_files(temp_dir, max_age_hours)

@@ -188,12 +188,22 @@ class FolderStructureDetector:
             if item.name.startswith('.') or item.name.startswith('~'):
                 continue
 
-            if item.is_dir():
-                sub_info = self._analyze_directory(item, depth + 1)
-                subfolders.append(sub_info)
-                max_depth = max(max_depth, sub_info['max_depth'])
-            elif item.is_file():
-                files.append(item.name)
+            try:
+                # シンボリックリンクループ防止: is_symlinkチェックを追加
+                if item.is_symlink():
+                    logger.debug(f"シンボリックリンクをスキップ: {item}")
+                    continue
+
+                if item.is_dir():
+                    sub_info = self._analyze_directory(item, depth + 1)
+                    subfolders.append(sub_info)
+                    max_depth = max(max_depth, sub_info['max_depth'])
+                elif item.is_file():
+                    files.append(item.name)
+            except OSError as e:
+                # シンボリックリンクエラー、権限エラー等をスキップ
+                logger.debug(f"ファイル/フォルダアクセスエラー（スキップ）: {item}, エラー: {e}")
+                continue
 
         total_files = len(files) + sum(
             s['total_files'] for s in subfolders

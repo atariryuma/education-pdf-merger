@@ -4,13 +4,14 @@
 アプリケーション設定のUIを提供
 """
 import os
+import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import Any, Callable
 from pathlib import Path
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import create_hover_button
+from gui.utils import create_hover_button, open_file_or_folder, create_tooltip
 from path_validator import PathValidator
 
 
@@ -83,6 +84,26 @@ class SettingsTab(BaseTab):
         main_container = scrollable_frame
         main_container.pack(fill="both", expand=True, padx=15, pady=10)
 
+        # 説明フレーム（初心者向け）
+        help_frame = tk.LabelFrame(main_container, text="💡 設定について", font=("メイリオ", 10, "bold"))
+        help_frame.pack(fill="x", pady=(0, 10))
+
+        help_text = (
+            "このタブでは、アプリケーションの基本設定を行います。\n\n"
+            "📁 = フォルダを選択　│　📂 = フォルダを開く\n"
+            "📄 = ファイルを選択　│　🔍 = 自動検索\n\n"
+            "⚠️ 設定を変更したら、必ず「💾 保存」ボタンをクリックしてください。"
+        )
+        tk.Label(
+            help_frame,
+            text=help_text,
+            justify="left",
+            font=("メイリオ", 9),
+            fg="#333",
+            padx=15,
+            pady=10
+        ).pack(anchor="w")
+
         # 共通のラベル幅とパディング
         LABEL_WIDTH = 16
         PAD_Y = 5
@@ -102,11 +123,19 @@ class SettingsTab(BaseTab):
 
         tk.Label(path_frame, text="Google Drive:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(path_frame, textvariable=self.gdrive_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
-        tk.Button(path_frame, text="📁", command=lambda: self._browse_folder(self.gdrive_var), width=3).grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
+
+        gdrive_btn_frame = tk.Frame(path_frame)
+        gdrive_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
+        tk.Button(gdrive_btn_frame, text="📁", command=lambda: self._browse_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
+        tk.Button(gdrive_btn_frame, text="📂", command=lambda: self._open_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
 
         tk.Label(path_frame, text="ネットワーク:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(path_frame, textvariable=self.network_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
-        tk.Button(path_frame, text="📁", command=lambda: self._browse_folder(self.network_var), width=3).grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
+
+        network_btn_frame = tk.Frame(path_frame)
+        network_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
+        tk.Button(network_btn_frame, text="📁", command=lambda: self._browse_folder(self.network_var), width=3).pack(side="left", padx=1)
+        tk.Button(network_btn_frame, text="📂", command=lambda: self._open_folder(self.network_var), width=3).pack(side="left", padx=1)
 
         tk.Label(path_frame, text="一時フォルダ:", width=LABEL_WIDTH, anchor="e").grid(row=2, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(path_frame, textvariable=self.temp_var).grid(row=2, column=1, sticky="ew", padx=3, pady=PAD_Y)
@@ -114,7 +143,7 @@ class SettingsTab(BaseTab):
         temp_btn_frame = tk.Frame(path_frame)
         temp_btn_frame.grid(row=2, column=2, padx=(3, 10), pady=PAD_Y)
         tk.Button(temp_btn_frame, text="📁", command=lambda: self._browse_folder(self.temp_var), width=3).pack(side="left", padx=1)
-        tk.Button(temp_btn_frame, text="📂 開く", command=self._open_temp_folder, font=("メイリオ", 8)).pack(side="left", padx=1)
+        tk.Button(temp_btn_frame, text="📂", command=self._open_temp_folder, width=3).pack(side="left", padx=1)
 
         path_frame.columnconfigure(1, weight=1)
 
@@ -185,11 +214,19 @@ class SettingsTab(BaseTab):
 
         tk.Label(excel_frame, text="参照元:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(excel_frame, textvariable=self.excel_ref_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
-        tk.Button(excel_frame, text="📄", command=lambda: self._browse_excel_file(self.excel_ref_var), width=3).grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
+
+        excel_ref_btn_frame = tk.Frame(excel_frame)
+        excel_ref_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
+        tk.Button(excel_ref_btn_frame, text="📄", command=lambda: self._browse_excel_file(self.excel_ref_var), width=3).pack(side="left", padx=1)
+        tk.Button(excel_ref_btn_frame, text="📂", command=lambda: self._open_excel_file_from_settings(self.excel_ref_var), width=3).pack(side="left", padx=1)
 
         tk.Label(excel_frame, text="対象:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(excel_frame, textvariable=self.excel_target_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
-        tk.Button(excel_frame, text="📄", command=lambda: self._browse_excel_file(self.excel_target_var), width=3).grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
+
+        excel_target_btn_frame = tk.Frame(excel_frame)
+        excel_target_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
+        tk.Button(excel_target_btn_frame, text="📄", command=lambda: self._browse_excel_file(self.excel_target_var), width=3).pack(side="left", padx=1)
+        tk.Button(excel_target_btn_frame, text="📂", command=lambda: self._open_excel_file_from_settings(self.excel_target_var), width=3).pack(side="left", padx=1)
 
         excel_frame.columnconfigure(1, weight=1)
 
@@ -281,7 +318,12 @@ class SettingsTab(BaseTab):
         try:
             base_path = self.config.get('base_paths', 'google_drive')
             year = self.config.year
+            year_short = self.config.year_short
             education_base = self.config.get('directories', 'education_plan_base')
+
+            # {year_short}プレースホルダーを実際の値に置き換える
+            education_base = education_base.replace('{year_short}', year_short)
+
             initial_dir = os.path.join(base_path, year, education_base)
 
             if not os.path.exists(initial_dir):
@@ -298,8 +340,22 @@ class SettingsTab(BaseTab):
         except Exception as e:
             messagebox.showerror("参照エラー", f"Excelファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
 
+    def _open_folder(self, var: tk.StringVar) -> None:
+        """フォルダをエクスプローラーで開く"""
+        folder_path_str = var.get().strip()
+
+        if not folder_path_str:
+            messagebox.showwarning("警告", "フォルダパスが設定されていません。")
+            return
+
+        def on_error(error_msg: str):
+            messagebox.showerror("エラー", error_msg)
+
+        if open_file_or_folder(folder_path_str, on_error):
+            self.update_status(f"フォルダを開きました: {Path(folder_path_str).name}")
+
     def _open_temp_folder(self) -> None:
-        """一時フォルダをエクスプローラーで開く（PathValidatorベース）"""
+        """一時フォルダをエクスプローラーで開く"""
         temp_path_str = self.temp_var.get().strip()
 
         # パスが空の場合はデフォルトパスを使用
@@ -318,12 +374,36 @@ class SettingsTab(BaseTab):
                 messagebox.showerror("エラー", f"一時フォルダの作成に失敗しました。\n\n{e}")
                 return
 
-        # エクスプローラーで開く
-        try:
-            os.startfile(str(temp_path))
-            self.update_status(f"一時フォルダを開きました")
-        except Exception as e:
-            messagebox.showerror("エラー", f"フォルダを開けませんでした。\n\n{e}")
+        # エクスプローラーで開く（非同期）
+        def on_error(error_msg: str):
+            messagebox.showerror("エラー", error_msg)
+
+        if open_file_or_folder(str(temp_path), on_error):
+            self.update_status("一時フォルダを開きました")
+
+    def _open_excel_file_from_settings(self, var: tk.StringVar) -> None:
+        """Excelファイルを開く（設定タブから）"""
+        filename = var.get().strip()
+
+        if not filename:
+            messagebox.showwarning("警告", "ファイル名が設定されていません。")
+            return
+
+        base_path = self.config.get('base_paths', 'google_drive')
+        year = self.config.year
+        year_short = self.config.year_short
+        education_base = self.config.get('directories', 'education_plan_base')
+
+        # {year_short}プレースホルダーを実際の値に置き換える
+        education_base = education_base.replace('{year_short}', year_short)
+
+        file_path = os.path.join(base_path, year, education_base, filename)
+
+        def on_error(error_msg: str):
+            messagebox.showerror("エラー", error_msg)
+
+        if open_file_or_folder(file_path, on_error):
+            self.update_status(f"Excelファイルを開きました: {filename}")
 
     def save_settings(self) -> None:
         """設定を保存（入力検証付き - ベストプラクティス準拠）"""
@@ -366,14 +446,14 @@ class SettingsTab(BaseTab):
         # 検証エラーがあれば表示して保存を中断
         if validation_errors:
             error_message = "入力値に誤りがあります:\n\n" + "\n".join(validation_errors)
-            messagebox.showwarning("⚠️ 入力エラー", error_message)
+            messagebox.showwarning("入力エラー", error_message)
             return
 
         if self.config.save_config():
             self.update_status("設定を保存しました")
-            messagebox.showinfo("✅ 保存完了", "設定を保存しました！")
+            messagebox.showinfo("保存完了", "設定を保存しました！")
         else:
-            messagebox.showerror("❌ 保存エラー", "設定の保存に失敗しました。")
+            messagebox.showerror("保存エラー", "設定の保存に失敗しました。")
 
     def reload_settings(self) -> None:
         """設定を再読み込み"""
@@ -383,11 +463,12 @@ class SettingsTab(BaseTab):
     def open_config_file(self) -> None:
         """config.jsonをテキストエディタで開く"""
         config_path = self.config.config_path
-        if os.path.exists(config_path):
-            os.startfile(config_path)
-            self.update_status(f"config.jsonを開きました")
-        else:
-            messagebox.showerror("❌ ファイルエラー", f"config.jsonが見つかりません。\n\nパス: {config_path}")
+
+        def on_error(error_msg: str):
+            messagebox.showerror("エラー", error_msg)
+
+        if open_file_or_folder(config_path, on_error):
+            self.update_status("config.jsonを開きました")
 
     def _auto_detect_ghostscript(self) -> None:
         """Ghostscriptを自動検出"""
@@ -403,11 +484,11 @@ class SettingsTab(BaseTab):
             self.gs_var.set(gs_path)
             self._update_gs_status()
             self.update_status(f"Ghostscriptを検出: {gs_path}")
-            messagebox.showinfo("✅ 検出成功", f"Ghostscriptを検出しました。\n\n{gs_path}")
+            messagebox.showinfo("検出成功", f"Ghostscriptを検出しました。\n\n{gs_path}")
         else:
             self._update_gs_status()
             instructions = GhostscriptManager.get_install_instructions()
-            messagebox.showwarning("⚠️ 未検出", instructions)
+            messagebox.showwarning("未検出", instructions)
 
     def _update_gs_status(self) -> None:
         """Ghostscriptのステータスを更新"""
@@ -426,8 +507,6 @@ class SettingsTab(BaseTab):
 
     def _test_ichitaro_conversion(self) -> None:
         """一太郎変換をテスト"""
-        from tkinter import filedialog
-        import threading
 
         # jtdファイルを選択
         file_path = filedialog.askopenfilename(
@@ -456,37 +535,59 @@ class SettingsTab(BaseTab):
                 except ValueError:
                     pass
 
-                # 一時ディレクトリを使用
+                # セキュアな一時ファイル作成（TOCTOU攻撃対策 - ファイルディスクリプタを開いたまま維持）
+                import tempfile
+
                 temp_dir = tempfile.gettempdir()
                 converter = PDFConverter(temp_dir, ichitaro_settings)
 
-                output_path = os.path.join(temp_dir, "ichitaro_test_output.pdf")
-                if os.path.exists(output_path):
-                    os.remove(output_path)
+                # NamedTemporaryFileを使用してTOCTOU脆弱性を回避
+                temp_file = None
+                try:
+                    temp_file = tempfile.NamedTemporaryFile(
+                        mode='w+b',
+                        suffix=".pdf",
+                        prefix="ichitaro_test_",
+                        dir=temp_dir,
+                        delete=False  # 手動で削除制御
+                    )
+                    output_path = temp_file.name
+                    temp_file.close()  # 変換前にファイルを閉じる（書き込み可能にする）
 
-                result = converter._convert_ichitaro(file_path, output_path)
+                    result = converter._convert_ichitaro(file_path, output_path)
 
-                if result and os.path.exists(result):
-                    self.tab.after(0, lambda: self.ichitaro_status_label.config(
-                        text=f"✅ 変換成功！", fg="green"))
-                    self.tab.after(0, lambda: messagebox.showinfo(
-                        "✅ テスト成功",
-                        f"一太郎変換が成功しました。\n\n出力ファイル:\n{result}"
-                    ))
-                else:
-                    self.tab.after(0, lambda: self.ichitaro_status_label.config(
-                        text="❌ 変換失敗", fg="red"))
-                    self.tab.after(0, lambda: messagebox.showwarning(
-                        "⚠️ テスト失敗",
-                        "一太郎変換に失敗しました。\n\n"
-                        "「↓回数」の設定を調整してください。"
-                    ))
+                    if result and os.path.exists(result):
+                        self.tab.after(0, lambda: self.ichitaro_status_label.config(
+                            text=f"✅ 変換成功！", fg="green"))
+                        self.tab.after(0, lambda: messagebox.showinfo(
+                            "テスト成功",
+                            f"一太郎変換が成功しました。\n\n出力ファイル:\n{result}"
+                        ))
+                    else:
+                        self.tab.after(0, lambda: self.ichitaro_status_label.config(
+                            text="❌ 変換失敗", fg="red"))
+                        self.tab.after(0, lambda: messagebox.showwarning(
+                            "テスト失敗",
+                            "一太郎変換に失敗しました。\n\n"
+                            "リトライ回数の設定を調整してください。"
+                        ))
+                finally:
+                    # 一時ファイルのクリーンアップ（TOCTOU回避 - exists不使用）
+                    try:
+                        if 'output_path' in locals():
+                            os.remove(output_path)
+                    except FileNotFoundError:
+                        # ファイルが存在しない場合は問題なし
+                        pass
+                    except Exception as cleanup_error:
+                        logger.warning(f"一時ファイル削除失敗: {cleanup_error}")
+
             except Exception as e:
                 self.tab.after(0, lambda: self.ichitaro_status_label.config(
                     text=f"❌ エラー: {str(e)[:50]}", fg="red"))
                 error_msg = str(e)
                 self.tab.after(0, lambda: messagebox.showerror(
-                    "❌ テストエラー", f"テスト中にエラーが発生しました。\n\n{error_msg}"
+                    "テストエラー", f"テスト中にエラーが発生しました。\n\n{error_msg}"
                 ))
 
         thread = threading.Thread(target=run_test, daemon=True)
@@ -494,7 +595,6 @@ class SettingsTab(BaseTab):
 
     def _open_log_file(self) -> None:
         """ログファイルを開く"""
-        import os
         from datetime import datetime
 
         # ログディレクトリのパス
@@ -504,15 +604,20 @@ class SettingsTab(BaseTab):
         # 今日のログファイル
         log_file = os.path.join(log_dir, f"pdf_merge_{datetime.now():%Y%m%d}.log")
 
+        def on_error(error_msg: str):
+            messagebox.showerror("エラー", error_msg)
+
         if os.path.exists(log_file):
             # ログファイルをデフォルトのテキストエディタで開く
-            os.startfile(log_file)
+            if open_file_or_folder(log_file, on_error):
+                self.update_status("ログファイルを開きました")
         else:
             # ログファイルが存在しない場合はログディレクトリを開く
             if os.path.exists(log_dir):
-                os.startfile(log_dir)
+                if open_file_or_folder(log_dir, on_error):
+                    self.update_status("ログディレクトリを開きました")
             else:
                 messagebox.showwarning(
-                    "⚠️ ログファイルなし",
-                    f"ログファイルが見つかりません。\n\nまだ処理が実行されていない可能性があります。"
+                    "ログファイルなし",
+                    "ログファイルが見つかりません。\n\nまだ処理が実行されていない可能性があります。"
                 )

@@ -86,11 +86,27 @@ var
 function IsAppRunning(): Boolean;
 var
   ResultCode: Integer;
+  Output: AnsiString;
+  OutputFile: String;
 begin
   Result := False;
-  if Exec('tasklist.exe', '/FI "IMAGENAME eq 教育計画PDFマージシステム.exe"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+
+  // tasklist の出力をファイルに保存して確認
+  OutputFile := ExpandConstant('{tmp}\tasklist_output.txt');
+
+  // tasklist は常に成功コード0を返すため、出力内容で判定する必要がある
+  // /NH = ヘッダーなし、/FO CSV = CSV形式
+  if Exec('cmd.exe', '/C tasklist /FI "IMAGENAME eq 教育計画PDFマージシステム.exe" /NH /FO CSV > "' + OutputFile + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
-    Result := (ResultCode = 0);
+    if FileExists(OutputFile) then
+    begin
+      if LoadStringFromFile(OutputFile, Output) then
+      begin
+        // 出力に実行ファイル名が含まれていれば実行中
+        Result := (Pos('教育計画PDFマージシステム.exe', String(Output)) > 0);
+      end;
+      DeleteFile(OutputFile);
+    end;
   end;
 end;
 
