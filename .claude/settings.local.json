@@ -103,7 +103,8 @@
       "Bash(cmd.exe /c \"dir C:\\\\Users\\\\user\\\\AppData\\\\Local\\\\PDFMergeSystem\")",
       "Bash(git rm:*)",
       "Bash(chcp 65001)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": []

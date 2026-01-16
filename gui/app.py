@@ -314,11 +314,24 @@ F5 : ファイル状態を確認
                     self.config = ConfigLoader()
                     self._init_variables({})
 
-                    # UIを更新
+                    # UIを更新（すべてのタブに反映）
                     self.year_var.set(self.config.year)
                     self.year_short_var.set(self.config.year_short)
                     self.gdrive_var.set(self.config.get('base_paths', 'google_drive') or "")
+                    self.temp_var.set(self.config.get('base_paths', 'local_temp') or "")
                     self.gs_var.set(self.config.get('ghostscript', 'executable') or "")
+                    self.excel_ref_var.set(self.config.get('files', 'excel_reference') or "")
+                    self.excel_target_var.set(self.config.get('files', 'excel_target') or "")
+
+                    # 各タブのconfigも更新
+                    if hasattr(self, 'pdf_tab'):
+                        self.pdf_tab.config = self.config
+                    if hasattr(self, 'excel_tab'):
+                        self.excel_tab.config = self.config
+                    if hasattr(self, 'settings_tab'):
+                        self.settings_tab.config = self.config
+                    if hasattr(self, 'file_tab'):
+                        self.file_tab.config = self.config
 
                     messagebox.showinfo(
                         "セットアップ完了",
