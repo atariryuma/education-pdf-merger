@@ -193,18 +193,17 @@ class PDFTab(BaseTab):
         self.output_validation_label = tk.Label(form_frame, text="", font=("メイリオ", 10), width=2)
         self.output_validation_label.grid(row=1, column=3, padx=(5, 15), pady=6)
 
-        # 計画種別選択
+        # 計画種別（自動判定結果の表示のみ）
         tk.Label(form_frame, text="計画種別:", width=LABEL_WIDTH, anchor="e").grid(row=2, column=0, sticky="e", padx=(15, 5), pady=6)
-        plan_frame = tk.Frame(form_frame)
-        plan_frame.grid(row=2, column=1, sticky="w", padx=5, pady=6)
-        tk.Radiobutton(
-            plan_frame, text="📚 教育計画", variable=self.plan_type_var,
-            value="education", font=("メイリオ", 10)
-        ).pack(side="left", padx=(0, 15))
-        tk.Radiobutton(
-            plan_frame, text="📅 行事計画", variable=self.plan_type_var,
-            value="event", font=("メイリオ", 10)
-        ).pack(side="left", padx=15)
+        self.plan_type_label = tk.Label(
+            form_frame,
+            text="自動判定中...",
+            font=("メイリオ", 10),
+            fg="#666",
+            anchor="w"
+        )
+        self.plan_type_label.grid(row=2, column=1, sticky="w", padx=5, pady=6)
+        create_tooltip(self.plan_type_label, "入力フォルダから自動判定されます")
 
         form_frame.columnconfigure(1, weight=1)
 
@@ -619,7 +618,7 @@ class PDFTab(BaseTab):
 
     def _update_plan_type_display(self, result) -> None:
         """
-        判定結果をステータスラベルに表示
+        判定結果をラベルに表示
 
         Args:
             result: DetectionResult
@@ -627,9 +626,20 @@ class PDFTab(BaseTab):
         plan_name = "教育計画" if result.plan_type.value == "education" else "行事計画"
         confidence_pct = int(result.confidence * 100)
 
-        message = f"自動判定: {plan_name} (確信度: {confidence_pct}%)"
+        # アイコンを追加
+        icon = "📚" if result.plan_type.value == "education" else "📅"
+
+        # UIラベルを更新
+        if hasattr(self, 'plan_type_label'):
+            self.plan_type_label.config(
+                text=f"{icon} {plan_name} (確信度: {confidence_pct}%)",
+                fg="#2196F3" if confidence_pct >= 70 else "#FF9800"
+            )
+
+        # ステータスバーにも表示
+        message = f"計画種別を自動判定: {plan_name} (確信度: {confidence_pct}%)"
         self.status_label.config(text=message, fg="green")
-        self.log(f"{message}", "info")
+        self.log(message, "info")
 
     def _show_plan_type_selection_dialog(self, result) -> None:
         """

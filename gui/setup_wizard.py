@@ -22,6 +22,7 @@ from datetime import datetime
 from config_loader import ConfigLoader
 from ghostscript_detector import GhostscriptDetector
 from path_validator import PathValidator
+from year_utils import calculate_next_fiscal_year, calculate_year_short
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,10 @@ class SetupWizard:
         self.window.grab_set()
 
         # 設定値の保持
-        self.year_var = tk.StringVar(value=self._get_default_year())
-        self.year_short_var = tk.StringVar(value=self._get_default_year_short())
+        default_year, default_year_short = calculate_next_fiscal_year()
+        self.year_var = tk.StringVar(value=default_year)
+        # year_shortは自動計算（ユーザー入力不要）
+        self.year_short_var = tk.StringVar(value=default_year_short)
         self.gdrive_var = tk.StringVar(value="")
         # 自動設定項目（ユーザー入力不要）
         self.local_temp_var = tk.StringVar(value="")  # デフォルト: temp_pdfs
@@ -85,6 +88,9 @@ class SetupWizard:
         # UIコンポーネント
         self.content_frame = None
         self.progress_var = tk.IntVar(value=0)
+
+        # 年度変更時に自動でyear_shortを更新
+        self.year_var.trace_add('write', self._on_year_changed)
 
         # UI構築
         self._create_ui()
@@ -108,28 +114,12 @@ class SetupWizard:
         y = (self.window.winfo_screenheight() // 2) - (height // 2)
         self.window.geometry(f'{width}x{height}+{x}+{y}')
 
-    def _get_default_year(self) -> str:
-        """デフォルトの年度を取得（現在の年度を推定）"""
-        now = datetime.now()
-        # 4月以降なら来年度、3月以前なら今年度
-        if now.month >= 4:
-            year = now.year + 1
-        else:
-            year = now.year
-
-        # 令和年を計算（2019年が令和元年）
-        reiwa = year - 2018
-        return f"令和{reiwa}年度({year})"
-
-    def _get_default_year_short(self) -> str:
-        """デフォルトの年度短縮形を取得"""
-        now = datetime.now()
-        if now.month >= 4:
-            year = now.year + 1
-        else:
-            year = now.year
-        reiwa = year - 2018
-        return f"R{reiwa}"
+    def _on_year_changed(self, *args) -> None:
+        """年度が変更されたときに和暦を自動更新"""
+        year = self.year_var.get()
+        if year.isdigit() and len(year) == 4:
+            year_short = calculate_year_short(year)
+            self.year_short_var.set(year_short)
 
     def _create_ui(self) -> None:
         """UI構築"""
@@ -506,16 +496,16 @@ class SetupWizard:
         )
         year_section.pack(fill=tk.X, padx=20, pady=10)
 
-        # 年度（フル）
+        # 年度入力（西暦のみ、和暦は自動計算）
         year_frame = tk.Frame(year_section, bg="white")
         year_frame.pack(fill=tk.X, padx=15, pady=8)
 
         year_label = tk.Label(
             year_frame,
-            text="年度:",
+            text="年度（西暦）:",
             font=("Yu Gothic UI", 10),
             bg="white",
-            width=10,
+            width=12,
             anchor=tk.W
         )
         year_label.pack(side=tk.LEFT, padx=5)
@@ -524,40 +514,28 @@ class SetupWizard:
             year_frame,
             textvariable=self.year_var,
             font=("Yu Gothic UI", 10),
-            width=30
+            width=15
         )
         year_entry.pack(side=tk.LEFT, padx=5)
 
-        # 年度（短縮形）
-        year_short_frame = tk.Frame(year_section, bg="white")
-        year_short_frame.pack(fill=tk.X, padx=15, pady=8)
-
-        year_short_label = tk.Label(
-            year_short_frame,
-            text="年度（短縮）:",
-            font=("Yu Gothic UI", 10),
+        # 和暦は自動計算される旨を表示（読み取り専用）
+        year_short_display_label = tk.Label(
+            year_frame,
+            text=f"→ {self.year_short_var.get()}",
+            font=("Yu Gothic UI", 10, "bold"),
             bg="white",
-            width=10,
-            anchor=tk.W
+            fg="#1976D2"
         )
-        year_short_label.pack(side=tk.LEFT, padx=5)
-
-        year_short_entry = ttk.Entry(
-            year_short_frame,
-            textvariable=self.year_short_var,
-            font=("Yu Gothic UI", 10),
-            width=10
-        )
-        year_short_entry.pack(side=tk.LEFT, padx=5)
+        year_short_display_label.pack(side=tk.LEFT, padx=10)
 
         hint_label = tk.Label(
-            year_short_frame,
-            text="例: R8",
+            year_section,
+            text="💡 和暦（R8など）は自動計算されます",
             font=("Yu Gothic UI", 9),
             bg="white",
             fg="gray"
         )
-        hint_label.pack(side=tk.LEFT, padx=5)
+        hint_label.pack(padx=15, pady=(0, 8))
 
         # === 作業フォルダセクション ===
         folder_section = tk.LabelFrame(
@@ -1241,9 +1219,13 @@ class SetupWizard:
     def _finish(self) -> None:
         """セットアップを完了して設定を保存"""
         try:
+            # 年度を取得し、year_shortを自動計算
+            year = self.year_var.get().strip()
+            year_short = calculate_year_short(year)
+
             # 設定を保存
-            self.config.set('year', value=self.year_var.get().strip())
-            self.config.set('year_short', value=self.year_short_var.get().strip())
+            self.config.set('year', value=year)
+            self.config.set('year_short', value=year_short)
             self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get().strip())
             self.config.set('base_paths', 'local_temp', value=self.local_temp_var.get().strip())
 

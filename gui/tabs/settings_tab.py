@@ -14,6 +14,7 @@ from pathlib import Path
 from gui.tabs.base_tab import BaseTab
 from gui.utils import create_hover_button, open_file_or_folder, create_tooltip
 from path_validator import PathValidator
+from year_utils import calculate_year_short
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,19 @@ class SettingsTab(BaseTab):
         self.excel_ref_var = excel_ref_var
         self.excel_target_var = excel_target_var
         self.on_reload = on_reload
+
+        # 年度変更時に自動でyear_shortを更新
+        self.year_var.trace_add('write', self._on_year_changed)
+
         self._create_ui()
         self.add_to_notebook("⚙️ 設定")
+
+    def _on_year_changed(self, *args) -> None:
+        """年度が変更されたときに和暦を自動更新"""
+        year = self.year_var.get()
+        if year.isdigit() and len(year) == 4:
+            year_short = calculate_year_short(year)
+            self.year_short_var.set(year_short)
 
     def _create_ui(self) -> None:
         """UIを構築"""
@@ -126,10 +138,10 @@ class SettingsTab(BaseTab):
         year_frame = tk.LabelFrame(main_container, text="📅 年度情報", font=("メイリオ", 10, "bold"))
         year_frame.pack(fill="x", pady=(0, 8))
 
-        tk.Label(year_frame, text="年度（フル）:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(year_frame, textvariable=self.year_var, width=25).grid(row=0, column=1, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, text="略称:", anchor="e").grid(row=0, column=2, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(year_frame, textvariable=self.year_short_var, width=8).grid(row=0, column=3, sticky="w", padx=(3, 10), pady=PAD_Y)
+        tk.Label(year_frame, text="年度（西暦）:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
+        tk.Entry(year_frame, textvariable=self.year_var, width=15).grid(row=0, column=1, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, text=f"→ {self.year_short_var.get()}", font=("メイリオ", 10, "bold"), fg="#1976D2").grid(row=0, column=2, sticky="w", padx=(10, 3), pady=PAD_Y)
+        tk.Label(year_frame, text="💡 和暦は自動計算", font=("メイリオ", 8), fg="gray").grid(row=1, column=1, columnspan=2, sticky="w", padx=3, pady=(0, 5))
 
         # --- パス設定 ---
         path_frame = tk.LabelFrame(main_container, text="📂 パス設定", font=("メイリオ", 10, "bold"))
@@ -432,13 +444,13 @@ class SettingsTab(BaseTab):
     def save_settings(self) -> None:
         """設定を保存（入力検証付き - ベストプラクティス準拠）"""
         year = self.year_var.get().strip()
-        year_short = self.year_short_var.get().strip()
 
-        if not year or not year_short:
+        if not year:
             messagebox.showerror("入力エラー", "年度情報は必須です。")
             return
 
-        self.config.update_year(year, year_short)
+        # year_shortは自動計算（update_yearに渡さない）
+        self.config.update_year(year)
         self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get())
         self.config.set('base_paths', 'local_temp', value=self.temp_var.get())
         self.config.set('ghostscript', 'executable', value=self.gs_var.get())

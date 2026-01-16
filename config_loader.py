@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union, TypeVar, cast
 
 from exceptions import ConfigurationError
+from year_utils import calculate_year_short
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -56,7 +57,8 @@ class ConfigLoader:
 
         self.config: Dict[str, Any] = self._load_config()
         self.year: str = self.config['year']
-        self.year_short: str = self.config['year_short']
+        # year_shortは自動計算（設定ファイルの値は無視）
+        self.year_short: str = calculate_year_short(self.year)
 
     def _load_config(self) -> Dict[str, Any]:
         """
@@ -324,15 +326,19 @@ class ConfigLoader:
                 config_key="save_config"
             ) from e
 
-    def update_year(self, year: str, year_short: str) -> None:
+    def update_year(self, year: str, year_short: Optional[str] = None) -> None:
         """
         年度情報を更新
 
         Args:
-            year: 年度（例: 令和８年度(2026)）
-            year_short: 年度略称（例: R8）
+            year: 年度（例: 2026）
+            year_short: 年度略称（省略時は自動計算、例: R8）
+
+        Note:
+            year_shortは通常省略してください。yearから自動計算されます。
         """
         self.year = year
-        self.year_short = year_short
+        # year_shortが明示的に指定されていない場合は自動計算
+        self.year_short = year_short if year_short is not None else calculate_year_short(year)
         self.config['year'] = year
-        self.config['year_short'] = year_short
+        self.config['year_short'] = self.year_short
