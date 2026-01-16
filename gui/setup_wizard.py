@@ -29,12 +29,14 @@ logger = logging.getLogger(__name__)
 class SetupWizard:
     """初回セットアップウィザード
 
-    5ステップのウィザードで基本設定を完了:
+    7ステップのウィザードで基本設定を完了:
     1. ようこそ画面
     2. 年度設定
     3. 作業フォルダ設定
-    4. Ghostscript設定（自動検出）
-    5. 完了画面
+    4. 一時フォルダ設定（オプション）
+    5. Excel設定（オプション）
+    6. Ghostscript設定（自動検出、オプション）
+    7. 完了画面
     """
 
     def __init__(
@@ -70,12 +72,15 @@ class SetupWizard:
         self.year_var = tk.StringVar(value=self._get_default_year())
         self.year_short_var = tk.StringVar(value=self._get_default_year_short())
         self.gdrive_var = tk.StringVar(value="")
+        self.local_temp_var = tk.StringVar(value="")
+        self.excel_ref_var = tk.StringVar(value="")
+        self.excel_target_var = tk.StringVar(value="")
         self.gs_var = tk.StringVar(value="")
         self.gs_enabled_var = tk.BooleanVar(value=True)
 
         # 現在のステップ
         self.current_step = 0
-        self.total_steps = 5
+        self.total_steps = 7
 
         # UIコンポーネント
         self.content_frame = None
@@ -187,8 +192,7 @@ class SetupWizard:
         self.next_button = ttk.Button(
             button_frame,
             text="次へ →",
-            command=self._go_next,
-            style="Accent.TButton"
+            command=self._go_next
         )
         self.next_button.pack(side=tk.RIGHT)
 
@@ -221,8 +225,12 @@ class SetupWizard:
         elif step == 2:
             self._show_folder_settings()
         elif step == 3:
-            self._show_ghostscript_settings()
+            self._show_temp_folder_settings()
         elif step == 4:
+            self._show_excel_settings()
+        elif step == 5:
+            self._show_ghostscript_settings()
+        elif step == 6:
             self._show_complete()
 
         # ボタンの状態更新
@@ -482,8 +490,201 @@ class SetupWizard:
             )
             hint_label.pack(fill=tk.X, padx=20, pady=2)
 
+    def _show_temp_folder_settings(self) -> None:
+        """ステップ3: 一時フォルダ設定"""
+        # タイトル
+        title = tk.Label(
+            self.content_frame,
+            text="一時ファイルの保存先",
+            font=("Yu Gothic UI", 16, "bold"),
+            bg="white"
+        )
+        title.pack(pady=20)
+
+        # 説明
+        desc = tk.Label(
+            self.content_frame,
+            text=(
+                "PDF変換時の一時ファイルを保存するフォルダを指定します。\n"
+                "空欄の場合は、プロジェクトフォルダの「temp_pdfs」を使用します。"
+            ),
+            font=("Yu Gothic UI", 11),
+            bg="white",
+            justify=tk.CENTER
+        )
+        desc.pack(pady=10)
+
+        # フォルダ入力
+        folder_frame = tk.Frame(self.content_frame, bg="white")
+        folder_frame.pack(pady=20)
+
+        folder_label = tk.Label(
+            folder_frame,
+            text="一時フォルダ:",
+            font=("Yu Gothic UI", 11),
+            bg="white",
+            width=12,
+            anchor=tk.W
+        )
+        folder_label.pack(side=tk.LEFT, padx=10)
+
+        folder_entry = ttk.Entry(
+            folder_frame,
+            textvariable=self.local_temp_var,
+            font=("Yu Gothic UI", 10),
+            width=35
+        )
+        folder_entry.pack(side=tk.LEFT, padx=5)
+
+        browse_button = ttk.Button(
+            folder_frame,
+            text="参照...",
+            command=self._browse_temp_folder
+        )
+        browse_button.pack(side=tk.LEFT, padx=5)
+
+        # ヒント
+        hint_frame = tk.Frame(self.content_frame, bg="#FFF3E0", relief=tk.SOLID, borderwidth=1)
+        hint_frame.pack(fill=tk.BOTH, expand=True, pady=20, padx=10)
+
+        hint_title = tk.Label(
+            hint_frame,
+            text="💡 ヒント",
+            font=("Yu Gothic UI", 10, "bold"),
+            bg="#FFF3E0",
+            anchor=tk.W
+        )
+        hint_title.pack(fill=tk.X, padx=10, pady=5)
+
+        hints = [
+            "• スキップすると「temp_pdfs」フォルダが自動作成されます",
+            "• 高速なローカルドライブを推奨",
+            "• ネットワークドライブは避けてください"
+        ]
+
+        for hint in hints:
+            hint_label = tk.Label(
+                hint_frame,
+                text=hint,
+                font=("Yu Gothic UI", 9),
+                bg="#FFF3E0",
+                anchor=tk.W
+            )
+            hint_label.pack(fill=tk.X, padx=20, pady=2)
+
+    def _show_excel_settings(self) -> None:
+        """ステップ4: Excel設定"""
+        # タイトル
+        title = tk.Label(
+            self.content_frame,
+            text="Excel自動転記の設定",
+            font=("Yu Gothic UI", 16, "bold"),
+            bg="white"
+        )
+        title.pack(pady=20)
+
+        # 説明
+        desc = tk.Label(
+            self.content_frame,
+            text=(
+                "Excel自動転記機能を使用する場合は、\n"
+                "参照ファイルと転記先ファイルを指定してください。"
+            ),
+            font=("Yu Gothic UI", 11),
+            bg="white",
+            justify=tk.CENTER
+        )
+        desc.pack(pady=10)
+
+        # 参照ファイル
+        ref_frame = tk.Frame(self.content_frame, bg="white")
+        ref_frame.pack(pady=10)
+
+        ref_label = tk.Label(
+            ref_frame,
+            text="参照ファイル:",
+            font=("Yu Gothic UI", 11),
+            bg="white",
+            width=12,
+            anchor=tk.W
+        )
+        ref_label.pack(side=tk.LEFT, padx=10)
+
+        ref_entry = ttk.Entry(
+            ref_frame,
+            textvariable=self.excel_ref_var,
+            font=("Yu Gothic UI", 10),
+            width=28
+        )
+        ref_entry.pack(side=tk.LEFT, padx=5)
+
+        ref_button = ttk.Button(
+            ref_frame,
+            text="参照...",
+            command=self._browse_excel_ref
+        )
+        ref_button.pack(side=tk.LEFT, padx=5)
+
+        # 転記先ファイル
+        target_frame = tk.Frame(self.content_frame, bg="white")
+        target_frame.pack(pady=10)
+
+        target_label = tk.Label(
+            target_frame,
+            text="転記先ファイル:",
+            font=("Yu Gothic UI", 11),
+            bg="white",
+            width=12,
+            anchor=tk.W
+        )
+        target_label.pack(side=tk.LEFT, padx=10)
+
+        target_entry = ttk.Entry(
+            target_frame,
+            textvariable=self.excel_target_var,
+            font=("Yu Gothic UI", 10),
+            width=28
+        )
+        target_entry.pack(side=tk.LEFT, padx=5)
+
+        target_button = ttk.Button(
+            target_frame,
+            text="参照...",
+            command=self._browse_excel_target
+        )
+        target_button.pack(side=tk.LEFT, padx=5)
+
+        # ヒント
+        hint_frame = tk.Frame(self.content_frame, bg="#E8F5E9", relief=tk.SOLID, borderwidth=1)
+        hint_frame.pack(fill=tk.BOTH, expand=True, pady=20, padx=10)
+
+        hint_title = tk.Label(
+            hint_frame,
+            text="💡 ヒント",
+            font=("Yu Gothic UI", 10, "bold"),
+            bg="#E8F5E9",
+            anchor=tk.W
+        )
+        hint_title.pack(fill=tk.X, padx=10, pady=5)
+
+        hints = [
+            "• Excel自動転記機能を使わない場合はスキップできます",
+            "• 両方のファイルを設定する必要があります",
+            "• 後から変更することもできます"
+        ]
+
+        for hint in hints:
+            hint_label = tk.Label(
+                hint_frame,
+                text=hint,
+                font=("Yu Gothic UI", 9),
+                bg="#E8F5E9",
+                anchor=tk.W
+            )
+            hint_label.pack(fill=tk.X, padx=20, pady=2)
+
     def _show_ghostscript_settings(self) -> None:
-        """ステップ4: Ghostscript設定"""
+        """ステップ5: Ghostscript設定"""
         # タイトル
         title = tk.Label(
             self.content_frame,
@@ -620,6 +821,28 @@ class SetupWizard:
         )
         folder_label.pack(fill=tk.X, padx=20, pady=5)
 
+        # 一時フォルダ
+        temp_text = self.local_temp_var.get() if self.local_temp_var.get() else "（デフォルト: temp_pdfs）"
+        temp_label = tk.Label(
+            summary_frame,
+            text=f"一時フォルダ: {temp_text}",
+            font=("Yu Gothic UI", 10),
+            bg="white",
+            anchor=tk.W
+        )
+        temp_label.pack(fill=tk.X, padx=20, pady=5)
+
+        # Excel設定
+        excel_text = "有効" if self.excel_ref_var.get() and self.excel_target_var.get() else "無効"
+        excel_label = tk.Label(
+            summary_frame,
+            text=f"Excel自動転記: {excel_text}",
+            font=("Yu Gothic UI", 10),
+            bg="white",
+            anchor=tk.W
+        )
+        excel_label.pack(fill=tk.X, padx=20, pady=5)
+
         # Ghostscript
         gs_text = "有効" if self.gs_enabled_var.get() and self.gs_var.get() else "無効"
         gs_label = tk.Label(
@@ -649,8 +872,8 @@ class SetupWizard:
         else:
             self.back_button.config(state=tk.NORMAL)
 
-        # スキップボタン（Ghostscriptステップのみ）
-        if self.current_step == 3:
+        # スキップボタン（一時フォルダ、Excel、Ghostscriptステップで有効）
+        if self.current_step in [3, 4, 5]:
             self.skip_button.config(state=tk.NORMAL)
         else:
             self.skip_button.config(state=tk.DISABLED)
@@ -686,7 +909,14 @@ class SetupWizard:
 
     def _skip_step(self) -> None:
         """現在のステップをスキップ"""
-        if self.current_step == 3:  # Ghostscriptステップ
+        if self.current_step == 3:  # 一時フォルダステップ
+            self.local_temp_var.set("")
+            self._go_next()
+        elif self.current_step == 4:  # Excelステップ
+            self.excel_ref_var.set("")
+            self.excel_target_var.set("")
+            self._go_next()
+        elif self.current_step == 5:  # Ghostscriptステップ
             self.gs_enabled_var.set(False)
             self._go_next()
 
@@ -707,7 +937,11 @@ class SetupWizard:
         Returns:
             検証が成功した場合True
         """
-        if self.current_step == 1:  # 年度設定
+        if self.current_step == 0:  # ようこそ画面
+            # 検証不要、常にTrue
+            return True
+
+        elif self.current_step == 1:  # 年度設定
             year = self.year_var.get().strip()
             year_short = self.year_short_var.get().strip()
 
@@ -753,6 +987,49 @@ class SetupWizard:
                 )
                 return False
 
+        elif self.current_step == 3:  # 一時フォルダ設定
+            folder = self.local_temp_var.get().strip()
+
+            if not folder:
+                # 空でもOK（スキップ可能）
+                return True
+
+            # パスの検証
+            is_valid, error_msg, _ = PathValidator.validate_directory(
+                folder,
+                must_exist=False
+            )
+
+            if not is_valid:
+                messagebox.showerror(
+                    "パスエラー",
+                    f"無効なパスです:\n{error_msg}",
+                    parent=self.window
+                )
+                return False
+
+        elif self.current_step == 4:  # Excel設定
+            ref_file = self.excel_ref_var.get().strip()
+            target_file = self.excel_target_var.get().strip()
+
+            # 両方空の場合はOK（スキップ可能）
+            if not ref_file and not target_file:
+                return True
+
+            # 片方だけ設定されている場合は警告
+            if bool(ref_file) != bool(target_file):
+                result = messagebox.askyesno(
+                    "確認",
+                    "参照ファイルと転記先ファイルは両方設定する必要があります。\n\n"
+                    "このまま続行しますか？（Excel機能は無効になります）",
+                    parent=self.window
+                )
+                if result:
+                    self.excel_ref_var.set("")
+                    self.excel_target_var.set("")
+                    return True
+                return False
+
         return True
 
     def _browse_folder(self) -> None:
@@ -769,6 +1046,53 @@ class SetupWizard:
         if folder:
             self.gdrive_var.set(folder)
             self._update_folder_status()
+
+    def _browse_temp_folder(self) -> None:
+        """一時フォルダ選択ダイアログを表示"""
+        initial_dir = PathValidator.get_safe_initial_dir(self.local_temp_var.get())
+
+        folder = filedialog.askdirectory(
+            parent=self.window,
+            title="一時フォルダを選択",
+            initialdir=str(initial_dir)
+        )
+
+        if folder:
+            self.local_temp_var.set(folder)
+
+    def _browse_excel_ref(self) -> None:
+        """参照Excelファイル選択ダイアログを表示"""
+        initial_dir = PathValidator.get_safe_initial_dir(self.excel_ref_var.get())
+
+        file_path = filedialog.askopenfilename(
+            parent=self.window,
+            title="参照Excelファイルを選択",
+            initialdir=str(initial_dir),
+            filetypes=[
+                ("Excelファイル", "*.xlsx *.xls"),
+                ("すべてのファイル", "*.*")
+            ]
+        )
+
+        if file_path:
+            self.excel_ref_var.set(file_path)
+
+    def _browse_excel_target(self) -> None:
+        """転記先Excelファイル選択ダイアログを表示"""
+        initial_dir = PathValidator.get_safe_initial_dir(self.excel_target_var.get())
+
+        file_path = filedialog.askopenfilename(
+            parent=self.window,
+            title="転記先Excelファイルを選択",
+            initialdir=str(initial_dir),
+            filetypes=[
+                ("Excelファイル", "*.xlsx *.xls"),
+                ("すべてのファイル", "*.*")
+            ]
+        )
+
+        if file_path:
+            self.excel_target_var.set(file_path)
 
     def _update_folder_status(self) -> None:
         """フォルダ状態を更新"""
@@ -830,7 +1154,13 @@ class SetupWizard:
             self.config.set('year', value=self.year_var.get().strip())
             self.config.set('year_short', value=self.year_short_var.get().strip())
             self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get().strip())
+            self.config.set('base_paths', 'local_temp', value=self.local_temp_var.get().strip())
 
+            # Excelファイル設定
+            self.config.set('files', 'excel_reference', value=self.excel_ref_var.get().strip())
+            self.config.set('files', 'excel_target', value=self.excel_target_var.get().strip())
+
+            # Ghostscript設定
             if self.gs_enabled_var.get() and self.gs_var.get():
                 self.config.set('ghostscript', 'executable', value=self.gs_var.get())
             else:
