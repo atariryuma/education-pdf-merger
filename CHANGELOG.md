@@ -2,24 +2,29 @@
 
 ## [3.4.0] - 2026-01-16
 
-### 🎯 主要変更: 初回セットアップエクスペリエンスの実装
+### 🎯 主要変更: 初回セットアップエクスペリエンスの実装とUX最適化
 
-このリリースでは、新規ユーザー向けの初回セットアップウィザードを導入し、設定の自動検出と検証機能を実装しました。アプリケーションがより汎用的になり、学校固有の設定に依存しない形に改善されました。
+このリリースでは、新規ユーザー向けの初回セットアップウィザードを導入し、設定の自動検出と検証機能を実装しました。アプリケーションがより汎用的になり、学校固有の設定に依存しない形に改善されました。さらに、ユーザー入力を最小化するための自動計算機能とフォルダ構造自動判定を実装しました。
 
 #### ✨ 追加 (Added)
 
 1. **初回セットアップウィザード** ([gui/setup_wizard.py](gui/setup_wizard.py))
-   - 5ステップのガイド付きセットアップフロー
+   - **3ステップの簡潔なセットアップフロー**（7ステップから大幅に削減）
    - プログレスバーによる進捗表示
    - リアルタイム入力検証とビジュアルフィードバック
    - ステップ構成:
      1. ようこそ画面（機能紹介）
-     2. 年度設定（自動推定、カスタマイズ可能）
-     3. 作業フォルダ設定（パス検証付き）
-     4. Ghostscript設定（自動検出）
-     5. 完了画面（設定サマリー表示）
+     2. 基本設定（年度 + 作業フォルダ）
+     3. 完了画面（設定サマリー表示）
 
-2. **Ghostscript自動検出** ([ghostscript_detector.py](ghostscript_detector.py))
+2. **年度自動計算システム** ([year_utils.py](year_utils.py)) 🆕
+   - 次年度の年度を自動計算（教育計画は次年度分を作成する前提）
+   - 西暦から和暦短縮形を自動変換（例: 2026 → R8）
+   - 会計年度ロジック（4月～12月 = 翌年度、1月～3月 = 現年度）
+   - リアルタイム動的更新（西暦入力時に和暦が自動表示）
+   - **ユーザー入力を50%削減**（year_full と year_short → year のみ）
+
+3. **Ghostscript自動検出** ([ghostscript_detector.py](ghostscript_detector.py))
    - Windowsレジストリ検索（HKLM/HKCU、GPL/AFPL）
    - 環境変数チェック（GS_DLL、GS_LIB）
    - 標準インストールパスの検索
@@ -27,7 +32,7 @@
    - 最新バージョンの自動選択
    - BioPDF公式ガイドラインに準拠
 
-3. **設定検証システム** ([config_validator.py](config_validator.py))
+4. **設定検証システム** ([config_validator.py](config_validator.py))
    - 3段階の検証レベル:
      - ERROR: 必須項目の欠如（アプリ動作不可）
      - WARNING: 推奨項目の欠如（一部機能制限）
@@ -38,13 +43,40 @@
      - Ghostscriptパス検証
      - Excelファイル設定確認
 
-4. **設定ファイルのテンプレート化** ([config.json](config.json))
+5. **設定ファイルのテンプレート化** ([config.json](config.json))
    - 必須フィールドを空に設定（year、year_short、google_drive）
    - 学校固有の設定を削除
    - オリジナル設定を[config.json.example](config.json.example)として保存
    - 初回起動時にウィザードを自動起動
 
 #### ♻️ リファクタリング (Refactored)
+
+- **gui/setup_wizard.py**:
+  - **7ステップから3ステップへ大幅簡素化**（-466行削除）
+  - 未使用メソッドを完全削除（`_show_year_settings`, `_show_folder_settings`, 他5メソッド）
+  - 動的UIラベル更新（静的text → textvariable）
+  - 和暦表示のリアルタイム更新を実装
+  - docstring整合性の修正（Step 5 → Step 3）
+  - 進捗バー値を動的計算に変更
+
+- **gui/tabs/pdf_tab.py**:
+  - 計画種別の手動選択を削除（ラジオボタン除去）
+  - フォルダ構造自動判定結果の表示に変更
+  - `_update_plan_type_display`で判定結果を可視化
+  - 確信度をアイコンと色で表示
+
+- **gui/tabs/settings_tab.py**:
+  - 和暦ラベルを動的更新に変更（textvariable使用）
+  - `_on_year_changed`コールバックで自動計算
+  - 年度入力UIの簡素化
+
+- **config_loader.py**:
+  - `year_short`を自動計算に変更（設定ファイルの値を無視）
+  - `update_year()`メソッドの引数をオプショナル化
+
+- **config_validator.py**:
+  - `year_short`検証をERROR → INFOレベルに変更
+  - 自動計算フィールドの検証ロジック最適化
 
 - **gui/app.py**:
   - `_check_initial_setup`メソッドを刷新
@@ -57,10 +89,6 @@
   - ウィンドウサイズを最適化（1000x800 → 950x750）
   - 最小サイズを調整（900x700 → 850x650）
   - UI内容に合わせたコンパクト化
-
-- **gui/setup_wizard.py**:
-  - ウィザードウィンドウサイズを調整（600x500 → 650x550）
-  - コンテンツの視認性を向上
 
 #### 🐛 修正 (Fixed)
 
@@ -98,21 +126,31 @@
 
 - **影響を受けたファイル**:
   - 新規作成:
+    - `year_utils.py` (85行) - 年度自動計算ロジック
     - `ghostscript_detector.py` (260行)
     - `config_validator.py` (257行)
-    - `gui/setup_wizard.py` (650+行)
-  - 変更:
+    - `gui/setup_wizard.py` (793行、-466行削減後)
+  - 大幅変更:
+    - `gui/setup_wizard.py`: 7ステップ → 3ステップ、-466行削除
+    - `gui/tabs/pdf_tab.py`: 計画種別ラジオボタン削除、自動判定表示追加
+    - `gui/tabs/settings_tab.py`: 動的和暦更新実装
+    - `config_loader.py`: year_short自動計算
+    - `config_validator.py`: 検証ロジック最適化
+  - 設定ファイル:
     - `config.json`: テンプレート化
-    - `gui/app.py`: セットアップ統合
+    - `config.json.example`: 年度形式変更（令和7年度(2025) → 2025）
+    - `installer/config_template.json`: 年度形式統一
+  - ビルド:
     - `build_installer.spec`: hiddenimports更新
-  - バックアップ:
-    - `config.json.example`: オリジナル設定の保存
 
 - **ユーザーエクスペリエンス向上**:
+  - **入力項目50%削減**: year_full + year_short → year のみ
+  - **計画種別の自動判定**: 手動選択不要
+  - **リアルタイム和暦表示**: 西暦入力時に即座に更新
+  - **会計年度自動判定**: 月に応じて次年度を自動計算
   - 初回起動時の混乱を解消
   - 設定エラーの早期発見
   - Ghostscriptの手動設定不要（ほとんどの場合）
-  - 年度の自動推定（令和年計算）
 
 ---
 

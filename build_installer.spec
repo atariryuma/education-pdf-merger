@@ -41,6 +41,7 @@ hiddenimports = [
     'config_loader',
     'config_validator',  # v3.4.0で追加
     'ghostscript_detector',  # v3.4.0で追加
+    'year_utils',  # v3.4.0で追加
     'constants',
     'exceptions',
     'path_validator',
