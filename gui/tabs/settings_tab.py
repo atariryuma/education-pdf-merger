@@ -140,8 +140,9 @@ class SettingsTab(BaseTab):
 
         tk.Label(year_frame, text="年度（西暦）:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(year_frame, textvariable=self.year_var, width=15).grid(row=0, column=1, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, text=f"→ {self.year_short_var.get()}", font=("メイリオ", 10, "bold"), fg="#1976D2").grid(row=0, column=2, sticky="w", padx=(10, 3), pady=PAD_Y)
-        tk.Label(year_frame, text="💡 和暦は自動計算", font=("メイリオ", 8), fg="gray").grid(row=1, column=1, columnspan=2, sticky="w", padx=3, pady=(0, 5))
+        tk.Label(year_frame, text="→", font=("メイリオ", 10)).grid(row=0, column=2, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, textvariable=self.year_short_var, font=("メイリオ", 10, "bold"), fg="#1976D2").grid(row=0, column=3, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, text="💡 和暦は自動計算", font=("メイリオ", 8), fg="gray").grid(row=1, column=1, columnspan=3, sticky="w", padx=3, pady=(0, 5))
 
         # --- パス設定 ---
         path_frame = tk.LabelFrame(main_container, text="📂 パス設定", font=("メイリオ", 10, "bold"))

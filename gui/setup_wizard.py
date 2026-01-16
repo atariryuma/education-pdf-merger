@@ -142,7 +142,7 @@ class SetupWizard:
 
         self.progress_label = tk.Label(
             progress_frame,
-            text="ステップ 1 / 7",
+            text=f"ステップ 1 / {self.total_steps}",
             font=("Yu Gothic UI", 10),
             bg="white"
         )
@@ -198,7 +198,7 @@ class SetupWizard:
         """指定されたステップを表示
 
         Args:
-            step: ステップ番号（0-4）
+            step: ステップ番号（0-2: ようこそ、基本設定、完了）
         """
         # コンテンツをクリア
         for widget in self.content_frame.winfo_children():
@@ -330,15 +330,18 @@ class SetupWizard:
         )
         year_entry.pack(side=tk.LEFT, padx=5)
 
-        # 和暦は自動計算される旨を表示（読み取り専用）
+        # 和暦は自動計算される旨を表示（読み取り専用・動的更新）
+        arrow_label = tk.Label(year_frame, text="→", font=("Yu Gothic UI", 10), bg="white")
+        arrow_label.pack(side=tk.LEFT, padx=5)
+
         year_short_display_label = tk.Label(
             year_frame,
-            text=f"→ {self.year_short_var.get()}",
+            textvariable=self.year_short_var,
             font=("Yu Gothic UI", 10, "bold"),
             bg="white",
             fg="#1976D2"
         )
-        year_short_display_label.pack(side=tk.LEFT, padx=10)
+        year_short_display_label.pack(side=tk.LEFT, padx=5)
 
         hint_label = tk.Label(
             year_section,
@@ -410,7 +413,7 @@ class SetupWizard:
         self.folder_status_label.pack(padx=15, pady=5)
 
     def _show_complete(self) -> None:
-        """ステップ5: 完了画面"""
+        """ステップ3: 完了画面"""
         # タイトル
         title = tk.Label(
             self.content_frame,
@@ -554,17 +557,10 @@ class SetupWizard:
             self._finish()
 
     def _skip_step(self) -> None:
-        """現在のステップをスキップ"""
-        if self.current_step == 3:  # 一時フォルダステップ
-            self.local_temp_var.set("")
-            self._go_next()
-        elif self.current_step == 4:  # Excelステップ
-            self.excel_ref_var.set("")
-            self.excel_target_var.set("")
-            self._go_next()
-        elif self.current_step == 5:  # Ghostscriptステップ
-            self.gs_enabled_var.set(False)
-            self._go_next()
+        """現在のステップをスキップ（3ステップ版では未使用）"""
+        # 3ステップウィザードではスキップ機能は使用しない
+        # この関数は後方互換性のためのみ保持
+        pass
 
     def _cancel(self) -> None:
         """セットアップをキャンセル"""
@@ -589,23 +585,25 @@ class SetupWizard:
 
         elif self.current_step == 1:  # 基本設定（年度 + フォルダ）
             year = self.year_var.get().strip()
-            year_short = self.year_short_var.get().strip()
 
             if not year:
                 messagebox.showerror(
                     "入力エラー",
-                    "年度を入力してください",
+                    "年度（西暦）を入力してください",
                     parent=self.window
                 )
                 return False
 
-            if not year_short:
+            # 西暦が4桁の数字かチェック
+            if not year.isdigit() or len(year) != 4:
                 messagebox.showerror(
                     "入力エラー",
-                    "年度（短縮形）を入力してください",
+                    "年度は4桁の西暦で入力してください（例: 2026）",
                     parent=self.window
                 )
                 return False
+
+            # year_shortは自動計算されるため検証不要
 
             # フォルダの検証
             folder = self.gdrive_var.get().strip()
@@ -650,52 +648,6 @@ class SetupWizard:
             self.gdrive_var.set(folder)
             self._update_folder_status()
 
-    def _browse_temp_folder(self) -> None:
-        """一時フォルダ選択ダイアログを表示"""
-        initial_dir = PathValidator.get_safe_initial_dir(self.local_temp_var.get())
-
-        folder = filedialog.askdirectory(
-            parent=self.window,
-            title="一時フォルダを選択",
-            initialdir=str(initial_dir)
-        )
-
-        if folder:
-            self.local_temp_var.set(folder)
-
-    def _browse_excel_ref(self) -> None:
-        """参照Excelファイル選択ダイアログを表示"""
-        initial_dir = PathValidator.get_safe_initial_dir(self.excel_ref_var.get())
-
-        file_path = filedialog.askopenfilename(
-            parent=self.window,
-            title="参照Excelファイルを選択",
-            initialdir=str(initial_dir),
-            filetypes=[
-                ("Excelファイル", "*.xlsx *.xls"),
-                ("すべてのファイル", "*.*")
-            ]
-        )
-
-        if file_path:
-            self.excel_ref_var.set(file_path)
-
-    def _browse_excel_target(self) -> None:
-        """転記先Excelファイル選択ダイアログを表示"""
-        initial_dir = PathValidator.get_safe_initial_dir(self.excel_target_var.get())
-
-        file_path = filedialog.askopenfilename(
-            parent=self.window,
-            title="転記先Excelファイルを選択",
-            initialdir=str(initial_dir),
-            filetypes=[
-                ("Excelファイル", "*.xlsx *.xls"),
-                ("すべてのファイル", "*.*")
-            ]
-        )
-
-        if file_path:
-            self.excel_target_var.set(file_path)
 
     def _update_folder_status(self) -> None:
         """フォルダ状態を更新"""
