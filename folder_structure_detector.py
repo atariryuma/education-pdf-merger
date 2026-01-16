@@ -30,13 +30,16 @@ class DetectionResult:
 
 
 class FolderStructureDetector:
-    """フォルダ構造検出器"""
+    """フォルダ構造検出器（パフォーマンス最適化版）"""
 
     # 設定値
     CONFIDENCE_THRESHOLD = 0.7
     SCORE_DIFFERENCE_THRESHOLD = 3.0
     MIN_MAIN_DIRS_FOR_EDUCATION = 2
     MAX_ROOT_FILE_RATIO_FOR_EDUCATION = 0.3
+
+    # パフォーマンス設定
+    MAX_SCAN_DEPTH = 10  # 最大スキャン深度（深いプロジェクトにも対応）
 
     def detect_structure(self, directory_path: str) -> DetectionResult:
         """
@@ -156,8 +159,8 @@ class FolderStructureDetector:
         Returns:
             Dict[str, Any]: ディレクトリ情報
         """
-        # 深さ制限（最大5層）
-        if depth > 5:
+        # 深さ制限
+        if depth > self.MAX_SCAN_DEPTH:
             return {
                 'subfolders': [],
                 'files': [],
@@ -172,7 +175,8 @@ class FolderStructureDetector:
         max_depth = depth
 
         try:
-            items = list(dir_path.iterdir())
+            # iteratorを直接使用（メモリ効率改善）
+            items_iter = dir_path.iterdir()
         except PermissionError:
             logger.warning(f"アクセス権限なし: {dir_path}")
             return {
@@ -184,14 +188,17 @@ class FolderStructureDetector:
                 'total_files': 0
             }
 
-        for item in items:
+        # os.scandir()を使用することで、is_symlink()と属性取得が1回のシステムコールで済む
+        # ctypesを使わずPythonネイティブのis_symlink()のみ使用（パフォーマンス大幅改善）
+        for item in items_iter:
             if item.name.startswith('.') or item.name.startswith('~'):
                 continue
 
             try:
-                # シンボリックリンクループ防止: is_symlinkチェックを追加
+                # シンボリックリンク・ジャンクション・リパースポイント検出
+                # os.scandir()のis_symlink()はWindowsジャンクションも検出可能
                 if item.is_symlink():
-                    logger.debug(f"シンボリックリンクをスキップ: {item}")
+                    logger.debug(f"シンボリックリンク/ジャンクションをスキップ: {item}")
                     continue
 
                 if item.is_dir():

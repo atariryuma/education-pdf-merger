@@ -21,7 +21,9 @@ from gui.ui_constants import (
 )
 from pdf_converter import PDFConverter
 from pdf_processor import PDFProcessor
-from document_collector import DocumentCollector, PDFMergeOrchestrator, CancelledError
+from document_collector import DocumentCollector
+from pdf_merge_orchestrator import PDFMergeOrchestrator
+from exceptions import CancelledError
 from path_validator import PathValidator
 
 # ロガーの設定
@@ -54,14 +56,65 @@ class PDFTab(BaseTab):
         self._create_ui()
         self.add_to_notebook("📄 PDF統合")
 
-        # 入力フィールドの変更を監視
-        self.input_dir_var.trace_add('write', lambda *args: self._validate_inputs())
-        self.output_file_var.trace_add('write', lambda *args: self._validate_inputs())
+        # 検証のデバウンス用タイマー
+        self._validation_timer = None
+
+        # 入力フィールドの変更を監視（デバウンス処理付き）
+        self.input_dir_var.trace_add('write', lambda *args: self._schedule_validation())
+        self.output_file_var.trace_add('write', lambda *args: self._schedule_validation())
+
+        # 設定からデフォルトパスを読み込み
+        self._load_default_paths()
 
     def _create_ui(self) -> None:
         """UIを構築"""
+        # スクロール可能なメインコンテナ
+        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
+        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
+
+        # scrollregionを更新する関数
+        def update_scrollregion(event=None):
+            canvas.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_frame.bind("<Configure>", update_scrollregion)
+
+        # create_windowでウィンドウIDを保存
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Canvasのサイズに合わせてscrollable_frameの幅を調整
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        # マウスホイールでのスクロールを有効化
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+
+        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
+        def bind_mousewheel_recursive(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            for child in widget.winfo_children():
+                bind_mousewheel_recursive(child)
+
+        canvas.bind("<Configure>", on_canvas_configure)
+        canvas.bind("<MouseWheel>", on_mousewheel)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # 後で子ウィジェットにマウスホイールをバインドするための参照を保持
+        self.canvas = canvas
+        self.scrollable_frame = scrollable_frame
+        self.bind_mousewheel_recursive = bind_mousewheel_recursive
+
+        # メインコンテナをスクロール可能フレーム内に配置
+        main_container = scrollable_frame
+
         # 使い方ガイド（初心者向け）
-        guide_frame = tk.LabelFrame(self.tab, text="📖 使い方", font=("メイリオ", 10, "bold"))
+        guide_frame = tk.LabelFrame(main_container, text="📖 使い方", font=("メイリオ", 10, "bold"))
         guide_frame.pack(fill="x", padx=PADDING['xlarge'], pady=(PADDING['large'], PADDING['medium']))
 
         guide_text = (
@@ -82,7 +135,7 @@ class PDFTab(BaseTab):
         guide_label.pack(anchor="w")
 
         # 入力フォームのフレーム
-        form_frame = tk.Frame(self.tab)
+        form_frame = tk.Frame(main_container)
         form_frame.pack(fill="x", padx=20, pady=15)
 
         LABEL_WIDTH = 18
@@ -103,7 +156,11 @@ class PDFTab(BaseTab):
         input_btn_frame = tk.Frame(form_frame)
         input_btn_frame.grid(row=0, column=2, padx=(5, 0), pady=6)
 
-        input_select_btn = tk.Button(input_btn_frame, text="📁", command=self._select_input_dir, width=3)
+        def on_input_select_click():
+            logger.info("入力ディレクトリ参照ボタンがクリックされました")
+            self._select_input_dir()
+
+        input_select_btn = tk.Button(input_btn_frame, text="📁", command=on_input_select_click, width=3)
         input_select_btn.pack(side="left", padx=1)
         create_tooltip(input_select_btn, UITooltips.TIP_FOLDER_BROWSE)
 
@@ -152,7 +209,7 @@ class PDFTab(BaseTab):
         form_frame.columnconfigure(1, weight=1)
 
         # 実行ボタン
-        button_frame = tk.Frame(self.tab)
+        button_frame = tk.Frame(main_container)
         button_frame.pack(pady=15)
 
         self.run_button = create_hover_button(
@@ -180,50 +237,35 @@ class PDFTab(BaseTab):
         self.cancel_button.pack(side="left", padx=5)
 
         # ステータスラベル
-        self.status_label = tk.Label(self.tab, text="", font=("メイリオ", 9), fg="gray")
+        self.status_label = tk.Label(main_container, text="", font=("メイリオ", 9), fg="gray")
         self.status_label.pack()
 
         # プログレスバー
-        self.progress = ttk.Progressbar(self.tab, mode='indeterminate')
+        self.progress = ttk.Progressbar(main_container, mode='indeterminate')
         self.progress.pack(fill="x", padx=20, pady=5)
 
         # ログ表示
-        self.create_log_frame(height=10)
+        self.create_log_frame(height=10, parent=main_container)
         # GUIログハンドラを設定（各モジュールのログをGUIに表示）
         self.setup_gui_logging()
         self.log("準備完了。入力ディレクトリと出力ファイルを選択して実行してください。", "info")
 
+        # scrollregionを明示的に初期化
+        self.scrollable_frame.update_idletasks()
+        update_scrollregion()
+
+        # すべての子ウィジェットにマウスホイールをバインド
+        self.bind_mousewheel_recursive(self.scrollable_frame)
+
     def _select_input_dir(self) -> None:
         """入力ディレクトリを選択（pathlibベース）"""
         try:
-            # initialdirの設定（フリーズ防止のため安全なパスのみ使用）
-            initial_dir = None
-            current_path = self.input_dir_var.get().strip()
+            logger.info("ディレクトリ選択ダイアログを開きます")
 
-            # 現在のパスが有効な場合はそれを使用
-            if current_path:
-                try:
-                    current_dir = Path(current_path)
-                    if current_dir.exists() and current_dir.is_dir():
-                        initial_dir = str(current_dir)
-                        logger.debug(f"現在のパスを使用: {initial_dir}")
-                except Exception as e:
-                    logger.warning(f"現在のパスの検証に失敗: {e}")
+            # tkinterの標準ダイアログを使用（sys.coinit_flagsでフリーズ解決済み）
+            directory = filedialog.askdirectory(title="入力ディレクトリを選択")
 
-            # パスが無効な場合はinitialdirを指定しない（システムデフォルト）
-            if not initial_dir:
-                logger.debug("システムデフォルトのディレクトリから開始")
-
-            # ファイルダイアログを表示
-            if initial_dir:
-                directory = filedialog.askdirectory(
-                    title="入力ディレクトリを選択",
-                    initialdir=initial_dir
-                )
-            else:
-                directory = filedialog.askdirectory(
-                    title="入力ディレクトリを選択"
-                )
+            logger.info(f"ダイアログから戻りました: {directory if directory else 'キャンセル'}")
 
             if directory:
                 # 選択されたパスを検証
@@ -254,43 +296,23 @@ class PDFTab(BaseTab):
     def _select_output_file(self) -> None:
         """出力ファイルを選択（pathlibベース）"""
         try:
-            # initialdirの設定（フリーズ防止のため安全なパスのみ使用）
-            initial_dir = None
-            initial_file = "merged_output.pdf"
-            current_path = self.output_file_var.get().strip()
+            logger.info("出力ファイル選択ダイアログを開きます")
 
-            # 現在のパスが有効な場合はその親ディレクトリを使用
-            if current_path:
-                try:
-                    current_file = Path(current_path)
-                    parent_dir = current_file.parent
-                    if parent_dir.exists() and parent_dir.is_dir():
-                        initial_dir = str(parent_dir)
-                        initial_file = current_file.name
-                        logger.debug(f"現在のパスを使用: dir={initial_dir}, file={initial_file}")
-                except Exception as e:
-                    logger.warning(f"現在のパスの検証に失敗: {e}")
+            # デフォルトの出力先をデスクトップに設定
+            import os
+            desktop_path = Path.home() / "Desktop"
+            initial_dir = str(desktop_path) if desktop_path.exists() else str(Path.home())
 
-            # パスが無効な場合はinitialdirを指定しない（システムデフォルト）
-            if not initial_dir:
-                logger.debug("システムデフォルトのディレクトリから開始")
+            # tkinterの標準ダイアログを使用（sys.coinit_flagsでフリーズ解決済み）
+            file_path = filedialog.asksaveasfilename(
+                title="出力ファイルを選択",
+                initialdir=initial_dir,
+                initialfile="merged_output.pdf",
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+            )
 
-            # ファイルダイアログを表示
-            if initial_dir:
-                file_path = filedialog.asksaveasfilename(
-                    title="出力ファイルを選択",
-                    initialdir=initial_dir,
-                    initialfile=initial_file,
-                    defaultextension=".pdf",
-                    filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-                )
-            else:
-                file_path = filedialog.asksaveasfilename(
-                    title="出力ファイルを選択",
-                    initialfile=initial_file,
-                    defaultextension=".pdf",
-                    filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-                )
+            logger.info(f"ダイアログから戻りました: {file_path if file_path else 'キャンセル'}")
 
             if file_path:
                 # 選択されたパスを検証
@@ -304,6 +326,8 @@ class PDFTab(BaseTab):
                     self.output_file_var.set(str(validated_path))
                     self.update_status(f"出力ファイルを選択: {validated_path.name}")
                     logger.info(f"出力ファイルを選択: {validated_path}")
+                    # 実行ボタンの状態を更新
+                    self._update_run_button_state()
                 else:
                     messagebox.showwarning("検証エラー", error_msg or "不明なエラー")
             else:
@@ -372,13 +396,18 @@ class PDFTab(BaseTab):
 
     def _run_pdf_merge(self) -> None:
         """PDF統合を実行（pathlibベース、2025年ベストプラクティス準拠）"""
+        logger.info("PDF統合実行ボタンがクリックされました")
+
         # 入力値の取得
         input_dir_str = self.input_dir_var.get()
         output_file_str = self.output_file_var.get()
         plan_type = self.plan_type_var.get()
 
+        logger.info(f"入力値: input_dir={input_dir_str}, output_file={output_file_str}, plan_type={plan_type}")
+
         # 空チェック
         if not input_dir_str or not output_file_str:
+            logger.error(f"入力値が空です: input_dir={bool(input_dir_str)}, output_file={bool(output_file_str)}")
             messagebox.showerror("入力エラー", "入力ディレクトリと出力ファイルの両方を指定してください。")
             return
 
@@ -532,7 +561,7 @@ class PDFTab(BaseTab):
 
         def task():
             try:
-                from folder_structure_detector import FolderStructureDetector
+                from folder_structure_detector import FolderStructureDetector, PlanType
 
                 detector = FolderStructureDetector()
                 result = detector.detect_structure(str(directory_path))
@@ -540,7 +569,7 @@ class PDFTab(BaseTab):
                 # UIスレッドで結果を反映
                 def update_ui():
                     try:
-                        if result.plan_type == FolderStructureDetector.PlanType.AMBIGUOUS:
+                        if result.plan_type == PlanType.AMBIGUOUS:
                             # 判定が曖昧な場合はダイアログで確認
                             self._show_plan_type_selection_dialog(result)
                         else:
@@ -571,12 +600,12 @@ class PDFTab(BaseTab):
             directory_path: 判定対象のディレクトリPath
         """
         try:
-            from folder_structure_detector import FolderStructureDetector
+            from folder_structure_detector import FolderStructureDetector, PlanType
 
             detector = FolderStructureDetector()
             result = detector.detect_structure(str(directory_path))
 
-            if result.plan_type == FolderStructureDetector.PlanType.AMBIGUOUS:
+            if result.plan_type == PlanType.AMBIGUOUS:
                 # 判定が曖昧な場合はダイアログで確認
                 self._show_plan_type_selection_dialog(result)
             else:
@@ -634,6 +663,15 @@ class PDFTab(BaseTab):
             entry.config(fg='gray')
             entry.insert(0, placeholder)
 
+    def _schedule_validation(self) -> None:
+        """検証処理をスケジュール（デバウンス処理）"""
+        # 既存のタイマーをキャンセル
+        if self._validation_timer is not None:
+            self.tab.after_cancel(self._validation_timer)
+
+        # 300ms後に検証を実行（ユーザーの入力が落ち着いてから）
+        self._validation_timer = self.tab.after(300, self._validate_inputs)
+
     def _validate_inputs(self) -> None:
         """入力フィールドの検証とビジュアルフィードバック"""
         # 入力ディレクトリの検証
@@ -652,7 +690,7 @@ class PDFTab(BaseTab):
         # 出力ファイルの検証
         output_path = self.output_file_var.get()
         if output_path and output_path != UILabels.PLACEHOLDER_FILE:
-            is_valid, error_msg, validated_path = PathValidator.validate_output_file(output_path, must_exist=False)
+            is_valid, error_msg, validated_path = PathValidator.validate_file_path(output_path, must_exist=False, allowed_extensions=['.pdf'])
             if is_valid:
                 self.output_validation_label.config(text=UIIcons.ICON_SUCCESS, fg=UIColors.VALID)
                 create_tooltip(self.output_validation_label, "出力先のパスが有効です")
@@ -670,16 +708,71 @@ class PDFTab(BaseTab):
         input_path = self.input_dir_var.get()
         output_path = self.output_file_var.get()
 
+        logger.debug(f"実行ボタン状態チェック: input={input_path}, output={output_path}")
+
         # 両方が入力されており、プレースホルダーでない場合のみ有効
         if (input_path and input_path != UILabels.PLACEHOLDER_DIR and
             output_path and output_path != UILabels.PLACEHOLDER_FILE):
             # さらに実際にパスが有効かチェック
-            input_valid, _, _ = PathValidator.validate_directory(input_path, must_exist=True)
-            output_valid, _, _ = PathValidator.validate_output_file(output_path, must_exist=False)
+            input_valid, input_err, _ = PathValidator.validate_directory(input_path, must_exist=True)
+            output_valid, output_err, _ = PathValidator.validate_file_path(output_path, must_exist=False, allowed_extensions=['.pdf'])
+
+            logger.debug(f"パス検証結果: input_valid={input_valid}, output_valid={output_valid}")
+            if not input_valid:
+                logger.debug(f"入力パス検証エラー: {input_err}")
+            if not output_valid:
+                logger.debug(f"出力パス検証エラー: {output_err}")
 
             if input_valid and output_valid:
+                logger.info("実行ボタンを有効化")
                 self.run_button.config(state='normal')
             else:
+                logger.warning(f"実行ボタンを無効化: input_valid={input_valid}, output_valid={output_valid}")
                 self.run_button.config(state='disabled')
         else:
+            logger.warning(f"実行ボタンを無効化: 入力が不十分 (input={bool(input_path)}, output={bool(output_path)})")
             self.run_button.config(state='disabled')
+
+    def _load_default_paths(self) -> None:
+        """設定からデフォルトパスを読み込む"""
+        try:
+            # 設定からGoogle Driveのベースパスを取得
+            base_paths = self.config.get("base_paths") or {}
+            google_drive_base = base_paths.get("google_drive", "")
+
+            # 入力ディレクトリが未設定の場合、Google Driveのベースパスを設定
+            if not self.input_dir_var.get() or self.input_dir_var.get() == UILabels.PLACEHOLDER_DIR:
+                if google_drive_base:
+                    # 教育計画のディレクトリパスを構築
+                    year = self.config.get("year") or self.config.year or ""
+                    year_short = self.config.get("year_short") or self.config.year_short or "R7"
+                    directories = self.config.get("directories") or {}
+                    education_plan_base = directories.get("education_plan_base", "")
+                    education_plan = directories.get("education_plan", "")
+
+                    if education_plan_base and education_plan and year:
+                        # プレースホルダーを実際の値に置換
+                        education_plan_base = education_plan_base.format(year_short=year_short)
+                        education_plan = education_plan.format(year_short=year_short)
+
+                        # フルパスを構築
+                        default_input_path = Path(google_drive_base) / year / education_plan_base / education_plan
+
+                        # パスが存在する場合のみ設定
+                        if default_input_path.exists():
+                            self.input_dir_var.set(str(default_input_path))
+                            logger.info(f"デフォルト入力ディレクトリを設定: {default_input_path}")
+
+            # 出力ファイルが未設定の場合、デスクトップのデフォルトファイル名を設定
+            if not self.output_file_var.get() or self.output_file_var.get() == UILabels.PLACEHOLDER_FILE:
+                desktop_path = Path.home() / "Desktop"
+                output_config = self.config.get("output") or {}
+                default_output_file = output_config.get("merged_pdf", "merged_output.pdf")
+
+                if desktop_path.exists():
+                    default_output_path = desktop_path / default_output_file
+                    self.output_file_var.set(str(default_output_path))
+                    logger.info(f"デフォルト出力ファイルを設定: {default_output_path}")
+
+        except Exception as e:
+            logger.warning(f"デフォルトパスの読み込みに失敗: {e}", exc_info=True)

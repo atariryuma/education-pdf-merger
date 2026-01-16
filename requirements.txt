@@ -1,5 +1,8 @@
 # 教育計画PDFマージシステム - 必要なライブラリ
 
+# Python バージョン要件: 3.9以上
+# （pathlib の is_relative_to() を使用）
+
 # GUI関連
 customtkinter>=5.2.0
 

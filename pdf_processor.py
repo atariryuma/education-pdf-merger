@@ -6,7 +6,8 @@ PDFのマージ、圧縮、ページ番号付加、目次作成などの機能�
 import logging
 import os
 import subprocess
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from contextlib import contextmanager
+from typing import List, Optional, Tuple, TYPE_CHECKING, Generator
 
 import fitz  # PyMuPDF
 from PyPDF2 import PdfMerger
@@ -20,6 +21,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 
 from exceptions import PDFProcessingError
+from constants import PDFConstants
 
 if TYPE_CHECKING:
     from config_loader import ConfigLoader
@@ -31,14 +33,6 @@ logger = logging.getLogger(__name__)
 class PDFProcessor:
     """PDF処理を行うクラス"""
 
-    # ページ番号表示位置の調整値（ポイント単位）
-    PAGE_NUMBER_X_OFFSET = 10  # 中央からの左オフセット
-    PAGE_NUMBER_BOTTOM_MARGIN = 30  # 下端からのマージン
-    PAGE_NUMBER_FONT_SIZE = 12
-
-    # デフォルトページ数（取得失敗時のフォールバック）
-    DEFAULT_PAGE_COUNT = 1
-
     def __init__(self, config: "ConfigLoader") -> None:
         """
         Args:
@@ -46,6 +40,45 @@ class PDFProcessor:
         """
         self.config = config
         self._register_fonts()
+
+    @contextmanager
+    def _atomic_pdf_operation(self, pdf_path: str) -> Generator[str, None, None]:
+        """
+        一時ファイルを使った安全なPDF操作（テンプレートメソッド）
+
+        Args:
+            pdf_path: 操作対象のPDFファイルパス
+
+        Yields:
+            str: 一時ファイルのパス
+
+        Note:
+            処理が成功した場合のみ元ファイルを置換
+            失敗時は一時ファイルを自動削除
+        """
+        tmp_file = pdf_path + PDFConstants.TEMP_FILE_SUFFIX
+        tmp_created = False
+
+        try:
+            yield tmp_file
+            # yieldから正常に戻った = 処理成功
+            tmp_created = True
+            os.replace(tmp_file, pdf_path)
+            tmp_created = False  # replaceで消えたのでクリーンアップ不要
+            logger.debug(f"PDF操作完了: {pdf_path}")
+        except Exception:
+            # 例外は再送出（呼び出し側で処理）
+            raise
+        finally:
+            # エラー時のクリーンアップ（TOCTOU回避）
+            if tmp_created:
+                try:
+                    os.remove(tmp_file)
+                    logger.debug(f"一時ファイルを削除: {tmp_file}")
+                except FileNotFoundError:
+                    pass  # 既に削除済み
+                except OSError as e:
+                    logger.warning(f"一時ファイル削除失敗: {tmp_file}, エラー: {e}")
 
     def _register_fonts(self) -> None:
         """フォントを登録"""
@@ -76,42 +109,35 @@ class PDFProcessor:
 
     def compress_pdf(self, pdf_path: str) -> None:
         """
-        GhostscriptでPDFを圧縮
+        GhostscriptでPDFを圧縮.
 
         Args:
             pdf_path: 圧縮対象のPDFパス
         """
-        tmp_file = pdf_path + ".tmp"
         try:
-            gs_executable = self.config.get('ghostscript', 'executable')
+            with self._atomic_pdf_operation(pdf_path) as tmp_file:
+                gs_executable = self.config.get('ghostscript', 'executable')
 
-            gs_command = [
-                gs_executable,
-                "-sDEVICE=pdfwrite",
-                "-dCompatibilityLevel=1.4",
-                "-dPDFSETTINGS=/ebook",
-                "-dNOPAUSE",
-                "-dQUIET",
-                "-dBATCH",
-                f"-sOutputFile={tmp_file}",
-                pdf_path
-            ]
+                gs_command = [
+                    gs_executable,
+                    "-sDEVICE=pdfwrite",
+                    f"-dCompatibilityLevel={PDFConstants.GS_COMPATIBILITY_LEVEL}",
+                    f"-dPDFSETTINGS={PDFConstants.GS_PDF_SETTINGS}",
+                    "-dNOPAUSE",
+                    "-dQUIET",
+                    "-dBATCH",
+                    f"-sOutputFile={tmp_file}",
+                    pdf_path
+                ]
 
-            subprocess.run(gs_command, check=True, timeout=120)
-            os.replace(tmp_file, pdf_path)
-            logger.info(f"Ghostscriptを使用してPDFを圧縮しました: {pdf_path}")
+                subprocess.run(gs_command, check=True, timeout=PDFConstants.GS_TIMEOUT_SECONDS)
+                logger.info(f"Ghostscriptを使用してPDFを圧縮しました: {pdf_path}")
         except subprocess.TimeoutExpired:
             logger.error(f"Ghostscriptがタイムアウトしました: {pdf_path}")
         except subprocess.CalledProcessError as e:
             logger.error(f"Ghostscript実行エラー ({pdf_path}): {e}")
         except Exception as e:
             logger.error(f"PDF圧縮エラー ({pdf_path}): {e}")
-        finally:
-            if os.path.exists(tmp_file):
-                try:
-                    os.remove(tmp_file)
-                except OSError:
-                    pass
 
     def get_page_count(self, pdf_path: str) -> int:
         """
@@ -137,9 +163,13 @@ class PDFProcessor:
                 return page_count
         except Exception as e:
             logger.error(f"ページ数の取得に失敗しました: {pdf_path} - {e}")
-            raise PDFProcessingError("ページ数取得", f"PDFファイルの読み込みに失敗: {pdf_path}", e)
+            raise PDFProcessingError(
+                f"PDFファイルの読み込みに失敗: {pdf_path}",
+                operation="ページ数取得",
+                original_error=e
+            ) from e
 
-    def add_page_numbers(self, pdf_file: str, exclude_first_pages: int = 1) -> None:
+    def add_page_numbers(self, pdf_file: str, exclude_first_pages: int = PDFConstants.COVER_PAGE_COUNT) -> None:
         """
         PDFにページ番号を追加
 
@@ -147,9 +177,7 @@ class PDFProcessor:
             pdf_file: PDFファイルパス
             exclude_first_pages: ページ番号を表示しない先頭ページ数
         """
-        tmp_file = pdf_file + ".tmp"
-        tmp_created = False
-        try:
+        with self._atomic_pdf_operation(pdf_file) as tmp_file:
             with fitz.open(pdf_file) as doc:
                 total_pages = doc.page_count
 
@@ -163,33 +191,19 @@ class PDFProcessor:
                     rect = page.rect
                     # ページ中央下部に配置
                     point = fitz.Point(
-                        rect.width / 2 - self.PAGE_NUMBER_X_OFFSET,
-                        rect.height - self.PAGE_NUMBER_BOTTOM_MARGIN
+                        rect.width / 2 - PDFConstants.PAGE_NUMBER_X_OFFSET,
+                        rect.height - PDFConstants.PAGE_NUMBER_BOTTOM_MARGIN
                     )
                     page.insert_text(
                         point, number_text,
-                        fontsize=self.PAGE_NUMBER_FONT_SIZE,
-                        fontname="helv",
+                        fontsize=PDFConstants.PAGE_NUMBER_FONT_SIZE,
+                        fontname=PDFConstants.PAGE_NUMBER_FONT_NAME,
                         color=(0, 0, 0)
                     )
 
                 doc.save(tmp_file)
-                tmp_created = True  # 一時ファイル作成成功をマーク
 
-            os.replace(tmp_file, pdf_file)
-            tmp_created = False  # replaceでtmp_fileは消えるのでクリーンアップ不要
             logger.info(f"ページ番号を追加しました: {pdf_file} (先頭{exclude_first_pages}ページはスキップ)")
-        except Exception:
-            raise
-        finally:
-            # エラー時は一時ファイルをクリーンアップ（TOCTOU回避 - exists不使用）
-            if tmp_created:
-                try:
-                    os.remove(tmp_file)
-                except FileNotFoundError:
-                    pass  # 既に削除済み
-                except OSError as e:
-                    logger.warning(f"一時ファイル削除失敗: {tmp_file}, エラー: {e}")
 
     def set_pdf_outlines(self, pdf_file: str, toc_entries: List[Tuple[str, int, int]]) -> None:
         """
@@ -199,9 +213,7 @@ class PDFProcessor:
             pdf_file: PDFファイルパス
             toc_entries: 目次エントリのリスト [(title, level, page), ...]
         """
-        tmp_file = pdf_file + ".tmp"
-        tmp_created = False
-        try:
+        with self._atomic_pdf_operation(pdf_file) as tmp_file:
             with fitz.open(pdf_file) as doc:
                 page_count = doc.page_count
 
@@ -215,8 +227,8 @@ class PDFProcessor:
                     corrected_outlines.append([level, title, page])
 
                 # PyMuPDFの制約：最初の項目は必ずレベル1
-                if corrected_outlines and corrected_outlines[0][0] != 1:
-                    corrected_outlines[0][0] = 1
+                if corrected_outlines and corrected_outlines[0][0] != PDFConstants.HEADING_LEVEL_MAIN:
+                    corrected_outlines[0][0] = PDFConstants.HEADING_LEVEL_MAIN
 
                 logger.debug(f"PDFアウトラインを設定: {corrected_outlines}")
 
@@ -226,22 +238,8 @@ class PDFProcessor:
                     logger.error(f"PDFアウトラインの設定に失敗しました: {e}")
 
                 doc.save(tmp_file, incremental=False)
-                tmp_created = True  # 一時ファイル作成成功をマーク
 
-            os.replace(tmp_file, pdf_file)
-            tmp_created = False  # replaceでtmp_fileは消えるのでクリーンアップ不要
             logger.info("PDFアウトライン（しおり）を設定しました")
-        except Exception:
-            raise
-        finally:
-            # エラー時は一時ファイルをクリーンアップ（TOCTOU回避 - exists不使用）
-            if tmp_created:
-                try:
-                    os.remove(tmp_file)
-                except FileNotFoundError:
-                    pass  # 既に削除済み
-                except OSError as e:
-                    logger.warning(f"一時ファイル削除失敗: {tmp_file}, エラー: {e}")
 
     def create_toc_pdf(self, toc_entries: List[Tuple[str, int, int]], output_path: str) -> str:
         """
@@ -363,4 +361,8 @@ class PDFProcessor:
 
         except Exception as e:
             logger.error(f"PDF分割エラー ({pdf_path}): {e}")
-            raise PDFProcessingError("分割", f"PDFの分割に失敗: {pdf_path}", e)
+            raise PDFProcessingError(
+                f"PDFの分割に失敗: {pdf_path}",
+                operation="分割",
+                original_error=e
+            ) from e

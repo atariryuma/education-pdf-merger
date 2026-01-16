@@ -74,9 +74,10 @@ temp_pdfs/
 nul
 
 # Build artifacts
-build_exe/
 *.exe
-!installer/dist/*.exe
+!dist/installer/*.exe
+# Keep only the installer build spec
+!build_installer.spec
 
 # Temporary files
 *.tmp
@@ -84,6 +85,20 @@ build_exe/
 *.orig
 test_*.py
 *_DIAGRAM.txt
-*_REPORT.md
 *_FIX_*.txt
 *_FIX_*.md
+*_FIX_*.py
+CRITICAL_FIXES.py
+
+# Code review files (keep only final ones)
+CODE_REVIEW_*.md
+CODE_IMPROVEMENTS_*.md
+*_POINT_*.md
+FINAL_*_REPORT.md
+CODE_QUALITY_*_REPORT.md
+!BRUTAL_CODE_REVIEW.md
+!SEVERE_CODE_REVIEW.md
+
+# User settings (keep template, ignore user-specific backups)
+*.backup
+.last_settings.json

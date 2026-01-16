@@ -1,16 +1,26 @@
 """
 設定ファイル読み込みモジュール
+
+このモジュールは、JSON形式の設定ファイルを読み込み、
+アプリケーション全体で使用する設定情報を提供します。
+デフォルト設定とユーザー設定をマージし、一元管理します。
 """
+import copy
+import json
 import logging
 import os
 import sys
-import json
-from typing import Any, Dict, Optional, Union
+import time
+from pathlib import Path
+from typing import Any, Dict, Optional, Union, TypeVar, cast
 
 from exceptions import ConfigurationError
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
+
+# 型変数定義
+T = TypeVar('T')
 
 
 class ConfigLoader:
@@ -41,8 +51,7 @@ class ConfigLoader:
         # ユーザー設定ファイルのパス（AppData内、読み書き可能）
         appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
         user_config_dir = os.path.join(appdata, 'PDFMergeSystem')
-        if not os.path.exists(user_config_dir):
-            os.makedirs(user_config_dir)
+        os.makedirs(user_config_dir, exist_ok=True)
         self.user_config_path = os.path.join(user_config_dir, 'user_config.json')
 
         self.config: Dict[str, Any] = self._load_config()
@@ -63,18 +72,20 @@ class ConfigLoader:
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-        except FileNotFoundError:
+        except FileNotFoundError as e:
             logger.error(f"設定ファイルが見つかりません: {self.config_path}")
             raise ConfigurationError(
                 f"設定ファイルが見つかりません: {self.config_path}",
-                config_key="config_path"
-            )
+                config_key="config_path",
+                original_error=e
+            ) from e
         except json.JSONDecodeError as e:
             logger.error(f"設定ファイルのJSON形式が不正です: {e}")
             raise ConfigurationError(
-                f"設定ファイルのJSON形式が不正です: {e}",
-                config_key="json_format"
-            )
+                f"設定ファイルのJSON形式が不正です",
+                config_key="json_format",
+                original_error=e
+            ) from e
 
         # ユーザー設定を読み込んでマージ
         if os.path.exists(self.user_config_path):
@@ -84,8 +95,12 @@ class ConfigLoader:
                 # ディープマージ
                 self._deep_merge(config, user_config)
                 logger.info(f"ユーザー設定を読み込みました: {self.user_config_path}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"ユーザー設定のJSON形式が不正です: {e}")
+            except (OSError, PermissionError) as e:
+                logger.warning(f"ユーザー設定ファイルの読み込みに失敗しました: {e}")
             except Exception as e:
-                logger.warning(f"ユーザー設定の読み込みに失敗しました: {e}")
+                logger.warning(f"ユーザー設定の読み込み中に予期しないエラー: {e}")
 
         return config
 
@@ -101,9 +116,9 @@ class ConfigLoader:
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 self._deep_merge(base[key], value)
             else:
-                base[key] = value
+                base[key] = copy.deepcopy(value)
 
-    def build_path(self, *parts: Union[str, Any]) -> str:
+    def build_path(self, *parts: str) -> str:
         """
         設定値のプレースホルダーを置換してパスを構築
 
@@ -120,7 +135,7 @@ class ConfigLoader:
             result.append(part)
         return os.path.join(*result)
 
-    def get(self, *keys: str, default: Any = None) -> Any:
+    def get(self, *keys: str, default: Optional[T] = None) -> Union[Any, T]:
         """
         ネストされた設定値を取得
 
@@ -129,7 +144,15 @@ class ConfigLoader:
             default: デフォルト値
 
         Returns:
-            設定値
+            設定値（存在しない場合はdefault）
+
+        Examples:
+            >>> config.get('year')
+            '令和８年度(2026)'
+            >>> config.get('base_paths', 'google_drive')
+            'G:\\マイドライブ'
+            >>> config.get('nonexistent', default='fallback')
+            'fallback'
         """
         value: Any = self.config
         for key in keys:
@@ -139,7 +162,7 @@ class ConfigLoader:
                 return default
         return value
 
-    def get_path(self, *path_keys: Union[str, Any], validate: bool = False) -> str:
+    def get_path(self, *path_keys: str, validate: bool = False) -> str:
         """
         設定からパスを取得し、プレースホルダーを置換
 
@@ -173,8 +196,8 @@ class ConfigLoader:
 
     def get_education_plan_path(self) -> str:
         """教育計画のディレクトリパスを取得"""
-        # Google Driveまたはネットワークパスを取得（どちらか設定されている方を使用）
-        base_path = self.get('base_paths', 'google_drive') or self.get('base_paths', 'network')
+        # Google Driveパスを取得
+        base_path = self.get('base_paths', 'google_drive')
         if not base_path:
             return ""
 
@@ -187,8 +210,8 @@ class ConfigLoader:
 
     def get_event_plan_path(self) -> str:
         """行事計画のディレクトリパスを取得"""
-        # Google Driveまたはネットワークパスを取得
-        base_path = self.get('base_paths', 'google_drive') or self.get('base_paths', 'network')
+        # Google Driveパスを取得
+        base_path = self.get('base_paths', 'google_drive')
         if not base_path:
             return ""
 
@@ -248,7 +271,6 @@ class ConfigLoader:
             temp_dir: 一時ディレクトリのパス
             max_age_hours: 削除対象とするファイルの経過時間（時間）
         """
-        import time
         current_time = time.time()
         max_age_seconds = max_age_hours * 3600
 
@@ -284,16 +306,23 @@ class ConfigLoader:
             current = current[key]
         current[keys[-1]] = value
 
-    def save_config(self) -> bool:
-        """設定をユーザー設定ファイルに保存"""
+    def save_config(self) -> None:
+        """
+        設定をユーザー設定ファイルに保存
+
+        Raises:
+            ConfigurationError: 保存に失敗した場合
+        """
         try:
             with open(self.user_config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
             logger.info(f"ユーザー設定を保存しました: {self.user_config_path}")
-            return True
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             logger.error(f"ユーザー設定の保存に失敗しました: {e}")
-            return False
+            raise ConfigurationError(
+                f"設定ファイルの保存に失敗しました: {self.user_config_path}",
+                config_key="save_config"
+            ) from e
 
     def update_year(self, year: str, year_short: str) -> None:
         """

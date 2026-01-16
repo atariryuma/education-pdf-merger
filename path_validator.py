@@ -2,13 +2,47 @@
 パス検証ユーティリティ
 
 ファイルパスとディレクトリパスの検証を提供
-2025年ベストプラクティスに準拠（pathlibベース）
+2025年ベストプラクティスに準拠（pathlibベース、Python 3.8+互換）
 """
 import logging
+import re
+import sys
+import unicodedata
 from pathlib import Path
 from typing import Tuple, Optional
 
+from constants import PathConstants
+
 logger = logging.getLogger(__name__)
+
+# モジュールレベルでバージョン判定（起動時に1回だけ実行）
+HAS_IS_RELATIVE_TO = sys.version_info >= (3, 9)
+
+
+def _check_path_security(path: Path, base_resolved: Path) -> bool:
+    """
+    パスが基準ディレクトリ配下にあるかチェック.
+
+    Args:
+        path: チェック対象のパス
+        base_resolved: 基準ディレクトリ（解決済み）
+
+    Returns:
+        bool: 基準ディレクトリ配下なら True
+
+    Note:
+        Python 3.9+ では is_relative_to() を使用、
+        Python 3.8 では relative_to() でフォールバック
+    """
+    if HAS_IS_RELATIVE_TO:
+        return path.is_relative_to(base_resolved)
+    else:
+        # Python 3.8 互換のフォールバック
+        try:
+            path.relative_to(base_resolved)
+            return True
+        except ValueError:
+            return False
 
 
 class PathValidationError(Exception):
@@ -23,6 +57,13 @@ class PathValidator:
     pathlibを使用したモダンなパス検証を提供
     セキュリティ（ディレクトリトラバーサル対策）を含む
     """
+
+    # Windows予約名
+    WINDOWS_RESERVED_NAMES = (
+        'CON', 'PRN', 'AUX', 'NUL',
+        'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+        'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+    )
 
     @staticmethod
     def normalize_path(path_str: str) -> Path:
@@ -82,17 +123,9 @@ class PathValidator:
 
             # セキュリティチェック: ディレクトリトラバーサル対策
             if base_dir is not None:
-                try:
-                    base_resolved = base_dir.resolve()
-                    # Python 3.9+のis_relative_toを使用
-                    if not path.is_relative_to(base_resolved):
-                        return False, f"許可されていないディレクトリです: {path}", None
-                except (ValueError, AttributeError):
-                    # Python 3.8以前の互換性対応
-                    try:
-                        path.relative_to(base_resolved)
-                    except ValueError:
-                        return False, f"許可されていないディレクトリです: {path}", None
+                base_resolved = base_dir.resolve()
+                if not _check_path_security(path, base_resolved):
+                    return False, f"許可されていないディレクトリです: {path}", None
 
             # 存在チェック
             if must_exist:
@@ -191,8 +224,9 @@ class PathValidator:
                 # ファイルの場合は親ディレクトリ
                 if path.parent.exists():
                     return path.parent
-        except:
-            pass
+        except (OSError, ValueError) as e:
+            logger.debug(f"パス正規化失敗: {e}")
+            # フォールバックへ
 
         # フォールバック
         if fallback and fallback.exists():
@@ -206,7 +240,7 @@ class PathValidator:
         filename: str,
         replacement: str = '_',
         max_length: int = 255,
-        default_name: str = 'file'
+        default_name: str = PathConstants.DEFAULT_FILENAME
     ) -> str:
         """
         ファイル名を安全にサニタイズ（セキュリティベストプラクティス準拠）
@@ -227,9 +261,6 @@ class PathValidator:
         Returns:
             サニタイズされたファイル名
         """
-        import unicodedata
-        import re
-
         if not filename or not filename.strip():
             return default_name
 
@@ -258,14 +289,9 @@ class PathValidator:
         if not cleaned:
             return default_name
 
-        # Windows予約名チェック（CON, PRN, AUX, NUL, COM1-9, LPT1-9）
-        reserved_names = {
-            'CON', 'PRN', 'AUX', 'NUL',
-            'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
-            'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
-        }
+        # Windows予約名チェック（クラス変数を使用）
         name_without_ext = Path(cleaned).stem.upper()
-        if name_without_ext in reserved_names:
+        if name_without_ext in PathValidator.WINDOWS_RESERVED_NAMES:
             cleaned = f"{replacement}{cleaned}"
 
         # 長さ制限（バイト数ではなく文字数）

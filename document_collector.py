@@ -11,22 +11,15 @@ from config_loader import ConfigLoader
 from pdf_converter import PDFConverter
 from pdf_processor import PDFProcessor
 from exceptions import PDFProcessingError, CancelledError
+from constants import PDFConstants
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
-# マジックナンバーの定数化
-COVER_PAGE_COUNT = 1  # 表紙のページ数
-TOC_PAGE_COUNT = 1    # 目次のページ数
-INITIAL_CONTENT_PAGE = COVER_PAGE_COUNT + TOC_PAGE_COUNT + 1  # 最初のコンテンツページ番号
-
 
 class DocumentCollector:
     """ディレクトリを探索してドキュメントを収集し、目次を生成するクラス"""
-
-    # 目次見出しレベル
-    HEADING_LEVEL_MAIN = 1
-    HEADING_LEVEL_SUB = 2
+    pass  # 定数はPDFConstantsから参照
 
     def __init__(
         self,
@@ -101,11 +94,11 @@ class DocumentCollector:
             sep_pdf = self.converter.create_separator_page(sub_heading)
             if sep_pdf:
                 content_pdfs.append(sep_pdf)
-                toc_entries.append((sub_heading, self.HEADING_LEVEL_SUB, current_page))
+                toc_entries.append((sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page))
                 current_page += 1
         else:
             # 区切りページなしで目次にのみ登録
-            toc_entries.append((sub_heading, self.HEADING_LEVEL_SUB, current_page))
+            toc_entries.append((sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page))
 
         # サブフォルダ内のファイルを処理（ディレクトリは除外）
         all_items = sorted(os.listdir(subfolder_path))
@@ -136,7 +129,7 @@ class DocumentCollector:
         sep_pdf = self.converter.create_separator_page(heading)
         if sep_pdf:
             content_pdfs.append(sep_pdf)
-            toc_entries.append((heading_for_toc, self.HEADING_LEVEL_MAIN, current_page))
+            toc_entries.append((heading_for_toc, PDFConstants.HEADING_LEVEL_MAIN, current_page))
             current_page += 1
 
         # サブディレクトリの処理
@@ -158,7 +151,7 @@ class DocumentCollector:
                 if converted_pdf:
                     page_count = self.processor.get_page_count(converted_pdf)
                     content_pdfs.append(converted_pdf)
-                    toc_entries.append((name, self.HEADING_LEVEL_SUB, current_page))
+                    toc_entries.append((name, PDFConstants.HEADING_LEVEL_SUB, current_page))
                     logger.info(f"変換成功: {subitem} ({page_count}ページ)")
                     current_page += page_count
 
@@ -177,7 +170,7 @@ class DocumentCollector:
         converted_pdf = self.converter.convert(file_path)
         if converted_pdf:
             content_pdfs.append(converted_pdf)
-            toc_entries.append((name, self.HEADING_LEVEL_SUB, current_page))
+            toc_entries.append((name, PDFConstants.HEADING_LEVEL_SUB, current_page))
             current_page += self.processor.get_page_count(converted_pdf)
         return current_page
 
@@ -198,7 +191,7 @@ class DocumentCollector:
         """
         toc_entries: List[Tuple[str, int, int]] = []
         content_pdfs: List[str] = []
-        current_page = INITIAL_CONTENT_PAGE
+        current_page = PDFConstants.CONTENT_START_PAGE
 
         items = sorted(os.listdir(target_dir))
         total_items = len(items)
@@ -232,100 +225,3 @@ class DocumentCollector:
 
         logger.info(f"ドキュメント収集完了: {len(content_pdfs)}ファイル, {len(toc_entries)}目次エントリ")
         return toc_entries, content_pdfs
-
-
-class PDFMergeOrchestrator:
-    """PDF結合のオーケストレーター（全体の流れを制御）"""
-
-    def __init__(
-        self,
-        config: ConfigLoader,
-        pdf_converter: PDFConverter,
-        pdf_processor: PDFProcessor,
-        document_collector: DocumentCollector,
-        cancel_check: Optional[Callable[[], bool]] = None
-    ) -> None:
-        """
-        Args:
-            config: ConfigLoaderインスタンス
-            pdf_converter: PDFConverterインスタンス
-            pdf_processor: PDFProcessorインスタンス
-            document_collector: DocumentCollectorインスタンス
-            cancel_check: キャンセル状態をチェックするコールバック関数
-        """
-        self.config = config
-        self.converter = pdf_converter
-        self.processor = pdf_processor
-        self.collector = document_collector
-        self.temp_dir = config.get_temp_dir()
-        self._cancel_check = cancel_check or (lambda: False)
-
-    def is_cancelled(self) -> bool:
-        """キャンセルされたかどうかを確認"""
-        return self._cancel_check()
-
-    def _check_cancel(self) -> None:
-        """キャンセルされていれば例外を投げる"""
-        if self.is_cancelled():
-            raise CancelledError("処理がキャンセルされました")
-
-    def create_merged_pdf(
-        self,
-        target_dir: str,
-        output_pdf: str,
-        create_separator_for_subfolder: bool = True
-    ) -> None:
-        """
-        ディレクトリ内のドキュメントを統合したPDFを作成
-
-        Args:
-            target_dir: 処理対象のディレクトリ
-            output_pdf: 出力PDFのパス
-            create_separator_for_subfolder: サブフォルダに区切りページを作成するか
-        """
-        logger.info(f"PDFマージ処理を開始: {target_dir}")
-        logger.info(f"出力先: {output_pdf}")
-
-        # 1. ドキュメント収集とPDF変換
-        logger.info("[Step 1/6] ドキュメントを収集・変換中...")
-        toc_entries, content_pdfs = self.collector.collect_documents(
-            target_dir,
-            create_separator_for_subfolder
-        )
-        self._check_cancel()
-
-        # 2. 一時的にマージ
-        logger.info("[Step 2/6] 一時マージPDFを作成中...")
-        temp_merged = os.path.join(self.temp_dir, "temp_merged.pdf")
-        self.processor.merge_pdfs(content_pdfs, temp_merged)
-        self._check_cancel()
-
-        # 3. 目次PDFを生成
-        logger.info("[Step 3/6] 目次を作成中...")
-        toc_pdf = os.path.join(self.temp_dir, "toc.pdf")
-        self.processor.create_toc_pdf(toc_entries, toc_pdf)
-        self._check_cancel()
-
-        # 4. 表紙と残りのページに分割
-        logger.info("[Step 4/6] 表紙とコンテンツを分割中...")
-        cover_pdf, remainder_pdf = self.processor.split_pdf(temp_merged, self.temp_dir)
-        self._check_cancel()
-
-        # 5. 最終的にマージ（表紙 + 目次 + 残り）
-        logger.info("[Step 5/6] 最終PDFをマージ中...")
-        final_list = [cover_pdf, toc_pdf, remainder_pdf]
-        self.processor.merge_pdfs(final_list, output_pdf)
-        self._check_cancel()
-
-        # 6. ページ番号を追加（先頭ページは除外）
-        logger.info("[Step 6/6] ページ番号としおりを追加中...")
-        self.processor.add_page_numbers(output_pdf, exclude_first_pages=COVER_PAGE_COUNT)
-        self._check_cancel()
-
-        # 7. PDFアウトライン（しおり）を設定
-        self.processor.set_pdf_outlines(output_pdf, toc_entries)
-
-        total_pages = self.processor.get_page_count(output_pdf)
-        logger.info(f"PDFの作成が完了しました: {output_pdf}")
-        logger.info(f"  目次エントリ数: {len(toc_entries)}")
-        logger.info(f"  総ページ数: {total_pages}")

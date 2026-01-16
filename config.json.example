@@ -1,16 +1,15 @@
 {
-  "_comment": "教育計画PDFマージシステム - 設定ファイル（初回起動時にセットアップウィザードが表示されます）",
-  "year": "",
-  "year_short": "",
+  "year": "令和７年度(2025)",
+  "year_short": "R7",
   "base_paths": {
-    "google_drive": "",
+    "google_drive": "G:\\マイドライブ\\ドキュメント",
     "local_temp": ""
   },
   "fonts": {
     "mincho": "C:\\Windows\\Fonts\\msmincho.ttc"
   },
   "ghostscript": {
-    "executable": ""
+    "executable": "C:\\Program Files\\gs\\gs10.05.0\\bin\\gswin64c.exe"
   },
   "directories": {
     "education_plan_base": "00 {year_short}教育計画・教科年計",
@@ -20,8 +19,8 @@
   },
   "files": {
     "separator_template": "Separator.docx",
-    "excel_reference": "",
-    "excel_target": "",
+    "excel_reference": "【R7天久小】Excel小学校年間行事計画（編集用）.xlsx",
+    "excel_target": "04-05　天久小学校　様式4の2～4の3（小）.xls",
     "excel_reference_sheet": "メインデータ",
     "excel_target_sheet": "様式４の３ (小)"
   },

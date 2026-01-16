@@ -312,15 +312,17 @@ def open_file_or_folder(path: str, on_error: Optional[Callable[[str], None]] = N
         return False
 
     try:
+        import os
         path_obj = Path(path)
 
-        # パスの正規化（セキュリティ対策: シンボリックリンク攻撃防止）
+        # パスの正規化（フリーズ防止: resolve()を使わない）
+        # absolute()のみ使用（シンボリックリンクは解決しない）
         try:
-            path_obj = path_obj.resolve(strict=True)
-        except (OSError, RuntimeError) as e:
+            path_obj = path_obj.absolute()
+        except (OSError, ValueError) as e:
             if on_error:
-                on_error(f"指定されたパスが存在しません:\n{path}")
-            logger.warning(f"パス解決失敗: {path}, エラー: {e}")
+                on_error(f"無効なパス形式です:\n{path}")
+            logger.warning(f"パス正規化失敗: {path}, エラー: {e}")
             return False
 
         # 絶対パス検証
@@ -340,11 +342,15 @@ def open_file_or_folder(path: str, on_error: Optional[Callable[[str], None]] = N
             logger.error(f"無効な文字を含むパス: {repr(path_str)}")
             return False
 
-        # 注: パストラバーサルチェックは不要
-        # resolve(strict=True)で正規化済みのため、../ などは既に解決されている
+        # 存在チェック（os.path経由で高速化・フリーズ防止）
+        if not os.path.exists(path_str):
+            if on_error:
+                on_error(f"指定されたパスが存在しません:\n{path}")
+            logger.warning(f"パスが存在しません: {path_str}")
+            return False
 
-        # ファイル/フォルダを開く
-        if path_obj.is_dir():
+        # ファイル/フォルダを開く（os.path経由でチェック）
+        if os.path.isdir(path_str):
             # フォルダの場合: エクスプローラーで開く
             # subprocess.runを使用してプロセス管理を簡潔に（リソースリーク防止）
             try:
@@ -363,7 +369,6 @@ def open_file_or_folder(path: str, on_error: Optional[Callable[[str], None]] = N
                 logger.debug(f"エクスプローラー起動（タイムアウト）: {path_str}")
         else:
             # ファイルの場合: os.startfileを使用（最もシンプルで確実）
-            import os
             os.startfile(path_str)
             logger.debug(f"ファイルを開きました: {path_str}")
 

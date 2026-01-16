@@ -61,18 +61,11 @@ class BaseTab:
         """タブをNotebookに追加"""
         self.notebook.add(self.tab, text=text)
 
-    def log(self, message: str, msg_type: str = "normal") -> None:
-        """ログメッセージを出力"""
-        if self.log_widget:
-            log_message(self.log_widget, message, msg_type)
-
-    def update_status(self, message: str) -> None:
-        """ステータスバーを更新"""
-        update_status(self.status_bar, message)
-
-    def create_log_frame(self, height: int = 10) -> None:
+    def create_log_frame(self, height: int = 10, parent=None) -> None:
         """ログフレームを作成"""
-        log_frame = tk.Frame(self.tab)
+        if parent is None:
+            parent = self.tab
+        log_frame = tk.Frame(parent)
         log_frame.pack(fill="both", expand=True, padx=20, pady=(5, 15))
         tk.Label(log_frame, text="実行ログ:", font=("メイリオ", 10, "bold")).pack(anchor="w", pady=(0, 5))
         self.log_widget = scrolledtext.ScrolledText(
@@ -94,13 +87,18 @@ class BaseTab:
         if logger_names is None:
             logger_names = [
                 'pdf_converter',
+                'converters.office_converter',
+                'converters.image_converter',
+                'converters.ichitaro_converter',
                 'pdf_processor',
                 'document_collector',
                 '__main__'
             ]
 
         # GUIログハンドラを作成
-        self._gui_handler = GUILogHandler(self.log)
+        self._gui_handler = GUILogHandler(
+            lambda msg, msg_type: log_message(self.log_widget, msg, msg_type) if self.log_widget else None
+        )
         self._gui_handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(message)s')
         self._gui_handler.setFormatter(formatter)
@@ -120,6 +118,9 @@ class BaseTab:
         if hasattr(self, '_gui_handler') and self._gui_handler:
             logger_names = [
                 'pdf_converter',
+                'converters.office_converter',
+                'converters.image_converter',
+                'converters.ichitaro_converter',
                 'pdf_processor',
                 'document_collector',
                 '__main__'
@@ -129,3 +130,23 @@ class BaseTab:
                 if self._gui_handler in logger.handlers:
                     logger.removeHandler(self._gui_handler)
             self._gui_handler = None
+
+    def log(self, message: str, msg_type: str = "info") -> None:
+        """
+        ログウィジェットにメッセージを出力
+
+        Args:
+            message: ログメッセージ
+            msg_type: メッセージタイプ ("info", "success", "warning", "error", "normal")
+        """
+        if self.log_widget:
+            log_message(self.log_widget, message, msg_type)
+
+    def update_status(self, message: str) -> None:
+        """
+        ステータスメッセージを更新（ログに出力）
+
+        Args:
+            message: ステータスメッセージ
+        """
+        self.log(message, "info")

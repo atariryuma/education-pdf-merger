@@ -3,42 +3,54 @@
 
 アプリケーション全体で使用する定数を定義
 """
+from enum import IntEnum
 
 
-class MSOfficeConstants:
-    """Microsoft Office関連の定数"""
-
-    # Word FileFormat定数
-    WORD_PDF_FORMAT = 17  # wdFormatPDF
-
-    # Excel FileFormat定数
-    EXCEL_PDF_FORMAT = 0  # xlTypePDF
-
-    # PowerPoint FileFormat定数
-    POWERPOINT_PDF_FORMAT = 32  # ppSaveAsPDF
+class WordFormat(IntEnum):
+    """Word FileFormat定数"""
+    PDF = 17  # wdFormatPDF
 
 
-class ExcelConstants:
-    """Excel COM自動化用の定数"""
+class ExcelFormat(IntEnum):
+    """Excel FileFormat定数"""
+    PDF = 0  # xlTypePDF
 
-    # LookIn定数
-    XL_VALUES = -4163  # xlValues
 
-    # LookAt定数
-    XL_PART = 2  # xlPart (部分一致)
-    XL_WHOLE = 1  # xlWhole (完全一致)
+class PowerPointFormat(IntEnum):
+    """PowerPoint FileFormat定数"""
+    PDF = 32  # ppSaveAsPDF
 
-    # Sort Order定数
-    XL_ASCENDING = 1  # xlAscending (昇順)
-    XL_DESCENDING = 2  # xlDescending (降順)
 
-    # Sort Header定数
-    XL_YES = 1  # xlYes (ヘッダー行あり)
-    XL_NO = 0   # xlNo (ヘッダー行なし)
+class ExcelLookIn(IntEnum):
+    """Excel検索対象の定数"""
+    VALUES = -4163  # xlValues
+
+
+class ExcelLookAt(IntEnum):
+    """Excel検索方法の定数"""
+    PART = 2   # xlPart (部分一致)
+    WHOLE = 1  # xlWhole (完全一致)
+
+
+class ExcelSortOrder(IntEnum):
+    """Excelソート順の定数"""
+    ASCENDING = 1   # xlAscending (昇順)
+    DESCENDING = 2  # xlDescending (降順)
+
+
+class ExcelSortHeader(IntEnum):
+    """Excelソートヘッダーの定数"""
+    YES = 1  # xlYes (ヘッダー行あり)
+    NO = 0   # xlNo (ヘッダー行なし)
 
 
 class ExcelTransferConstants:
-    """Excel自動転記処理の定数"""
+    """
+    Excel自動転記処理の定数
+
+    注意: このクラスの定数は後方互換性のために残されています。
+    新しい実装では config.json の excel_transfer セクションを使用してください。
+    """
 
     # 行事キーワード（イベント判定用）
     EVENT_KEYWORDS = ["儀式", "文化", "保健", "遠足", "勤労", "その", "児童"]
@@ -99,7 +111,7 @@ class AppConstants:
     """アプリケーション定数"""
 
     # バージョン情報
-    VERSION = "3.2.4"  # 一太郎変換改善版（警告ダイアログ＆リトライ機能）
+    VERSION = "3.4.0"
     APP_NAME = "教育計画PDFマージシステム"
 
     # デフォルトタイムアウト（秒）
@@ -116,34 +128,78 @@ class AppConstants:
     TEMP_FILE_MAX_AGE_HOURS = 24
 
 
+class PDFConstants:
+    """PDF処理に関連する定数"""
+
+    # ページ構成
+    COVER_PAGE_COUNT = 1       # 表紙ページ数
+    TOC_PAGE_COUNT = 1         # 目次ページ数
+    CONTENT_START_PAGE = 3     # コンテンツ開始ページ（表紙 + 目次 + 1）
+
+    # ページ番号の表示設定
+    PAGE_NUMBER_X_OFFSET = 10          # 中央からの左オフセット（ポイント）
+    PAGE_NUMBER_BOTTOM_MARGIN = 30     # 下端からのマージン（ポイント）
+    PAGE_NUMBER_FONT_SIZE = 12         # フォントサイズ（ポイント）
+    PAGE_NUMBER_FONT_NAME = "helv"     # フォント名
+
+    # ページ数のデフォルト値
+    DEFAULT_PAGE_COUNT = 1             # 取得失敗時のフォールバック
+
+    # 目次見出しレベル
+    HEADING_LEVEL_MAIN = 1             # 大見出し（メインディレクトリ）
+    HEADING_LEVEL_SUB = 2              # 小見出し（サブフォルダ/ファイル）
+
+    # ファイル名接尾辞
+    TEMP_FILE_SUFFIX = ".tmp"          # 一時ファイルの拡張子
+
+    # Ghostscript圧縮設定
+    GS_COMPATIBILITY_LEVEL = "1.4"     # PDF互換性レベル
+    GS_PDF_SETTINGS = "/ebook"         # 品質設定
+    GS_TIMEOUT_SECONDS = 30            # タイムアウト（秒）
+
+
+class IchitaroWaitTimes:
+    """
+    一太郎変換の待機時間定数（環境に応じて config.json で調整可能）
+
+    低スペックPCの場合は config.json の ichitaro セクションで値を増やすことを推奨
+    """
+    # 起動・接続
+    STARTUP_WAIT = 3.0      # 一太郎起動待機時間（秒）
+
+    # 印刷ダイアログ操作
+    CTRL_P_WAIT = 3.0       # Ctrl+P後の待機時間（秒）
+    PRINTER_SELECT_WAIT = 0.5  # プリンター選択後の待機時間（秒）
+    CTRL_A_WAIT = 0.5       # Ctrl+A後の待機時間（秒）
+    ENTER_INTERVAL = 0.8    # Enter連打の間隔（秒）
+
+    # 保存ダイアログ操作
+    DIALOG_TIMEOUT = 30     # 保存ダイアログ検出のタイムアウト（秒）
+    DIALOG_POLL_INTERVAL = 0.3  # ダイアログ検出のポーリング間隔（秒）
+    DIALOG_MIN_WAIT = 2.0   # ダイアログ検出開始前の最低待機時間（秒）
+    KEYBOARD_PREP_WAIT = 0.3  # キーボード入力準備の待機時間（秒）
+    FILE_INPUT_WAIT = 0.5   # ファイルパス入力後の待機時間（秒）
+
+    # プロセス終了
+    PRINT_COMPLETE_WAIT = 2.0  # 印刷処理完了待機時間（秒）
+    WINDOW_CLOSE_WAIT = 0.5    # ウィンドウクローズ後の待機時間（秒）
+    CLEANUP_TIMEOUT = 1     # クリーンアップの接続タイムアウト（秒）
+    CLEANUP_WAIT = 0.5      # クリーンアップ後の待機時間（秒）
+
+    # リトライ設定
+    MAX_ATTEMPTS = 3        # 一太郎変換の最大試行回数
+    RETRY_DELAY = 2.0       # 再試行前の待機時間（秒）
+
+
+class PathConstants:
+    """パス処理関連の定数"""
+
+    # ファイル名のデフォルト値
+    DEFAULT_FILENAME = 'file'
+
+
 class PDFConversionConstants:
-    """PDF変換処理の定数（マジックナンバー削減）"""
-
-    # 一太郎変換の待機時間（秒）
-    ICHITARO_STARTUP_WAIT = 3.0          # 一太郎起動待機時間
-    ICHITARO_PRINT_DIALOG_WAIT = 3.0     # 印刷ダイアログ待機時間（低スペックPC対応）
-    ICHITARO_SAVE_DIALOG_WAIT = 3.0      # 保存ダイアログ表示待機時間
-    ICHITARO_CTRL_P_WAIT = 3.0           # Ctrl+P送信後の待機時間（低スペックPC対応）
-    ICHITARO_ENTER_INTERVAL = 0.8        # Enter連打の間隔
-    ICHITARO_PRINT_COMPLETE_WAIT = 2.0   # 印刷処理完了待機時間
-    ICHITARO_WINDOW_CLOSE_WAIT = 1.0     # ウィンドウクローズ待機時間
-    ICHITARO_PRINTER_SELECT_WAIT = 0.5   # プリンタ選択後の待機時間
-    ICHITARO_FILE_INPUT_WAIT = 0.5       # ファイル名入力後の待機時間
-    ICHITARO_CTRL_A_WAIT = 0.3           # Ctrl+A後の待機時間
-    ICHITARO_RETRY_DELAY = 2.0           # 再試行前の待機時間
-    ICHITARO_DIALOG_MIN_WAIT = 3.0       # 保存ダイアログ検出の最低待機時間
-    ICHITARO_DIALOG_TIMEOUT = 30         # 保存ダイアログ検出のタイムアウト
-    ICHITARO_DIALOG_POLL_INTERVAL = 0.5  # 保存ダイアログ検出のポーリング間隔
-    ICHITARO_KEYBOARD_PREP_WAIT = 0.5    # キーボード入力準備の待機時間
-    ICHITARO_CLEANUP_TIMEOUT = 1         # クリーンアップの接続タイムアウト
-    ICHITARO_CLEANUP_WAIT = 0.5          # クリーンアップ後の待機時間
-
-    # プリンター選択のリトライ設定
-    PRINTER_SELECT_MAX_RETRIES = 3       # プリンター選択の最大リトライ回数
-    PRINTER_SELECT_RETRY_DELAY = 1.0     # プリンター選択のリトライ遅延
-
-    # 一太郎変換の試行回数
-    ICHITARO_MAX_ATTEMPTS = 3            # 一太郎変換の最大試行回数（初回を含む）
+    """PDF変換処理の定数"""
 
     # 動的ファイル待機の間隔設定（秒）
     FILE_WAIT_INTERVAL_FAST = 0.1        # 最初の10回（高速チェック）
@@ -157,11 +213,14 @@ class PDFConversionConstants:
     # キャンセルチェック間隔（秒）
     CANCEL_CHECK_INTERVAL = 0.5
 
-    # ファイル名サニタイズのデフォルト名
-    DEFAULT_SEPARATOR_NAME = 'separator'
+    # プリンター選択リトライ
+    PRINTER_SELECT_MAX_RETRIES = 3       # プリンター選択の最大リトライ回数
+    PRINTER_SELECT_RETRY_DELAY = 1.0     # プリンター選択のリトライ遅延（秒）
 
-    # ログメッセージの装飾記号（統一）
-    LOG_SEPARATOR_MAJOR = "=" * 60       # 主要セクションの区切り線
-    LOG_SEPARATOR_MINOR = "-" * 60       # 副セクションの区切り線
-    LOG_MARK_SUCCESS = "✓"               # 成功マーク
-    LOG_MARK_FAILURE = "✗"               # 失敗マーク
+    # ログメッセージ
+    LOG_MARK_SUCCESS = "✓"
+    LOG_MARK_FAILURE = "✗"
+    LOG_SEPARATOR_MAJOR = "=" * 60
+
+    # ファイル名のデフォルト値
+    DEFAULT_SEPARATOR_NAME = 'separator'

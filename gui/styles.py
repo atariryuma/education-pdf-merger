@@ -63,9 +63,9 @@ FONTS = {
 # ウィンドウ設定
 # 注: タイトルはconstants.AppConstants.APP_NAMEを使用
 WINDOW = {
-    'geometry': '1000x800',         # より広い作業スペース
-    'min_width': 900,
-    'min_height': 700,
+    'geometry': '950x750',          # UI内容に最適化されたサイズ
+    'min_width': 850,
+    'min_height': 650,
 }
 
 # ボタンスタイル - Material Design 3

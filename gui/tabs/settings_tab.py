@@ -3,6 +3,7 @@
 
 アプリケーション設定のUIを提供
 """
+import logging
 import os
 import threading
 import tkinter as tk
@@ -13,6 +14,8 @@ from pathlib import Path
 from gui.tabs.base_tab import BaseTab
 from gui.utils import create_hover_button, open_file_or_folder, create_tooltip
 from path_validator import PathValidator
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsTab(BaseTab):
@@ -26,7 +29,6 @@ class SettingsTab(BaseTab):
         year_var: tk.StringVar,
         year_short_var: tk.StringVar,
         gdrive_var: tk.StringVar,
-        network_var: tk.StringVar,
         temp_var: tk.StringVar,
         gs_var: tk.StringVar,
         excel_ref_var: tk.StringVar,
@@ -37,7 +39,6 @@ class SettingsTab(BaseTab):
         self.year_var = year_var
         self.year_short_var = year_short_var
         self.gdrive_var = gdrive_var
-        self.network_var = network_var
         self.temp_var = temp_var
         self.gs_var = gs_var
         self.excel_ref_var = excel_ref_var
@@ -49,14 +50,17 @@ class SettingsTab(BaseTab):
     def _create_ui(self) -> None:
         """UIを構築"""
         # スクロール可能なメインコンテナ
-        canvas = tk.Canvas(self.tab, highlightthickness=0)
+        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
         scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
+        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
 
         # scrollregionを更新する関数
         def update_scrollregion(event=None):
             canvas.update_idletasks()
-            canvas.configure(scrollregion=canvas.bbox("all"))
+            bbox = canvas.bbox("all")
+            canvas.configure(scrollregion=bbox)
+            # デバッグログ
+            logger.debug(f"スクロール領域更新: bbox={bbox}, canvas_height={canvas.winfo_height()}")
 
         scrollable_frame.bind("<Configure>", update_scrollregion)
 
@@ -68,11 +72,17 @@ class SettingsTab(BaseTab):
         def on_canvas_configure(event):
             canvas.itemconfig(canvas_window, width=event.width)
 
-        # マウスホイールでのスクロールを有効化
+        # マウスホイールでのスクロールを有効化（全ウィジェットに適用）
         def on_mousewheel(event):
-            if canvas.yview() != (0.0, 1.0):
-                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            # スクロール可能な場合のみスクロール
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
             return "break"
+
+        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
+        def bind_mousewheel_recursive(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            for child in widget.winfo_children():
+                bind_mousewheel_recursive(child)
 
         canvas.bind("<Configure>", on_canvas_configure)
         canvas.bind("<MouseWheel>", on_mousewheel)
@@ -80,9 +90,13 @@ class SettingsTab(BaseTab):
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
+        # 後で子ウィジェットにマウスホイールをバインドするための参照を保持
+        self.canvas = canvas
+        self.scrollable_frame = scrollable_frame
+        self.bind_mousewheel_recursive = bind_mousewheel_recursive
+
         # メインコンテナ（スクロール可能フレーム内）
         main_container = scrollable_frame
-        main_container.pack(fill="both", expand=True, padx=15, pady=10)
 
         # 説明フレーム（初心者向け）
         help_frame = tk.LabelFrame(main_container, text="💡 設定について", font=("メイリオ", 10, "bold"))
@@ -129,19 +143,11 @@ class SettingsTab(BaseTab):
         tk.Button(gdrive_btn_frame, text="📁", command=lambda: self._browse_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
         tk.Button(gdrive_btn_frame, text="📂", command=lambda: self._open_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
 
-        tk.Label(path_frame, text="ネットワーク:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(path_frame, textvariable=self.network_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
-
-        network_btn_frame = tk.Frame(path_frame)
-        network_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
-        tk.Button(network_btn_frame, text="📁", command=lambda: self._browse_folder(self.network_var), width=3).pack(side="left", padx=1)
-        tk.Button(network_btn_frame, text="📂", command=lambda: self._open_folder(self.network_var), width=3).pack(side="left", padx=1)
-
-        tk.Label(path_frame, text="一時フォルダ:", width=LABEL_WIDTH, anchor="e").grid(row=2, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(path_frame, textvariable=self.temp_var).grid(row=2, column=1, sticky="ew", padx=3, pady=PAD_Y)
+        tk.Label(path_frame, text="一時フォルダ:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
+        tk.Entry(path_frame, textvariable=self.temp_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
 
         temp_btn_frame = tk.Frame(path_frame)
-        temp_btn_frame.grid(row=2, column=2, padx=(3, 10), pady=PAD_Y)
+        temp_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
         tk.Button(temp_btn_frame, text="📁", command=lambda: self._browse_folder(self.temp_var), width=3).pack(side="left", padx=1)
         tk.Button(temp_btn_frame, text="📂", command=self._open_temp_folder, width=3).pack(side="left", padx=1)
 
@@ -268,8 +274,11 @@ class SettingsTab(BaseTab):
         edit_btn.pack(side="left", padx=5)
 
         # scrollregionを明示的に初期化
-        scrollable_frame.update_idletasks()
+        self.scrollable_frame.update_idletasks()
         update_scrollregion()
+
+        # すべての子ウィジェットにマウスホイールをバインド
+        self.bind_mousewheel_recursive(self.scrollable_frame)
 
     def _browse_folder(self, var: tk.StringVar) -> None:
         """フォルダを参照（PathValidatorベース）"""
@@ -291,11 +300,20 @@ class SettingsTab(BaseTab):
             messagebox.showerror("参照エラー", f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}")
 
     def _browse_gs_file(self) -> None:
-        """Ghostscript実行ファイルを参照"""
+        """Ghostscript実行ファイルを参照（フリーズ防止版）"""
         try:
             current_path = self.gs_var.get().strip()
-            if current_path and os.path.exists(current_path) and os.path.isfile(current_path):
-                initial_dir = os.path.dirname(current_path)
+            # ローカルパス（C:ドライブ）のみチェック（フリーズ防止）
+            if current_path:
+                # ネットワークパスかチェック
+                if not current_path.startswith('\\\\') and len(current_path) >= 3 and current_path[1] == ':':
+                    drive = current_path[0].upper()
+                    if drive in ['C', 'D', 'E'] and os.path.exists(current_path) and os.path.isfile(current_path):
+                        initial_dir = os.path.dirname(current_path)
+                    else:
+                        initial_dir = "C:\\Program Files"
+                else:
+                    initial_dir = "C:\\Program Files"
             elif os.path.exists("C:\\Program Files\\gs"):
                 initial_dir = "C:\\Program Files\\gs"
             else:
@@ -324,10 +342,15 @@ class SettingsTab(BaseTab):
             # {year_short}プレースホルダーを実際の値に置き換える
             education_base = education_base.replace('{year_short}', year_short)
 
-            initial_dir = os.path.join(base_path, year, education_base)
+            initial_dir_candidate = os.path.join(base_path, year, education_base)
 
-            if not os.path.exists(initial_dir):
-                initial_dir = os.path.expanduser("~")
+            # フリーズ防止: PathValidator.get_safe_initial_dirを使用
+            from path_validator import PathValidator
+            safe_initial_dir = PathValidator.get_safe_initial_dir(
+                initial_dir_candidate,
+                fallback=Path.home()
+            )
+            initial_dir = str(safe_initial_dir)
 
             file_path = filedialog.askopenfilename(
                 title="Excelファイルを選択",
@@ -355,7 +378,7 @@ class SettingsTab(BaseTab):
             self.update_status(f"フォルダを開きました: {Path(folder_path_str).name}")
 
     def _open_temp_folder(self) -> None:
-        """一時フォルダをエクスプローラーで開く"""
+        """一時フォルダをエクスプローラーで開く（フリーズ防止版）"""
         temp_path_str = self.temp_var.get().strip()
 
         # パスが空の場合はデフォルトパスを使用
@@ -365,8 +388,9 @@ class SettingsTab(BaseTab):
 
         temp_path = Path(temp_path_str)
 
-        # フォルダが存在しない場合は作成
-        if not temp_path.exists():
+        # フォルダが存在しない場合は作成（os.path経由でフリーズ防止）
+        temp_path_str_final = str(temp_path)
+        if not os.path.exists(temp_path_str_final):
             try:
                 temp_path.mkdir(parents=True, exist_ok=True)
                 self.update_status(f"一時フォルダを作成しました: {temp_path.name}")
@@ -416,7 +440,6 @@ class SettingsTab(BaseTab):
 
         self.config.update_year(year, year_short)
         self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get())
-        self.config.set('base_paths', 'network', value=self.network_var.get())
         self.config.set('base_paths', 'local_temp', value=self.temp_var.get())
         self.config.set('ghostscript', 'executable', value=self.gs_var.get())
         self.config.set('files', 'excel_reference', value=self.excel_ref_var.get())
@@ -449,11 +472,13 @@ class SettingsTab(BaseTab):
             messagebox.showwarning("入力エラー", error_message)
             return
 
-        if self.config.save_config():
+        try:
+            self.config.save_config()
             self.update_status("設定を保存しました")
             messagebox.showinfo("保存完了", "設定を保存しました！")
-        else:
-            messagebox.showerror("保存エラー", "設定の保存に失敗しました。")
+        except Exception as e:
+            logger.error(f"設定保存エラー: {e}", exc_info=True)
+            messagebox.showerror("保存エラー", f"設定の保存に失敗しました。\n\n詳細: {e}")
 
     def reload_settings(self) -> None:
         """設定を再読み込み"""
@@ -491,19 +516,23 @@ class SettingsTab(BaseTab):
             messagebox.showwarning("未検出", instructions)
 
     def _update_gs_status(self) -> None:
-        """Ghostscriptのステータスを更新"""
+        """Ghostscriptのステータスを更新（フリーズ防止版）"""
         from ghostscript_utils import GhostscriptManager
 
         gs_path = self.gs_var.get().strip()
 
         if not gs_path:
             self.gs_status_label.config(text="⚠️ 未設定（PDF圧縮機能は使用できません）", fg="orange")
-        elif not os.path.exists(gs_path):
-            self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
-        elif GhostscriptManager.verify_ghostscript(gs_path):
-            self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
         else:
-            self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
+            # ローカルパスのみチェック（ネットワークパスは警告）
+            if gs_path.startswith('\\\\'):
+                self.gs_status_label.config(text="⚠️ ネットワークパスは推奨されません", fg="orange")
+            elif not os.path.exists(gs_path):
+                self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
+            elif GhostscriptManager.verify_ghostscript(gs_path):
+                self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
+            else:
+                self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
 
     def _test_ichitaro_conversion(self) -> None:
         """一太郎変換をテスト"""
@@ -535,24 +564,21 @@ class SettingsTab(BaseTab):
                 except ValueError:
                     pass
 
-                # セキュアな一時ファイル作成（TOCTOU攻撃対策 - ファイルディスクリプタを開いたまま維持）
+                # セキュアな一時ファイル作成（TOCTOU攻撃対策）
                 import tempfile
+                import uuid
 
                 temp_dir = tempfile.gettempdir()
                 converter = PDFConverter(temp_dir, ichitaro_settings)
 
-                # NamedTemporaryFileを使用してTOCTOU脆弱性を回避
-                temp_file = None
+                # UUID使用で衝突回避 + 安全なパス構築
+                unique_id = uuid.uuid4().hex
+                output_path = os.path.join(temp_dir, f"ichitaro_test_{unique_id}.pdf")
+
                 try:
-                    temp_file = tempfile.NamedTemporaryFile(
-                        mode='w+b',
-                        suffix=".pdf",
-                        prefix="ichitaro_test_",
-                        dir=temp_dir,
-                        delete=False  # 手動で削除制御
-                    )
-                    output_path = temp_file.name
-                    temp_file.close()  # 変換前にファイルを閉じる（書き込み可能にする）
+                    # 一時ファイルをプレースホルダとして作成（排他的作成）
+                    fd = os.open(output_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                    os.close(fd)  # ファイルディスクリプタを閉じて変換処理に渡す
 
                     result = converter._convert_ichitaro(file_path, output_path)
 
@@ -572,13 +598,11 @@ class SettingsTab(BaseTab):
                             "リトライ回数の設定を調整してください。"
                         ))
                 finally:
-                    # 一時ファイルのクリーンアップ（TOCTOU回避 - exists不使用）
+                    # 一時ファイルのクリーンアップ
                     try:
-                        if 'output_path' in locals():
-                            os.remove(output_path)
+                        os.unlink(output_path)
                     except FileNotFoundError:
-                        # ファイルが存在しない場合は問題なし
-                        pass
+                        pass  # 既に削除済み
                     except Exception as cleanup_error:
                         logger.warning(f"一時ファイル削除失敗: {cleanup_error}")
 

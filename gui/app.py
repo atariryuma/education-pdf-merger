@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional
@@ -16,7 +17,6 @@ from constants import AppConstants
 from gui.styles import WINDOW, FONTS
 from gui.tabs.pdf_tab import PDFTab
 from gui.tabs.excel_tab import ExcelTab
-# from gui.tabs.file_tab import FileTab  # 未実装のため非表示
 from gui.tabs.settings_tab import SettingsTab
 
 # ロガーの設定
@@ -42,6 +42,9 @@ class PDFMergeApp:
         self.root.geometry(WINDOW['geometry'])
         self.root.minsize(WINDOW['min_width'], WINDOW['min_height'])
 
+        # スレッドセーフティのためのロック
+        self.config_lock = threading.RLock()
+
         # 最後の設定を保存するファイル（AppData内に保存）
         appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
         settings_dir = os.path.join(appdata, 'PDFMergeSystem')
@@ -50,7 +53,6 @@ class PDFMergeApp:
                 os.makedirs(settings_dir, exist_ok=True)
             except (PermissionError, OSError) as e:
                 # 設定ディレクトリ作成失敗時はエラーダイアログを表示して終了
-                import tkinter.messagebox as messagebox
                 messagebox.showerror(
                     "起動エラー",
                     f"設定ディレクトリの作成に失敗しました。\n\n"
@@ -93,7 +95,7 @@ class PDFMergeApp:
     def _init_variables(self, last_settings: dict) -> None:
         """変数を初期化"""
         # PDF統合タブ用（入力・出力パスは空で開始、計画種別のみlast_settingsから復元）
-        # デフォルトパスを設定するとフリーズの原因になるため、空にする
+        # ネットワークパスはアクセスに時間がかかるため、起動時は空にする
         self.input_dir_var = tk.StringVar(value="")
         self.output_file_var = tk.StringVar(value="")
         self.plan_type_var = tk.StringVar(value=last_settings.get('plan_type', 'education'))
@@ -102,12 +104,10 @@ class PDFMergeApp:
         self.year_var = tk.StringVar(value=self.config.year)
         self.year_short_var = tk.StringVar(value=self.config.year_short)
 
-        # Google DriveとNetworkパスのデフォルト値を設定
+        # Google Driveパスのデフォルト値を設定
         gdrive_path = self.config.get('base_paths', 'google_drive') or ""
-        network_path = self.config.get('base_paths', 'network') or ""
 
         self.gdrive_var = tk.StringVar(value=gdrive_path)
-        self.network_var = tk.StringVar(value=network_path)
 
         # 一時フォルダ：空の場合はデフォルトパスを設定してconfig.jsonに保存
         temp_path = self.config.get('base_paths', 'local_temp')
@@ -202,7 +202,7 @@ class PDFMergeApp:
         self.settings_tab = SettingsTab(
             self.notebook, self.config, self.status_bar,
             self.year_var, self.year_short_var,
-            self.gdrive_var, self.network_var, self.temp_var, self.gs_var,
+            self.gdrive_var, self.temp_var, self.gs_var,
             self.excel_ref_var, self.excel_target_var,
             on_reload=self._reload_settings
         )
@@ -238,7 +238,6 @@ class PDFMergeApp:
             self.year_var.set(self.config.year)
             self.year_short_var.set(self.config.year_short)
             self.gdrive_var.set(self.config.get('base_paths', 'google_drive'))
-            self.network_var.set(self.config.get('base_paths', 'network'))
             self.temp_var.set(self.config.get('base_paths', 'local_temp'))
             self.gs_var.set(self.config.get('ghostscript', 'executable'))
             self.excel_ref_var.set(self.config.get('files', 'excel_reference'))
@@ -296,53 +295,48 @@ F5 : ファイル状態を確認
         messagebox.showinfo("バージョン情報", version_info.strip())
 
     def _check_initial_setup(self) -> None:
-        """初回起動時の設定チェックとガイダンス表示"""
+        """初回起動時の設定チェックとセットアップウィザード表示"""
         try:
-            from pathlib import Path
+            from config_validator import ConfigValidator
+            from gui.setup_wizard import SetupWizard
 
-            # Google Driveパスが存在するかチェック
-            gdrive_path = self.config.get('base_paths', 'google_drive')
-            network_path = self.config.get('base_paths', 'network')
+            # 設定を検証
+            validator = ConfigValidator(self.config)
+            is_valid, results = validator.validate_all()
 
-            gdrive_exists = False
-            network_exists = False
+            # エラーレベルの問題がある場合、セットアップウィザードを表示
+            if validator.has_errors():
+                logger.info("必須設定が不足しています。セットアップウィザードを起動します。")
 
-            if gdrive_path:
-                gdrive_exists = Path(gdrive_path).exists()
+                def on_wizard_complete():
+                    """ウィザード完了時のコールバック"""
+                    # 設定を再読み込み
+                    self.config = ConfigLoader()
+                    self._init_variables({})
 
-            if network_path:
-                network_exists = Path(network_path).exists()
+                    # UIを更新
+                    self.year_var.set(self.config.year)
+                    self.year_short_var.set(self.config.year_short)
+                    self.gdrive_var.set(self.config.get('base_paths', 'google_drive') or "")
+                    self.gs_var.set(self.config.get('ghostscript', 'executable') or "")
 
-            # どちらも存在しない場合はガイダンスを表示
-            if not gdrive_exists and not network_exists:
-                response = messagebox.showinfo(
-                    "📌 ようこそ！",
-                    "教育計画PDFマージシステムへようこそ！\n\n"
-                    "このアプリでは、Word・Excel・一太郎などの\n"
-                    "複数のファイルを1つのPDFにまとめることができます。\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    "⚠️ 最初に設定が必要です\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "現在、Google DriveとネットワークパスがPCに接続されていません。\n\n"
-                    "【簡単3ステップ】\n\n"
-                    "1️⃣ 自動的に開く「⚙️ 設定」タブで、\n"
-                    "   Google Driveパスまたはネットワークパスを設定\n"
-                    "   ※ 「📁」ボタンでフォルダを選べます\n\n"
-                    "2️⃣ 年度情報を確認（通常は変更不要）\n\n"
-                    "3️⃣ 「💾 保存」ボタンをクリック\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    "💡 わからないことがあれば\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "・各ボタンにマウスを置くと説明が表示されます\n"
-                    "・設定は後からいつでも変更できます\n"
-                    "・OKを押すと設定画面が開きます"
-                )
-                # 設定タブを自動的に開く
-                if hasattr(self, 'notebook'):
-                    self.notebook.select(3)  # 設定タブ（4番目のタブ、インデックス3）
+                    messagebox.showinfo(
+                        "セットアップ完了",
+                        "設定が完了しました！\n\nアプリケーションを使い始めることができます。",
+                        parent=self.root
+                    )
+                    logger.info("セットアップウィザードが完了しました")
+
+                # セットアップウィザードを表示
+                SetupWizard(self.root, self.config, on_complete=on_wizard_complete)
+
+            elif validator.has_warnings():
+                # 警告のみの場合は通知のみ
+                logger.warning(f"設定に警告があります: {validator.get_summary()}")
 
         except Exception as e:
             logger.error(f"初回セットアップチェックエラー: {e}", exc_info=True)
+
 
 
 def main() -> None:

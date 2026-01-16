@@ -1,0 +1,30 @@
+# UTF-8
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(3, 4, 0, 0),
+    prodvers=(3, 4, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        u'041104B0',
+        [StringStruct(u'CompanyName', u''),
+        StringStruct(u'FileDescription', u'教育計画PDFマージシステム'),
+        StringStruct(u'FileVersion', u'3.4.0'),
+        StringStruct(u'InternalName', u'pdf_merge_system'),
+        StringStruct(u'LegalCopyright', u''),
+        StringStruct(u'OriginalFilename', u'教育計画PDFマージシステム.exe'),
+        StringStruct(u'ProductName', u'教育計画PDFマージシステム'),
+        StringStruct(u'ProductVersion', u'3.4.0')])
+      ]
+    ),
+    VarFileInfo([VarStruct(u'Translation', [0x411, 1200])])
+  ]
+)

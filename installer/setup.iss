@@ -1,15 +1,18 @@
-; 教育計画PDFマージシステム - Inno Setup Script
+; 教育計画PDFマージシステム v3.4.0 - Inno Setup Script
 ; Inno Setup 6.0+ required
 ;
-; Version 3.2.4 - 一太郎変換改善版（警告ダイアログ＆リトライ機能）
-; - 一太郎変換中の警告ダイアログ（非モーダル、常に最前面）
-; - 変換失敗時の自動リトライ（最大3回）
-; - リトライ状況をリアルタイム表示
+; Version 3.4.0 - 初回セットアップエクスペリエンスの実装
+; - 初回セットアップウィザード（5ステップ）
+; - Ghostscript自動検出機能
+; - 設定検証システム（ERROR/WARNING/INFO）
+; - config.jsonのテンプレート化
+; - UXベストプラクティスに準拠
 
 #define MyAppName "教育計画PDFマージシステム"
-#define MyAppVersion "3.2.4"
-#define MyAppPublisher "School Tools"
+#define MyAppVersion "3.4.0"
+#define MyAppPublisher "教育機関向けPDFツール"
 #define MyAppExeName "教育計画PDFマージシステム.exe"
+#define MyAppURL "https://github.com/your-repo"
 
 [Setup]
 ; アプリケーション情報
@@ -44,10 +47,18 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 ; メインEXE
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; 設定ファイルテンプレート（既存があれば上書きしない）
-Source: "config_template.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist
-; Ghostscript検出用スクリプト（インストール後に削除）
-Source: "dist\post_install.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+
+; 設定ファイル（dist/にコピーされたもの）
+Source: "..\dist\config.json"; DestDir: "{app}"; Flags: confirmoverwrite
+
+; ドキュメント（v3.4.0）
+Source: "..\CHANGELOG.md"; DestDir: "{app}\docs"; DestName: "CHANGELOG.txt"; Flags: ignoreversion
+Source: "..\BUILD_INSTRUCTIONS.md"; DestDir: "{app}\docs"; DestName: "BUILD_INSTRUCTIONS.txt"; Flags: ignoreversion
+Source: "..\RELEASE_NOTES_v3.4.0.md"; DestDir: "{app}\docs"; DestName: "RELEASE_NOTES_v3.4.0.txt"; Flags: ignoreversion
+Source: "..\RELEASE_NOTES_v3.3.0.md"; DestDir: "{app}\docs"; DestName: "RELEASE_NOTES_v3.3.0.txt"; Flags: ignoreversion
+
+; Ghostscript検出用スクリプト（インストール後に削除）- オプション
+; Source: "dist\post_install.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: FileExists('..\dist\post_install.exe')
 
 [Dirs]
 ; ログ用ディレクトリ
@@ -57,6 +68,9 @@ Name: "{localappdata}\PDFMergeSystem\temp"; Permissions: users-modify
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\設定ファイル"; Filename: "{app}\config.json"
+Name: "{group}\ドキュメント"; Filename: "{app}\docs"
+Name: "{group}\変更履歴"; Filename: "{app}\docs\CHANGELOG.txt"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
@@ -73,10 +87,10 @@ Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem\temp"
 Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem"
 
 [Run]
-; Ghostscript自動検出（インストール完了後、アプリ起動前に実行）
-Filename: "{tmp}\post_install.exe"; Parameters: """{app}"""; StatusMsg: "Ghostscriptを検索しています..."; Flags: runhidden waituntilterminated
 ; アプリ起動
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; ドキュメントフォルダを開く
+Filename: "{app}\docs"; Description: "リリースノートを表示"; Flags: postinstall skipifsilent shellexec unchecked
 
 [Code]
 var
@@ -193,3 +207,9 @@ begin
   Result := Result + 'インストール後にGhostscriptを自動検出します。' + NewLine;
   Result := Result + 'PDF圧縮機能を使用するにはGhostscriptが必要です。';
 end;
+
+[Messages]
+WelcomeLabel1=教育計画PDFマージシステム v3.4.0 へようこそ
+WelcomeLabel2=このプログラムは、教育計画や行事計画のPDFファイルを効率的にマージするツールです。%n%n【v3.4.0の主な新機能】%n• 初回セットアップウィザード（5ステップガイド）%n• Ghostscript自動検出機能%n• 設定検証システム（ERROR/WARNING/INFO）%n• 年度の自動推定機能%n• UXベストプラクティスに準拠した設計%n%n【主な機能】%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像ファイルのPDF変換%n• 一太郎文書のPDF変換%n• 自動フォルダ構造検出%n• Excel自動転記機能%n%nセットアップを続行するには「次へ」をクリックしてください。
+
+FinishedLabel=教育計画PDFマージシステム v3.4.0のインストールが完了しました。%n%n【新機能】%n• 初回起動時にセットアップウィザードが自動的に表示されます%n• Ghostscriptが自動検出されるため手動設定不要です%n• ドキュメントフォルダに詳細情報があります%n• Microsoft Office（Word/Excel/PowerPoint）が必要です%n• 一太郎ファイルを変換する場合は一太郎が必要です%n%n【v3.4.0の詳細】%n変更履歴（CHANGELOG.txt）とリリースノート（RELEASE_NOTES_v3.4.0.txt）をご覧ください。

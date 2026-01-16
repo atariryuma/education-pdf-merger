@@ -27,8 +27,53 @@ class ExcelTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
+        # スクロール可能なメインコンテナ
+        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
+        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
+
+        # scrollregionを更新する関数
+        def update_scrollregion(event=None):
+            canvas.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_frame.bind("<Configure>", update_scrollregion)
+
+        # create_windowでウィンドウIDを保存
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Canvasのサイズに合わせてscrollable_frameの幅を調整
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        # マウスホイールでのスクロールを有効化
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+
+        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
+        def bind_mousewheel_recursive(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            for child in widget.winfo_children():
+                bind_mousewheel_recursive(child)
+
+        canvas.bind("<Configure>", on_canvas_configure)
+        canvas.bind("<MouseWheel>", on_mousewheel)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # 後で子ウィジェットにマウスホイールをバインドするための参照を保持
+        self.canvas = canvas
+        self.scrollable_frame = scrollable_frame
+        self.bind_mousewheel_recursive = bind_mousewheel_recursive
+
+        # メインコンテナをスクロール可能フレーム内に配置
+        main_container = scrollable_frame
+
         # 説明フレーム
-        info_frame = tk.LabelFrame(self.tab, text="📋 Excel自動更新機能", font=("メイリオ", 11, "bold"))
+        info_frame = tk.LabelFrame(main_container, text="📋 Excel自動更新機能", font=("メイリオ", 11, "bold"))
         info_frame.pack(fill="x", padx=20, pady=15)
 
         info_text = "年間行事計画（編集用）から様式4へ自動的にデータを転記します。"
@@ -48,7 +93,7 @@ class ExcelTab(BaseTab):
         tk.Label(info_frame, text=steps_text, justify="left", font=("メイリオ", 9), fg="#333").pack(pady=(5, 15), padx=15, anchor="w")
 
         # ファイル選択フレーム
-        file_frame = tk.LabelFrame(self.tab, text="📂 対象ファイル", font=("メイリオ", 11, "bold"))
+        file_frame = tk.LabelFrame(main_container, text="📂 対象ファイル", font=("メイリオ", 11, "bold"))
         file_frame.pack(fill="x", padx=20, pady=10)
 
         # 参照元ファイル
@@ -127,7 +172,7 @@ class ExcelTab(BaseTab):
         create_tooltip(check_btn, "●マークの色を更新します（F5キーでも可）")
 
         # 実行ボタン（現在は無効化）
-        button_frame = tk.Frame(self.tab)
+        button_frame = tk.Frame(main_container)
         button_frame.pack(pady=15)
 
         self.run_button = create_hover_button(
@@ -150,12 +195,19 @@ class ExcelTab(BaseTab):
         ).pack(pady=(5, 0))
 
         # ステータスラベル
-        self.status_label = tk.Label(self.tab, text="", font=("メイリオ", 9), fg="gray")
+        self.status_label = tk.Label(main_container, text="", font=("メイリオ", 9), fg="gray")
         self.status_label.pack()
 
         # ログ表示
-        self.create_log_frame(height=8)
+        self.create_log_frame(height=8, parent=main_container)
         self.log("準備完了。上記の2つのExcelファイルを開いてから実行してください。", "info")
+
+        # scrollregionを明示的に初期化
+        self.scrollable_frame.update_idletasks()
+        update_scrollregion()
+
+        # すべての子ウィジェットにマウスホイールをバインド
+        self.bind_mousewheel_recursive(self.scrollable_frame)
 
     def _open_excel_file(self, filename: str) -> None:
         """Excelファイルを開く"""
