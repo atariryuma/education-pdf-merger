@@ -82,20 +82,21 @@ class ConfigValidator:
 
     def _validate_required_fields(self) -> None:
         """必須フィールドの検証"""
-        # 年度
+        # 年度（西暦のみ）
         year = self.config.year
         if not year or year.strip() == "":
             self.results.append(ValidationResult(
                 level=ValidationLevel.ERROR,
-                message="年度が設定されていません（例: 令和８年度(2026)）",
+                message="年度が設定されていません（例: 2026）",
                 field="year"
             ))
 
+        # year_shortは自動計算されるため、検証は不要（INFO）
         year_short = self.config.year_short
         if not year_short or year_short.strip() == "":
             self.results.append(ValidationResult(
-                level=ValidationLevel.ERROR,
-                message="年度（短縮形）が設定されていません（例: R8）",
+                level=ValidationLevel.INFO,
+                message="年度（短縮形）は西暦から自動計算されます",
                 field="year_short"
             ))
 

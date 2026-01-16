@@ -150,7 +150,9 @@ class ConfigLoader:
 
         Examples:
             >>> config.get('year')
-            '令和８年度(2026)'
+            '2026'
+            >>> config.get('year_short')
+            'R8'
             >>> config.get('base_paths', 'google_drive')
             'G:\\マイドライブ'
             >>> config.get('nonexistent', default='fallback')

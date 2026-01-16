@@ -20,7 +20,7 @@ def temp_dir():
 def sample_config_data():
     """サンプル設定データ"""
     return {
-        "year": "令和７年度(2025)",
+        "year": "2025",
         "year_short": "R7",
         "base_paths": {
             "google_drive": "C:\\TestDrive",

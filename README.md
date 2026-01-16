@@ -77,7 +77,7 @@ python run_app.py
    - 「Excelデータ更新を実行」ボタンをクリック
 
 3. **「設定」タブ**
-   - 年度情報を更新（例: 令和８年度(2026)、R8）
+   - 年度を更新（例: 2026）※和暦は自動計算されます
    - パス設定を確認・変更
    - 「💾 設定を保存」ボタンで保存
 
@@ -103,7 +103,7 @@ python convert_and_merge.py
 
 ```json
 {
-  "year": "令和７年度(2025)",
+  "year": "2025",
   "year_short": "R7",
   "base_paths": {
     "google_drive": "G:\\マイドライブ\\ドキュメント",
@@ -120,8 +120,8 @@ python convert_and_merge.py
 
 | 項目 | 説明 | 例 |
 |------|------|-----|
-| `year` | 年度（フル） | `"令和８年度(2026)"` |
-| `year_short` | 年度（略称） | `"R8"` |
+| `year` | 年度（西暦） | `"2026"` |
+| `year_short` | 年度（略称・自動計算） | `"R8"` ※yearから自動生成 |
 | `base_paths.google_drive` | Google Driveルートパス | `"G:\\マイドライブ"` |
 | `base_paths.network` | ネットワークパス | `"\\\\server\\share"` |
 | `ghostscript.executable` | Ghostscript実行ファイルパス | `"C:\\Program Files\\gs\\...\\gswin64c.exe"` |
