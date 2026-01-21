@@ -3,12 +3,12 @@ OfficeConverterのユニットテスト
 
 Microsoft Office COM APIをモック化してテスト
 """
-import os
+import os  # noqa: F401 - @patch('os.path.exists') で使用
 import tempfile
 import shutil
 from pathlib import Path
 from typing import Generator
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 from converters.office_converter import OfficeConverter

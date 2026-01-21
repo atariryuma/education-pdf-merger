@@ -3,7 +3,7 @@ GUIユーティリティモジュール
 
 共通のUI操作やヘルパー関数を提供
 """
-import os
+import os  # noqa: F401 - os.path, os.startfile で使用
 import tkinter as tk
 from datetime import datetime
 from typing import Any, Optional, Callable

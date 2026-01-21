@@ -3,17 +3,17 @@ IchitaroConverterのユニットテスト
 
 pywinautoをモック化してテスト
 """
-import os
+import os  # noqa: F401 - @patch('os.path.exists'), @patch('os.startfile') で使用
 import tempfile
 import shutil
 import time
 from pathlib import Path
 from typing import Generator
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 from converters.ichitaro_converter import IchitaroConverter
-from exceptions import PDFConversionError, CancelledError
+from exceptions import CancelledError
 
 
 @pytest.fixture
