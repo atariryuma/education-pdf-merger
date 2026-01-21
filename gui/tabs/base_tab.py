@@ -168,7 +168,7 @@ class BaseTab:
         スクロール処理を統一するために作成されました。
 
         Returns:
-            tuple[tk.Canvas, tk.Scrollbar, tk.Frame]: (canvas, scrollbar, scrollable_frame)
+            Tuple[tk.Canvas, tk.Scrollbar, tk.Frame]: (canvas, scrollbar, scrollable_frame)
 
         Note:
             マウスホイール処理は自動的にバインドされます。

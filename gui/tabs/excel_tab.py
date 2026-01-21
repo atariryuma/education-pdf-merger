@@ -8,7 +8,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
-from typing import Any
+from typing import Any, Tuple
 
 from gui.tabs.base_tab import BaseTab
 from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip
@@ -183,12 +183,12 @@ class ExcelTab(BaseTab):
             self.log(f"Excelでファイルを開きました: {filename}", "info")
             self.update_status(f"Excelでファイルを開きました: {filename}")
 
-    def _check_excel_files_open(self) -> tuple[bool, bool]:
+    def _check_excel_files_open(self) -> Tuple[bool, bool]:
         """
         Excelファイルが開かれているか確認
 
         Returns:
-            tuple[bool, bool]: (参照元が開いているか, 対象が開いているか)
+            Tuple[bool, bool]: (参照元が開いているか, 対象が開いているか)
         """
         excel = None
         com_initialized = False
