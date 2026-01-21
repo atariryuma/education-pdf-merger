@@ -203,8 +203,9 @@ class TestPathValidator:
 
         assert is_valid is True
         assert error_msg is None
-        # Windows short path vs long path の違いを吸収するため、正規化して比較
-        assert os.path.normpath(str(validated_path)) == os.path.normpath(str(temp_workspace))
+        # Windows short path (RUNNER~1) vs long path (runneradmin) の違いを吸収
+        # os.path.realpath() は短縮パスを長形式に変換する
+        assert os.path.realpath(str(validated_path)) == os.path.realpath(str(temp_workspace))
 
     def test_validate_nonexistent_directory(self, temp_workspace: Path):
         """存在しないディレクトリの検証"""
