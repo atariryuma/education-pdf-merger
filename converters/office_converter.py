@@ -122,8 +122,10 @@ class OfficeConverter:
             PDFConversionError: 変換処理中にエラーが発生した場合
             SystemExit, KeyboardInterrupt: システム終了・キーボード割り込み
         """
-        if os.path.exists(output_path):
+        try:
             os.remove(output_path)
+        except FileNotFoundError:
+            pass  # File doesn't exist, which is fine
 
         ext = os.path.splitext(file_path)[1].lower()
         file_name = os.path.basename(file_path)

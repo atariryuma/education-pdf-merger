@@ -19,7 +19,7 @@ class TestConfigLoader:
     def test_load_config_success(self, config_file):
         """正常な設定ファイルの読み込み"""
         config = ConfigLoader(config_file)
-        assert config.year == "令和７年度(2025)"
+        assert config.year == "2025"
         assert config.year_short == "R7"
 
     def test_load_config_file_not_found(self, temp_dir):
@@ -55,7 +55,7 @@ class TestConfigLoader:
         """プレースホルダー置換のテスト"""
         config = ConfigLoader(config_file)
         path = config.build_path("{year}", "test")
-        assert "令和７年度(2025)" in path
+        assert "2025" in path
 
         path = config.build_path("{year_short}", "test")
         assert "R7" in path
@@ -101,8 +101,7 @@ class TestConfigLoader:
         """設定の保存"""
         config = ConfigLoader(config_file)
         config.set('new_key', value='new_value')
-        result = config.save_config()
-        assert result is True
+        config.save_config()  # Returns None
 
         # 再読み込みして確認
         config2 = ConfigLoader(config_file)

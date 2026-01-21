@@ -45,8 +45,8 @@ def mock_config(temp_workspace: Path) -> ConfigLoader:
     """
     config_file = temp_workspace / "test_config.json"
     config_data = {
-        "year": "2026",
-        "year_short": "R8",
+        "year": "2025",
+        "year_short": "R7",
         "base_paths": {
             "local_temp": str(temp_workspace / "temp")
         },
@@ -101,9 +101,9 @@ class TestPDFMergeIntegration:
 
     def test_config_loader_initialization(self, mock_config: ConfigLoader):
         """ConfigLoaderが正しく初期化されることを確認"""
-        assert mock_config.year == "2026"
-        assert mock_config.year_short == "R8"
-        assert mock_config.get('year') == "2026"
+        assert mock_config.year == "2025"
+        assert mock_config.year_short == "R7"
+        assert mock_config.get('year') == "2025"
 
     def test_temp_dir_creation(self, mock_config: ConfigLoader):
         """一時ディレクトリが正しく作成されることを確認"""
@@ -194,6 +194,7 @@ class TestPathValidator:
     def test_validate_existing_directory(self, temp_workspace: Path):
         """存在するディレクトリの検証"""
         from path_validator import PathValidator
+        import os
 
         is_valid, error_msg, validated_path = PathValidator.validate_directory(
             str(temp_workspace),
@@ -202,7 +203,8 @@ class TestPathValidator:
 
         assert is_valid is True
         assert error_msg is None
-        assert validated_path == temp_workspace
+        # Windows short path vs long path の違いを吸収するため、正規化して比較
+        assert os.path.normpath(str(validated_path)) == os.path.normpath(str(temp_workspace))
 
     def test_validate_nonexistent_directory(self, temp_workspace: Path):
         """存在しないディレクトリの検証"""

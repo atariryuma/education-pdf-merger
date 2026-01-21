@@ -79,13 +79,14 @@ class TestPDFConverter:
     def test_convert_already_converted(self, temp_dir, sample_image_file):
         """既に変換済みの場合はスキップ"""
         converter = PDFConverter(temp_dir)
-        # 最初の変換
+        # 最初の変換（output_pathを明示的に指定）
         output_path = os.path.join(temp_dir, "sample.png.pdf")
-        result1 = converter.convert(sample_image_file)
+        result1 = converter.convert(sample_image_file, output_path=output_path)
         assert result1 is not None
+        assert result1 == output_path
 
-        # 2回目の変換（スキップされる）
-        result2 = converter.convert(sample_image_file)
+        # 2回目の変換（同じoutput_pathを指定するとスキップされる）
+        result2 = converter.convert(sample_image_file, output_path=output_path)
         assert result2 == result1
 
     def test_office_extensions(self):

@@ -97,16 +97,16 @@ class TestIchitaroConverter:
 
     def test_initialization_with_cancel_check(self):
         """キャンセルチェック付き初期化テスト"""
-        cancel_flag = False
+        cancel_state = {'cancelled': False}
 
         def cancel_check():
-            return cancel_flag
+            return cancel_state['cancelled']
 
         converter = IchitaroConverter(cancel_check=cancel_check)
         assert not converter.is_cancelled()
 
-        cancel_flag = True
-        assert not converter.is_cancelled()  # cancel_flagは関数スコープ内のため効果なし
+        cancel_state['cancelled'] = True
+        assert converter.is_cancelled()  # cancel_stateは辞書なので変更が反映される
 
     def test_initialization_with_dialog_callback(self):
         """ダイアログコールバック付き初期化テスト"""

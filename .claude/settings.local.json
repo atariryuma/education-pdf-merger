@@ -18,7 +18,13 @@
       "Bash(do wc -l \"$file\")",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(ls:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(gh run list:*)",
+      "Bash(dir \"%LOCALAPPDATA%\\\\PDFMergeSystem\")"
     ]
   }
 }
