@@ -90,12 +90,23 @@ class TestConfigLoader:
         assert config.get('nested', 'key') == 'nested_value'
 
     def test_update_year(self, config_file):
-        """年度情報の更新"""
+        """年度情報の更新（実運用では西暦のみを使用）"""
         config = ConfigLoader(config_file)
-        config.update_year("令和８年度(2026)", "R8")
-        assert config.year == "令和８年度(2026)"
-        assert config.year_short == "R8"
-        assert config.config['year'] == "令和８年度(2026)"
+        # GUI での使用方法: 西暦のみ渡す、year_short は自動計算
+        config.update_year("2026")
+        assert config.year == "2026"
+        assert config.year_short == "R8"  # 自動計算される
+        assert config.config['year'] == "2026"
+
+    def test_update_year_with_explicit_year_short(self, config_file):
+        """年度情報の更新（year_short明示指定）"""
+        config = ConfigLoader(config_file)
+        # year_shortを明示的に指定した場合
+        config.update_year("2027", "R9")
+        assert config.year == "2027"
+        assert config.year_short == "R9"
+        assert config.config['year'] == "2027"
+        assert config.config['year_short'] == "R9"
 
     def test_save_config(self, config_file):
         """設定の保存"""
