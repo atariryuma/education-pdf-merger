@@ -8,10 +8,13 @@ import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
-from typing import Any, Tuple
+from typing import Tuple, TYPE_CHECKING
 
 from gui.tabs.base_tab import BaseTab
 from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip
+
+if TYPE_CHECKING:
+    from config_loader import ConfigLoader
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -20,7 +23,15 @@ logger = logging.getLogger(__name__)
 class ExcelTab(BaseTab):
     """Excel処理タブ"""
 
-    def __init__(self, notebook: ttk.Notebook, config: Any, status_bar: tk.Label) -> None:
+    def __init__(self, notebook: ttk.Notebook, config: "ConfigLoader", status_bar: tk.Label) -> None:
+        """
+        Excel処理タブの初期化
+
+        Args:
+            notebook: タブを追加するNotebookウィジェット
+            config: ConfigLoaderインスタンス
+            status_bar: ステータスバーのLabelウィジェット
+        """
         super().__init__(notebook, config, status_bar)
         self._create_ui()
         self.add_to_notebook("📊 Excel処理")

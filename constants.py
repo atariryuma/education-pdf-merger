@@ -127,6 +127,17 @@ class AppConstants:
     # 一時ファイルのデフォルト保持期間（時間）
     TEMP_FILE_MAX_AGE_HOURS = 24
 
+    # GUIログハンドラーで使用するロガー名リスト
+    GUI_LOGGER_NAMES = [
+        'pdf_converter',
+        'converters.office_converter',
+        'converters.image_converter',
+        'converters.ichitaro_converter',
+        'pdf_processor',
+        'document_collector',
+        '__main__'
+    ]
+
 
 class PDFConstants:
     """PDF処理に関連する定数"""

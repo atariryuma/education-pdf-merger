@@ -94,15 +94,8 @@ class BaseTab:
             return
 
         if logger_names is None:
-            logger_names = [
-                'pdf_converter',
-                'converters.office_converter',
-                'converters.image_converter',
-                'converters.ichitaro_converter',
-                'pdf_processor',
-                'document_collector',
-                '__main__'
-            ]
+            from constants import AppConstants
+            logger_names = AppConstants.GUI_LOGGER_NAMES
 
         # GUIログハンドラを作成
         self._gui_handler = GUILogHandler(
@@ -125,16 +118,9 @@ class BaseTab:
     def remove_gui_logging(self) -> None:
         """GUIログハンドラを削除"""
         if hasattr(self, '_gui_handler') and self._gui_handler:
-            logger_names = [
-                'pdf_converter',
-                'converters.office_converter',
-                'converters.image_converter',
-                'converters.ichitaro_converter',
-                'pdf_processor',
-                'document_collector',
-                '__main__'
-            ]
-            for name in logger_names:
+            from constants import AppConstants
+
+            for name in AppConstants.GUI_LOGGER_NAMES:
                 logger = logging.getLogger(name)
                 if self._gui_handler in logger.handlers:
                     logger.removeHandler(self._gui_handler)

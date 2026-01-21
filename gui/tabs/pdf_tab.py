@@ -547,31 +547,6 @@ class PDFTab(BaseTab):
         thread = threading.Thread(target=task, daemon=True, name="FolderStructureDetection")
         thread.start()
 
-    def _detect_and_set_plan_type(self, directory_path: Path) -> None:
-        """
-        フォルダ構造を自動判定してplan_type_varを更新（同期版・後方互換性のため残す）
-
-        Args:
-            directory_path: 判定対象のディレクトリPath
-        """
-        try:
-            from folder_structure_detector import FolderStructureDetector, PlanType
-
-            detector = FolderStructureDetector()
-            result = detector.detect_structure(str(directory_path))
-
-            if result.plan_type == PlanType.AMBIGUOUS:
-                # 判定が曖昧な場合はダイアログで確認
-                self._show_plan_type_selection_dialog(result)
-            else:
-                # 確定判定の場合は自動設定
-                self.plan_type_var.set(result.plan_type.value)
-                self._update_plan_type_display(result)
-
-        except Exception as e:
-            logger.error(f"フォルダ構造判定エラー: {e}", exc_info=True)
-            # エラー時はデフォルト動作（手動選択のまま）
-
     def _update_plan_type_display(self, result) -> None:
         """
         判定結果をラベルに表示

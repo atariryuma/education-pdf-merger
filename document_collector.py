@@ -17,8 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentCollector:
-    """ディレクトリを探索してドキュメントを収集し、目次を生成するクラス"""
-    pass  # 定数はPDFConstantsから参照
+    """
+    ディレクトリを探索してドキュメントを収集し、目次を生成するクラス
+
+    定数はPDFConstantsクラスから参照します。
+    """
 
     def __init__(
         self,
