@@ -7,7 +7,7 @@ import os
 import subprocess
 import logging
 import winreg
-from typing import Optional, List
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

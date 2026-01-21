@@ -11,8 +11,7 @@ import logging
 import os
 import sys
 import time
-from pathlib import Path
-from typing import Any, Dict, Optional, Union, TypeVar, cast
+from typing import Any, Dict, Optional, Union, TypeVar
 
 from exceptions import ConfigurationError
 from year_utils import calculate_year_short
@@ -84,7 +83,7 @@ class ConfigLoader:
         except json.JSONDecodeError as e:
             logger.error(f"設定ファイルのJSON形式が不正です: {e}")
             raise ConfigurationError(
-                f"設定ファイルのJSON形式が不正です",
+                "設定ファイルのJSON形式が不正です",
                 config_key="json_format",
                 original_error=e
             ) from e

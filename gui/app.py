@@ -10,7 +10,6 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import Optional
 
 from config_loader import ConfigLoader
 from constants import AppConstants

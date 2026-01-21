@@ -7,10 +7,9 @@ import logging
 import os
 from typing import List, Tuple, Callable, Optional
 
-from config_loader import ConfigLoader
 from pdf_converter import PDFConverter
 from pdf_processor import PDFProcessor
-from exceptions import PDFProcessingError, CancelledError
+from exceptions import CancelledError
 from constants import PDFConstants
 
 # ロガーの設定

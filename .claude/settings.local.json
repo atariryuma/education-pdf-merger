@@ -25,7 +25,8 @@
       "Bash(git push:*)",
       "Bash(gh run list:*)",
       "Bash(dir \"%LOCALAPPDATA%\\\\PDFMergeSystem\")",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Bash(ruff check:*)"
     ]
   }
 }

@@ -12,7 +12,7 @@ from typing import Optional, Callable, Dict, Any, Tuple
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
 
-from exceptions import PDFConversionError, CancelledError
+from exceptions import CancelledError
 from constants import AppConstants, PDFConversionConstants, IchitaroWaitTimes
 
 logger = logging.getLogger(__name__)

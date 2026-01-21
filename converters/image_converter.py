@@ -4,7 +4,6 @@
 画像ファイル（JPEG、PNG、BMP、TIFF）をPDFに変換する機能を提供
 """
 import logging
-import os
 from typing import Optional
 
 from PIL import Image

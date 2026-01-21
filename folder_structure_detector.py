@@ -281,7 +281,6 @@ class FolderStructureDetector:
     ) -> DetectionResult:
         """スコアから最終判定"""
         score_diff = abs(education_score - event_score)
-        max_score = max(education_score, event_score)
         total_score = education_score + event_score
 
         # 確信度の計算
