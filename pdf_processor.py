@@ -253,22 +253,31 @@ class PDFProcessor:
             str: 作成したPDFのパス
         """
         doc = BaseDocTemplate(output_path, pagesize=A4)
-        frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height)
+        frame = Frame(
+            x1=doc.leftMargin,
+            y1=doc.bottomMargin,
+            width=doc.width,
+            height=doc.height,
+            id=PDFConstants.TOC_FRAME_ID
+        )
         doc.addPageTemplates([PageTemplate(id='normal', frames=[frame])])
 
         # テーブルデータの作成
         table_data = []
         for title, level, page in toc_entries:
             # レベル2の項目はインデント
-            indent = "    " if level == 2 else ""
+            indent = "    " if level == PDFConstants.HEADING_LEVEL_SUB else ""
             title_text = indent + title
             table_data.append([title_text, str(page)])
 
         if not table_data:
             table_data = [["目次なし", ""]]
 
-        # テーブルの作成
-        col_widths = [doc.width * 0.8, doc.width * 0.2]
+        # テーブルの作成（定数化した比率を使用）
+        col_widths = [
+            doc.width * PDFConstants.TOC_TITLE_COL_WIDTH_RATIO,
+            doc.width * PDFConstants.TOC_PAGE_COL_WIDTH_RATIO
+        ]
         toc_table = Table(table_data, colWidths=col_widths)
         toc_table.setStyle(TableStyle([
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),

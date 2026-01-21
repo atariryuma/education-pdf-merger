@@ -1,7 +1,8 @@
-; 教育計画PDFマージシステム v3.4.0 - Inno Setup Script
+; 教育計画PDFマージシステム v3.4.1 - Inno Setup Script
 ; Inno Setup 6.0+ required
 ;
-; Version 3.4.0 - 初回セットアップエクスペリエンスの実装
+; Version 3.4.1 - パフォーマンス改善版
+; - 遅延インポートの最適化（依存性注入方式）
 ; - 初回セットアップウィザード（5ステップ）
 ; - Ghostscript自動検出機能
 ; - 設定検証システム（ERROR/WARNING/INFO）
@@ -9,7 +10,7 @@
 ; - UXベストプラクティスに準拠
 
 #define MyAppName "教育計画PDFマージシステム"
-#define MyAppVersion "3.4.0"
+#define MyAppVersion "3.4.1"
 #define MyAppPublisher "教育機関向けPDFツール"
 #define MyAppExeName "教育計画PDFマージシステム.exe"
 #define MyAppURL "https://github.com/your-repo"
@@ -209,7 +210,7 @@ begin
 end;
 
 [Messages]
-WelcomeLabel1=教育計画PDFマージシステム v3.4.0 へようこそ
-WelcomeLabel2=このプログラムは、教育計画や行事計画のPDFファイルを効率的にマージするツールです。%n%n【v3.4.0の主な新機能】%n• 初回セットアップウィザード（5ステップガイド）%n• Ghostscript自動検出機能%n• 設定検証システム（ERROR/WARNING/INFO）%n• 年度の自動推定機能%n• UXベストプラクティスに準拠した設計%n%n【主な機能】%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像ファイルのPDF変換%n• 一太郎文書のPDF変換%n• 自動フォルダ構造検出%n• Excel自動転記機能%n%nセットアップを続行するには「次へ」をクリックしてください。
+WelcomeLabel1=教育計画PDFマージシステム v3.4.1 へようこそ
+WelcomeLabel2=このプログラムは、教育計画や行事計画のPDFファイルを効率的にマージするツールです。%n%n【v3.4.1の改善点】%n• パフォーマンス最適化（遅延インポート改善）%n• コード品質向上（CLAUDE.md準拠）%n%n【主な機能】%n• 初回セットアップウィザード（5ステップガイド）%n• Ghostscript自動検出機能%n• 設定検証システム（ERROR/WARNING/INFO）%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像ファイルのPDF変換%n• 一太郎文書のPDF変換%n• 自動フォルダ構造検出%n• Excel自動転記機能%n%nセットアップを続行するには「次へ」をクリックしてください。
 
-FinishedLabel=教育計画PDFマージシステム v3.4.0のインストールが完了しました。%n%n【新機能】%n• 初回起動時にセットアップウィザードが自動的に表示されます%n• Ghostscriptが自動検出されるため手動設定不要です%n• ドキュメントフォルダに詳細情報があります%n• Microsoft Office（Word/Excel/PowerPoint）が必要です%n• 一太郎ファイルを変換する場合は一太郎が必要です%n%n【v3.4.0の詳細】%n変更履歴（CHANGELOG.txt）とリリースノート（RELEASE_NOTES_v3.4.0.txt）をご覧ください。
+FinishedLabel=教育計画PDFマージシステム v3.4.1のインストールが完了しました。%n%n【v3.4.1の改善点】%n• パフォーマンスが向上しました%n• 初回起動時にセットアップウィザードが自動的に表示されます%n• Ghostscriptが自動検出されるため手動設定不要です%n• ドキュメントフォルダに詳細情報があります%n• Microsoft Office（Word/Excel/PowerPoint）が必要です%n• 一太郎ファイルを変換する場合は一太郎が必要です%n%n【詳細情報】%n変更履歴（CHANGELOG.txt）とリリースノート（RELEASE_NOTES_v3.4.0.txt）をご覧ください。

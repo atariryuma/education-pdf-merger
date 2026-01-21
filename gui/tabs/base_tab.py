@@ -6,15 +6,18 @@
 import logging
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-from typing import Any, Optional
+from typing import Optional, Callable, Tuple, TYPE_CHECKING
 
 from gui.utils import log_message, update_status, set_button_state
+
+if TYPE_CHECKING:
+    from config_loader import ConfigLoader
 
 
 class GUILogHandler(logging.Handler):
     """GUIのログウィジェットに出力するログハンドラ"""
 
-    def __init__(self, log_callback):
+    def __init__(self, log_callback: Callable[[str, str], None]) -> None:
         """
         Args:
             log_callback: ログメッセージを受け取るコールバック関数
@@ -23,7 +26,7 @@ class GUILogHandler(logging.Handler):
         super().__init__()
         self.log_callback = log_callback
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """ログレコードを処理"""
         try:
             msg = self.format(record)
@@ -44,7 +47,7 @@ class GUILogHandler(logging.Handler):
 class BaseTab:
     """タブの基底クラス"""
 
-    def __init__(self, notebook: ttk.Notebook, config: Any, status_bar: tk.Label) -> None:
+    def __init__(self, notebook: ttk.Notebook, config: "ConfigLoader", status_bar: tk.Label) -> None:
         """
         Args:
             notebook: タブを追加するNotebookウィジェット
@@ -62,7 +65,13 @@ class BaseTab:
         self.notebook.add(self.tab, text=text)
 
     def create_log_frame(self, height: int = 10, parent=None) -> None:
-        """ログフレームを作成"""
+        """
+        ログフレームを作成
+
+        Args:
+            height: ログウィジェットの高さ（行数）
+            parent: 親ウィジェット（省略時はタブ自体）
+        """
         if parent is None:
             parent = self.tab
         log_frame = tk.Frame(parent)
@@ -150,3 +159,63 @@ class BaseTab:
             message: ステータスメッセージ
         """
         self.log(message, "info")
+
+    def create_scrollable_container(self) -> Tuple[tk.Canvas, tk.Scrollbar, tk.Frame]:
+        """
+        スクロール可能なコンテナを作成（全タブ共通処理）
+
+        このメソッドは、pdf_tab、settings_tab、excel_tabで重複していた
+        スクロール処理を統一するために作成されました。
+
+        Returns:
+            tuple[tk.Canvas, tk.Scrollbar, tk.Frame]: (canvas, scrollbar, scrollable_frame)
+
+        Note:
+            マウスホイール処理は自動的にバインドされます。
+            返却されたscrollable_frameに子ウィジェットを追加してください。
+        """
+        # スクロール可能なメインコンテナ
+        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
+        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
+
+        # scrollregionを更新する関数
+        def update_scrollregion(event: Optional[tk.Event] = None) -> None:
+            canvas.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_frame.bind("<Configure>", update_scrollregion)
+
+        # create_windowでウィンドウIDを保存
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Canvasのサイズに合わせてscrollable_frameの幅を調整
+        def on_canvas_configure(event: tk.Event) -> None:
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        # マウスホイールでのスクロールを有効化
+        def on_mousewheel(event: tk.Event) -> str:
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+
+        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
+        def bind_mousewheel_recursive(widget: tk.Widget) -> None:
+            widget.bind("<MouseWheel>", on_mousewheel)
+            for child in widget.winfo_children():
+                bind_mousewheel_recursive(child)
+
+        canvas.bind("<Configure>", on_canvas_configure)
+        canvas.bind("<MouseWheel>", on_mousewheel)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # マウスホイール処理を遅延初期化（パフォーマンス向上）
+        def deferred_mousewheel_bind() -> None:
+            bind_mousewheel_recursive(scrollable_frame)
+
+        # 100ms後にバインド（UI構築完了後）
+        self.tab.after(100, deferred_mousewheel_bind)
+
+        return canvas, scrollbar, scrollable_frame

@@ -7,13 +7,17 @@ PDF変換モジュール（統合版）
 import logging
 import os
 import uuid
-from typing import Optional, Any, Callable, Dict
+from typing import Optional, Any, Callable, Dict, TYPE_CHECKING
 
 from converters.office_converter import OfficeConverter
 from converters.image_converter import ImageConverter
 from converters.ichitaro_converter import IchitaroConverter
 from constants import PDFConversionConstants
 from path_validator import PathValidator
+
+if TYPE_CHECKING:
+    from config_loader import ConfigLoader
+    from pdf_processor import PDFProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +36,8 @@ class PDFConverter:
         ichitaro_settings: Optional[Dict[str, Any]] = None,
         cancel_check: Optional[Callable[[], bool]] = None,
         dialog_callback: Optional[Callable[[str, bool], None]] = None,
-        config: Optional[Any] = None
+        config: Optional["ConfigLoader"] = None,
+        pdf_processor: Optional["PDFProcessor"] = None
     ) -> None:
         """
         Args:
@@ -41,9 +46,19 @@ class PDFConverter:
             cancel_check: キャンセル状態をチェックするコールバック関数
             dialog_callback: 一太郎変換ダイアログのコールバック関数(message, show)
             config: ConfigLoaderインスタンス（区切りページ生成に必要）
+            pdf_processor: PDFProcessorインスタンス（依存性注入、省略時はconfigから初期化）
         """
         self.temp_dir = temp_dir
         self.config = config
+
+        # PDFProcessorの初期化（依存性注入優先、なければconfigから作成）
+        if pdf_processor is not None:
+            self._pdf_processor = pdf_processor
+        elif config is not None:
+            from pdf_processor import PDFProcessor
+            self._pdf_processor = PDFProcessor(config)
+        else:
+            self._pdf_processor = None
 
         # 各変換器を初期化
         self.office_converter = OfficeConverter(temp_dir)
@@ -124,13 +139,17 @@ class PDFConverter:
         Returns:
             str: 作成したPDFのパス（失敗時はNone）
 
-        Note:
-            循環インポート回避のため、実際の生成処理はPDFProcessorに委譲
+        Raises:
+            PDFConversionError: ConfigLoaderまたはPDFProcessorが設定されていない場合
         """
         try:
-            # ConfigLoaderが設定されていない場合はエラー
+            # ConfigLoaderまたはPDFProcessorが設定されていない場合はエラー
             if self.config is None:
                 logger.error(f"区切りページ生成エラー ({folder_name}): ConfigLoaderが設定されていません")
+                return None
+
+            if self._pdf_processor is None:
+                logger.error(f"区切りページ生成エラー ({folder_name}): PDFProcessorが設定されていません")
                 return None
 
             # フォルダ名をセキュアにサニタイズ（PathValidator使用）
@@ -142,11 +161,8 @@ class PDFConverter:
 
             output_pdf = os.path.join(self.temp_dir, f"separator_{safe_folder_name}.pdf")
 
-            # PDFProcessorで生成（循環インポート回避のため動的インポート）
-            # TODO: 将来的には区切りページ生成をseparator_generator.pyに分離することを推奨
-            from pdf_processor import PDFProcessor
-            processor = PDFProcessor(self.config)
-            return processor.create_separator_pdf(folder_name, output_pdf)
+            # PDFProcessorで生成（依存性注入により初期化済み）
+            return self._pdf_processor.create_separator_pdf(folder_name, output_pdf)
 
         except (SystemExit, KeyboardInterrupt):
             raise

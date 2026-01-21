@@ -1,0 +1,97 @@
+# Dependabot設定ファイル
+# 依存関係の自動更新とセキュリティアラート
+
+version: 2
+updates:
+  # === Python依存関係 ===
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+
+    # 自動プルリクエスト設定
+    open-pull-requests-limit: 10
+
+    # コミットメッセージのプレフィックス
+    commit-message:
+      prefix: "Deps"
+      include: "scope"
+
+    # レビュアーの自動割り当て（必要に応じて変更）
+    reviewers:
+      - "yourusername"
+
+    # ラベルの自動付与
+    labels:
+      - "dependencies"
+      - "python"
+
+    # バージョニング戦略
+    versioning-strategy: increase
+
+    # セキュリティアップデートを優先
+    # パッチ・マイナーアップデートは自動マージ候補
+    # メジャーアップデートは手動レビュー
+
+    # 無視する依存関係（必要に応じて追加）
+    ignore:
+      # 例: 特定バージョンを固定したい場合
+      # - dependency-name: "pillow"
+      #   versions: ["10.x"]
+
+    # グループ化設定（関連する依存関係をまとめる）
+    groups:
+      # テストツール
+      testing:
+        patterns:
+          - "pytest*"
+
+      # 型チェックツール
+      type-checking:
+        patterns:
+          - "mypy"
+          - "types-*"
+
+      # リンター・フォーマッター
+      linting:
+        patterns:
+          - "ruff"
+          - "black"
+          - "isort"
+          - "bandit*"
+
+      # ビルドツール
+      build:
+        patterns:
+          - "pyinstaller"
+
+      # ドキュメントツール
+      docs:
+        patterns:
+          - "sphinx*"
+
+  # === GitHub Actions ===
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+
+    commit-message:
+      prefix: "CI"
+
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+    open-pull-requests-limit: 5
+
+# === セキュリティアラート設定 ===
+# GitHub Securityタブで自動的に有効化されます
+# - セキュリティ脆弱性が検出されたら即座にプルリクエスト作成
+# - Critical/Highは優先度を上げて通知

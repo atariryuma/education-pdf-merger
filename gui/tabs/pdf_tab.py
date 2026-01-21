@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional, TYPE_CHECKING
 
 from gui.tabs.base_tab import BaseTab
 from gui.utils import set_button_state, create_hover_button, thread_safe_call, open_file_or_folder, create_tooltip
@@ -26,6 +26,9 @@ from pdf_merge_orchestrator import PDFMergeOrchestrator
 from exceptions import CancelledError
 from path_validator import PathValidator
 
+if TYPE_CHECKING:
+    from config_loader import ConfigLoader
+
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ class PDFTab(BaseTab):
     def __init__(
         self,
         notebook: ttk.Notebook,
-        config: Any,
+        config: "ConfigLoader",
         status_bar: tk.Label,
         input_dir_var: tk.StringVar,
         output_file_var: tk.StringVar,
@@ -68,50 +71,11 @@ class PDFTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
-        # スクロール可能なメインコンテナ
-        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
-        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
-
-        # scrollregionを更新する関数
-        def update_scrollregion(event=None):
-            canvas.update_idletasks()
-            canvas.configure(scrollregion=canvas.bbox("all"))
-
-        scrollable_frame.bind("<Configure>", update_scrollregion)
-
-        # create_windowでウィンドウIDを保存
-        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        # Canvasのサイズに合わせてscrollable_frameの幅を調整
-        def on_canvas_configure(event):
-            canvas.itemconfig(canvas_window, width=event.width)
-
-        # マウスホイールでのスクロールを有効化
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            return "break"
-
-        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
-        def bind_mousewheel_recursive(widget):
-            widget.bind("<MouseWheel>", on_mousewheel)
-            for child in widget.winfo_children():
-                bind_mousewheel_recursive(child)
-
-        canvas.bind("<Configure>", on_canvas_configure)
-        canvas.bind("<MouseWheel>", on_mousewheel)
-
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # 後で子ウィジェットにマウスホイールをバインドするための参照を保持
-        self.canvas = canvas
-        self.scrollable_frame = scrollable_frame
-        self.bind_mousewheel_recursive = bind_mousewheel_recursive
+        # スクロール可能なメインコンテナ（BaseTabの共通メソッドを使用）
+        self.canvas, _scrollbar, self.scrollable_frame = self.create_scrollable_container()
 
         # メインコンテナをスクロール可能フレーム内に配置
-        main_container = scrollable_frame
+        main_container = self.scrollable_frame
 
         # 使い方ガイド（初心者向け）
         guide_frame = tk.LabelFrame(main_container, text="📖 使い方", font=("メイリオ", 10, "bold"))
@@ -249,13 +213,6 @@ class PDFTab(BaseTab):
         self.setup_gui_logging()
         self.log("準備完了。入力ディレクトリと出力ファイルを選択して実行してください。", "info")
 
-        # scrollregionを明示的に初期化
-        self.scrollable_frame.update_idletasks()
-        update_scrollregion()
-
-        # すべての子ウィジェットにマウスホイールをバインド
-        self.bind_mousewheel_recursive(self.scrollable_frame)
-
     def _select_input_dir(self) -> None:
         """入力ディレクトリを選択（pathlibベース）"""
         try:
@@ -281,7 +238,7 @@ class PDFTab(BaseTab):
                     # フォルダ構造の自動判定（バックグラウンドで実行してUIフリーズを防止）
                     self._detect_and_set_plan_type_async(validated_path)
                 else:
-                    messagebox.showwarning("検証エラー", error_msg or "不明なエラー")
+                    self._show_validation_error(error_msg)
             else:
                 logger.debug("ディレクトリ選択がキャンセルされました")
 
@@ -328,7 +285,7 @@ class PDFTab(BaseTab):
                     # 実行ボタンの状態を更新
                     self._update_run_button_state()
                 else:
-                    messagebox.showwarning("検証エラー", error_msg or "不明なエラー")
+                    self._show_validation_error(error_msg)
             else:
                 logger.debug("出力ファイル選択がキャンセルされました")
 
@@ -786,3 +743,15 @@ class PDFTab(BaseTab):
 
         except Exception as e:
             logger.warning(f"デフォルトパスの読み込みに失敗: {e}", exc_info=True)
+
+    def _show_validation_error(self, error_msg: Optional[str]) -> None:
+        """
+        検証エラーを表示（共通メソッド）
+
+        Args:
+            error_msg: エラーメッセージ（Noneの場合は不明なエラー）
+        """
+        messagebox.showwarning(
+            UIMessages.ERROR_VALIDATION,
+            error_msg or UIMessages.ERROR_UNKNOWN
+        )

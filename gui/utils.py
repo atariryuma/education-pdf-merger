@@ -34,27 +34,27 @@ class ToolTip:
         self.widget.bind("<Leave>", self.on_leave)
         self.widget.bind("<Button>", self.on_leave)
 
-    def on_enter(self, event=None):
+    def on_enter(self, event: Optional[tk.Event] = None) -> None:
         """マウスが乗った時"""
         self.schedule()
 
-    def on_leave(self, event=None):
+    def on_leave(self, event: Optional[tk.Event] = None) -> None:
         """マウスが離れた時"""
         self.unschedule()
         self.hide()
 
-    def schedule(self):
+    def schedule(self) -> None:
         """遅延後に表示"""
         self.unschedule()
         self.id = self.widget.after(self.delay, self.show)
 
-    def unschedule(self):
+    def unschedule(self) -> None:
         """スケジュールをキャンセル"""
         if self.id:
             self.widget.after_cancel(self.id)
             self.id = None
 
-    def show(self):
+    def show(self) -> None:
         """ツールチップを表示"""
         if self.tip_window or not self.text:
             return
@@ -83,13 +83,13 @@ class ToolTip:
         )
         label.pack()
 
-    def hide(self):
+    def hide(self) -> None:
         """ツールチップを非表示"""
         if self.tip_window:
             self.tip_window.destroy()
             self.tip_window = None
 
-    def destroy(self):
+    def destroy(self) -> None:
         """ツールチップを完全に破棄（メモリリーク防止）"""
         self.unschedule()
         self.hide()

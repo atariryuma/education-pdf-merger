@@ -1,0 +1,115 @@
+name: CI - 品質チェック
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  # === ジョブ1: 品質チェック（型・リント・セキュリティ） ===
+  quality:
+    name: 品質チェック
+    runs-on: windows-latest
+
+    steps:
+    - name: チェックアウト
+      uses: actions/checkout@v4
+
+    - name: Python 3.8セットアップ
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+        cache: 'pip'
+
+    - name: 依存関係インストール
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install mypy types-Pillow types-requests ruff bandit[toml]
+
+    - name: 型チェック (mypy)
+      run: mypy --config-file mypy.ini --no-error-summary .
+      continue-on-error: true
+
+    - name: リント (ruff)
+      run: ruff check . --output-format=github
+      continue-on-error: true
+
+    - name: セキュリティチェック (bandit)
+      run: bandit -r . -f screen --skip B101,B601
+      continue-on-error: true
+
+  # === ジョブ2: テスト ===
+  test:
+    name: テスト
+    runs-on: windows-latest
+
+    steps:
+    - name: チェックアウト
+      uses: actions/checkout@v4
+
+    - name: Python 3.8セットアップ
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+        cache: 'pip'
+
+    - name: 依存関係インストール
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-mock
+
+    - name: テスト実行
+      run: pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing -v
+
+    - name: カバレッジレポートアップロード
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        fail_ci_if_error: false
+
+  # === ジョブ3: ビルド検証 ===
+  build:
+    name: ビルド検証
+    runs-on: windows-latest
+    needs: [quality, test]
+
+    steps:
+    - name: チェックアウト
+      uses: actions/checkout@v4
+
+    - name: Python 3.8セットアップ
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+        cache: 'pip'
+
+    - name: 依存関係インストール
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: ビルド実行
+      run: pyinstaller build_installer.spec --clean --noconfirm
+
+    - name: ビルド成果物の確認
+      run: |
+        if (Test-Path "dist\教育計画PDFマージシステム.exe") {
+          Write-Host "✓ ビルド成功"
+          exit 0
+        } else {
+          Write-Host "✗ ビルド失敗"
+          exit 1
+        }
+
+    - name: ビルド成果物アップロード
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-executable
+        path: dist/教育計画PDFマージシステム.exe
+        retention-days: 7

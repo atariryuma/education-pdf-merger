@@ -149,6 +149,11 @@ class PDFConstants:
     HEADING_LEVEL_MAIN = 1             # 大見出し（メインディレクトリ）
     HEADING_LEVEL_SUB = 2              # 小見出し（サブフォルダ/ファイル）
 
+    # 目次レイアウト定数
+    TOC_TITLE_COL_WIDTH_RATIO = 0.8    # タイトル列の幅（ドキュメント幅に対する比率）
+    TOC_PAGE_COL_WIDTH_RATIO = 0.2     # ページ番号列の幅（ドキュメント幅に対する比率）
+    TOC_FRAME_ID = 'toc_frame'         # 目次フレームのID
+
     # ファイル名接尾辞
     TEMP_FILE_SUFFIX = ".tmp"          # 一時ファイルの拡張子
 

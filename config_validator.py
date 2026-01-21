@@ -40,7 +40,7 @@ class ConfigValidator:
     - 推奨設定の確認
     """
 
-    def __init__(self, config: ConfigLoader):
+    def __init__(self, config: ConfigLoader) -> None:
         """
         Args:
             config: 検証する設定オブジェクト

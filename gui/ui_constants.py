@@ -17,6 +17,10 @@ class UIMessages:
     ERROR_PATH_NOT_DIR = "指定されたパスはディレクトリではありません。\n\nパス: {path}"
     ERROR_PATH_PERMISSION = "指定されたパスへのアクセス権限がありません。\n\nパス: {path}"
 
+    # 検証エラー
+    ERROR_VALIDATION = "検証エラー"
+    ERROR_UNKNOWN = "不明なエラー"
+
     # ファイル関連エラー
     ERROR_FILE_NOT_FOUND = "ファイルが見つかりません。\n\n{filename}"
     ERROR_FILE_READ_ONLY = "ファイルが読み取り専用です。書き込み権限を確認してください。\n\n{filename}"

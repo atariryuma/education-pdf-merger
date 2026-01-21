@@ -9,12 +9,13 @@ import os
 import json
 import re
 from datetime import datetime
+from typing import Optional
 
 
 class StructuredFormatter(logging.Formatter):
     """JSON形式でログを出力するフォーマッター"""
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         log_data = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
@@ -54,7 +55,15 @@ class SensitiveDataFilter(logging.Filter):
 
     @staticmethod
     def _mask_match(match: re.Match) -> str:
-        """マッチした部分に応じてマスク文字列を返す"""
+        """
+        マッチした部分に応じてマスク文字列を返す
+
+        Args:
+            match: 正規表現のマッチオブジェクト
+
+        Returns:
+            str: マスク処理された文字列
+        """
         if match.lastgroup == 'password':
             return 'password=***'
         elif match.lastgroup == 'token':
@@ -62,7 +71,8 @@ class SensitiveDataFilter(logging.Filter):
         elif match.lastgroup == 'credit':
             return '****-****-****-****'
         elif match.lastgroup == 'email':
-            return f'***@{match.group(0).split("@")[1]}'
+            # セキュリティ強化: ドメイン部分も完全にマスク
+            return '***@***'
         elif match.lastgroup == 'phone':
             return '***-****-****'
         elif match.lastgroup == 'winpath':
@@ -70,7 +80,7 @@ class SensitiveDataFilter(logging.Filter):
             return f'{prefix}***'
         return '***'
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         """ログレコードから機密情報をマスク"""
         try:
             if hasattr(record, 'msg'):
@@ -93,7 +103,7 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
-def setup_logging(log_dir=None, level=logging.INFO, app_name="pdf_merge", use_json=False):
+def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_name: str = "pdf_merge", use_json: bool = False) -> logging.Logger:
     """
     統一ログシステムをセットアップ
 
@@ -170,7 +180,7 @@ def setup_logging(log_dir=None, level=logging.INFO, app_name="pdf_merge", use_js
     return root_logger
 
 
-def get_logger(name=None):
+def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
     名前付きロガーを取得
 

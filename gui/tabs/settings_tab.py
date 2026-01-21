@@ -61,54 +61,11 @@ class SettingsTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
-        # スクロール可能なメインコンテナ
-        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
-        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
-
-        # scrollregionを更新する関数
-        def update_scrollregion(event=None):
-            canvas.update_idletasks()
-            bbox = canvas.bbox("all")
-            canvas.configure(scrollregion=bbox)
-            # デバッグログ
-            logger.debug(f"スクロール領域更新: bbox={bbox}, canvas_height={canvas.winfo_height()}")
-
-        scrollable_frame.bind("<Configure>", update_scrollregion)
-
-        # create_windowでウィンドウIDを保存
-        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        # Canvasのサイズに合わせてscrollable_frameの幅を調整
-        def on_canvas_configure(event):
-            canvas.itemconfig(canvas_window, width=event.width)
-
-        # マウスホイールでのスクロールを有効化（全ウィジェットに適用）
-        def on_mousewheel(event):
-            # スクロール可能な場合のみスクロール
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            return "break"
-
-        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
-        def bind_mousewheel_recursive(widget):
-            widget.bind("<MouseWheel>", on_mousewheel)
-            for child in widget.winfo_children():
-                bind_mousewheel_recursive(child)
-
-        canvas.bind("<Configure>", on_canvas_configure)
-        canvas.bind("<MouseWheel>", on_mousewheel)
-
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # 後で子ウィジェットにマウスホイールをバインドするための参照を保持
-        self.canvas = canvas
-        self.scrollable_frame = scrollable_frame
-        self.bind_mousewheel_recursive = bind_mousewheel_recursive
+        # スクロール可能なメインコンテナ（BaseTabの共通メソッドを使用）
+        self.canvas, _scrollbar, self.scrollable_frame = self.create_scrollable_container()
 
         # メインコンテナ（スクロール可能フレーム内）
-        main_container = scrollable_frame
+        main_container = self.scrollable_frame
 
         # 説明フレーム（初心者向け）
         help_frame = tk.LabelFrame(main_container, text="💡 設定について", font=("メイリオ", 10, "bold"))
@@ -286,13 +243,6 @@ class SettingsTab(BaseTab):
         )
         edit_btn.pack(side="left", padx=5)
 
-        # scrollregionを明示的に初期化
-        self.scrollable_frame.update_idletasks()
-        update_scrollregion()
-
-        # すべての子ウィジェットにマウスホイールをバインド
-        self.bind_mousewheel_recursive(self.scrollable_frame)
-
     def _browse_folder(self, var: tk.StringVar) -> None:
         """フォルダを参照（PathValidatorベース）"""
         try:
@@ -358,7 +308,6 @@ class SettingsTab(BaseTab):
             initial_dir_candidate = os.path.join(base_path, year, education_base)
 
             # フリーズ防止: PathValidator.get_safe_initial_dirを使用
-            from path_validator import PathValidator
             safe_initial_dir = PathValidator.get_safe_initial_dir(
                 initial_dir_candidate,
                 fallback=Path.home()

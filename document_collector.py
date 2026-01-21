@@ -52,7 +52,20 @@ class DocumentCollector:
         content_pdfs: List[str],
         current_page: int
     ) -> int:
-        """ファイルをPDFに変換してリストに追加し、更新されたページ番号を返す"""
+        """
+        ファイルをPDFに変換してリストに追加し、更新されたページ番号を返す
+
+        Args:
+            file_path: 変換対象ファイルのパス
+            content_pdfs: PDFパスのリスト（破壊的に更新される）
+            current_page: 現在のページ番号
+
+        Returns:
+            int: 更新後のページ番号（変換成功時はページ数が加算される）
+
+        Note:
+            変換失敗時はページ番号は変更されず、警告ログが出力される
+        """
         file_name = os.path.basename(file_path)
         logger.info(f"ファイルを変換中: {file_name}")
         converted_pdf = self.converter.convert(file_path)
@@ -71,7 +84,17 @@ class DocumentCollector:
         content_pdfs: List[str],
         current_page: int
     ) -> int:
-        """表紙ファイルを処理"""
+        """
+        表紙ファイルを処理
+
+        Args:
+            file_path: 表紙ファイルのパス
+            content_pdfs: PDFパスのリスト（破壊的に更新される）
+            current_page: 現在のページ番号
+
+        Returns:
+            int: 更新後のページ番号
+        """
         logger.info(f"表紙ファイルを処理中: {os.path.basename(file_path)}")
         return self._convert_and_add_pdf(file_path, content_pdfs, current_page)
 
@@ -84,7 +107,20 @@ class DocumentCollector:
         content_pdfs: List[str],
         current_page: int
     ) -> int:
-        """サブフォルダを処理"""
+        """
+        サブフォルダを処理
+
+        Args:
+            subfolder_path: サブフォルダのパス
+            subfolder_name: サブフォルダ名
+            create_separator: 区切りページを作成するか
+            toc_entries: 目次エントリのリスト（破壊的に更新される）
+            content_pdfs: PDFパスのリスト（破壊的に更新される）
+            current_page: 現在のページ番号
+
+        Returns:
+            int: 更新後のページ番号
+        """
         sub_heading = self._sanitize_name(subfolder_name)
         logger.info(f"サブフォルダを処理中: {subfolder_name}")
 
@@ -119,7 +155,20 @@ class DocumentCollector:
         content_pdfs: List[str],
         current_page: int
     ) -> int:
-        """メインディレクトリ（大見出し）を処理"""
+        """
+        メインディレクトリ（大見出し）を処理
+
+        Args:
+            dir_path: ディレクトリのパス
+            dir_name: ディレクトリ名
+            create_separator_for_subfolder: サブフォルダに区切りページを作成するか
+            toc_entries: 目次エントリのリスト（破壊的に更新される）
+            content_pdfs: PDFパスのリスト（破壊的に更新される）
+            current_page: 現在のページ番号
+
+        Returns:
+            int: 更新後のページ番号
+        """
         heading = dir_name.strip()
         heading_for_toc = heading.replace("_", "")
         logger.info(f"=== メインディレクトリを処理中: {heading} ===")
@@ -165,7 +214,19 @@ class DocumentCollector:
         content_pdfs: List[str],
         current_page: int
     ) -> int:
-        """ルートディレクトリ直下のファイルを処理"""
+        """
+        ルートディレクトリ直下のファイルを処理
+
+        Args:
+            file_path: ファイルのパス
+            file_name: ファイル名
+            toc_entries: 目次エントリのリスト（破壊的に更新される）
+            content_pdfs: PDFパスのリスト（破壊的に更新される）
+            current_page: 現在のページ番号
+
+        Returns:
+            int: 更新後のページ番号
+        """
         name = self._sanitize_name(os.path.splitext(file_name)[0])
         converted_pdf = self.converter.convert(file_path)
         if converted_pdf:
