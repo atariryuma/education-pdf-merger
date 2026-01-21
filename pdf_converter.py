@@ -51,6 +51,20 @@ class PDFConverter:
         self.temp_dir = temp_dir
         self.config = config
 
+        # 一太郎設定の初期化
+        default_ichitaro_settings = {
+            'ichitaro_ready_timeout': 30,
+            'max_retries': 3,
+            'down_arrow_count': 5,
+            'save_wait_seconds': 20,
+        }
+        if ichitaro_settings is None:
+            self.ichitaro_settings = default_ichitaro_settings.copy()
+        else:
+            # デフォルト値とマージ
+            self.ichitaro_settings = default_ichitaro_settings.copy()
+            self.ichitaro_settings.update(ichitaro_settings)
+
         # PDFProcessorの初期化（依存性注入優先、なければconfigから作成）
         if pdf_processor is not None:
             self._pdf_processor = pdf_processor
