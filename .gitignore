@@ -83,10 +83,11 @@ nul
 *.tmp
 *.bak
 *.orig
-test_*.py
 *_DIAGRAM.txt
 *_FIX_*.txt
 *_FIX_*.md
+
+# テストファイルは除外しない（tests/ディレクトリ配下は含める）
 *_FIX_*.py
 CRITICAL_FIXES.py
 
