@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 from typing import Optional, Callable, Tuple, TYPE_CHECKING
 
-from gui.utils import log_message, update_status, set_button_state
+from gui.utils import log_message
 
 if TYPE_CHECKING:
     from config_loader import ConfigLoader

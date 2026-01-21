@@ -16,7 +16,7 @@ from gui.utils import set_button_state, create_hover_button, thread_safe_call, o
 from gui.ichitaro_dialog import IchitaroConversionDialog
 from gui.styles import PADDING
 from gui.ui_constants import (
-    UIMessages, UILabels, UITooltips, UIDialogTitles,
+    UIMessages, UILabels, UITooltips,
     UIWidgetSizes, UIIcons, UIColors
 )
 from pdf_converter import PDFConverter

@@ -124,5 +124,5 @@ class IchitaroConversionDialog(tk.Toplevel):
             self.progress.stop()
             # grab_release()は不要（grab_set()していないため）
             self.destroy()
-        except:
+        except Exception:
             pass

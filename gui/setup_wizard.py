@@ -12,12 +12,10 @@
 - https://blog.logrocket.com/ux-design/creating-setup-wizard-when-you-shouldnt/
 """
 import logging
-import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import Optional, Callable
 from pathlib import Path
-from datetime import datetime
 
 from config_loader import ConfigLoader
 from ghostscript_detector import GhostscriptDetector

@@ -354,7 +354,7 @@ F5 : ファイル状態を確認
 def main() -> None:
     """メイン関数"""
     root = tk.Tk()
-    app = PDFMergeApp(root)
+    PDFMergeApp(root)  # appインスタンスは使用しない
     root.mainloop()
 
 

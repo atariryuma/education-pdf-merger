@@ -4,7 +4,6 @@
 フォルダ構造判定が曖昧な場合にユーザーに選択を促す
 """
 import tkinter as tk
-from tkinter import ttk
 from typing import Callable
 
 

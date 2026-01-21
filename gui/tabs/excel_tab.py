@@ -301,7 +301,7 @@ class ExcelTab(BaseTab):
 
             result = messagebox.askokcancel(
                 "ファイル未オープン",
-                f"以下のファイルが開かれていません:\n\n" + "\n".join(missing) + "\n\n続行しますか？"
+                "以下のファイルが開かれていません:\n\n" + "\n".join(missing) + "\n\n続行しますか？"
             )
             if not result:
                 return
