@@ -57,6 +57,8 @@ class PDFConverter:
             'max_retries': 3,
             'down_arrow_count': 5,
             'save_wait_seconds': 20,
+            'dialog_wait_seconds': 3,
+            'action_wait_seconds': 2,
         }
         if ichitaro_settings is None:
             self.ichitaro_settings = default_ichitaro_settings.copy()
