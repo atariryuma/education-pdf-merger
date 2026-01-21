@@ -2,7 +2,6 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 教育計画・行事計画関連のドキュメントをPDFに変換・マージするWindowsアプリケーション。Word、Excel、PowerPoint、一太郎、画像などの複数形式に対応し、自動的に目次とブックマークを生成します。
 
@@ -37,10 +36,6 @@
 ### 方法1: pipでインストール（開発者向け）
 
 ```bash
-# リポジトリをクローン
-git clone https://github.com/yourusername/pdf-merge-system.git
-cd pdf-merge-system
-
 # 依存関係をインストール
 pip install -r requirements.txt
 
@@ -106,25 +101,25 @@ python convert_and_merge.py
   "year": "2025",
   "year_short": "R7",
   "base_paths": {
-    "google_drive": "G:\\マイドライブ\\ドキュメント",
-    "network": "\\\\10.206.2.16\\天久小\\share",
-    "local_temp": "C:\\Projects\\temp_pdfs"
+    "google_drive": "ドライブのルートパス",
+    "network": "ネットワークパス",
+    "local_temp": "一時ファイル保存先"
   },
   "ghostscript": {
-    "executable": "C:\\Program Files\\gs\\gs10.04.0\\bin\\gswin64c.exe"
+    "executable": "Ghostscript実行ファイルパス"
   }
 }
 ```
 
 **主な設定項目:**
 
-| 項目 | 説明 | 例 |
-|------|------|-----|
-| `year` | 年度（西暦） | `"2026"` |
-| `year_short` | 年度（略称・自動計算） | `"R8"` ※yearから自動生成 |
-| `base_paths.google_drive` | Google Driveルートパス | `"G:\\マイドライブ"` |
-| `base_paths.network` | ネットワークパス | `"\\\\server\\share"` |
-| `ghostscript.executable` | Ghostscript実行ファイルパス | `"C:\\Program Files\\gs\\...\\gswin64c.exe"` |
+| 項目 | 説明 |
+|------|------|
+| `year` | 年度（西暦） |
+| `year_short` | 年度（略称・自動計算） |
+| `base_paths.google_drive` | ドライブのルートパス |
+| `base_paths.network` | ネットワークパス |
+| `ghostscript.executable` | Ghostscript実行ファイルパス |
 
 GUIアプリの「設定」タブから直接編集することも可能です。
 
@@ -242,18 +237,6 @@ cd installer && build_installer.bat
 
 MIT License - 詳細は [LICENSE](LICENSE) をご覧ください。
 
-## 🤝 コントリビューション
-
-プルリクエストを歓迎します！大きな変更の場合は、まずissueを開いて変更内容を議論してください。
-
-### コントリビューションの手順
-
-1. このリポジトリをフォーク
-2. フィーチャーブランチを作成 (`git checkout -b feature/AmazingFeature`)
-3. 変更をコミット (`git commit -m 'Add some AmazingFeature'`)
-4. ブランチにプッシュ (`git push origin feature/AmazingFeature`)
-5. プルリクエストを開く
-
 ## ⚠️ トラブルシューティング
 
 ### エラー: "config.json not found"
@@ -307,20 +290,11 @@ MIT License - 詳細は [LICENSE](LICENSE) をご覧ください。
 - 📦 設定ファイル方式の導入
 - 🔧 年度更新の簡素化
 
-## 👥 作者
-
-**School Tools**
-
 ## 🙋 サポート
 
-問題が発生した場合は、プロジェクト管理者にご連絡ください。
+問題が発生した場合は、以下の情報を含めてご報告ください。
 
-報告時は以下の情報を含めてください：
 - エラーメッセージ（完全な内容）
 - 実行したコマンド
 - `config.json` の内容（機密情報は削除）
 - Python、Office、Ghostscriptのバージョン
-
----
-
-**Made with ❤️ for Education**
