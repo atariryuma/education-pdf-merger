@@ -255,7 +255,6 @@ class PDFTab(BaseTab):
             logger.info("出力ファイル選択ダイアログを開きます")
 
             # デフォルトの出力先をデスクトップに設定
-            import os
             desktop_path = Path.home() / "Desktop"
             initial_dir = str(desktop_path) if desktop_path.exists() else str(Path.home())
 

@@ -36,7 +36,7 @@ else:
 sys.path.insert(0, application_path)
 
 # ロギングの設定（環境変数 LOG_LEVEL で制御可能）
-from logging_config import setup_logging
+from logging_config import setup_logging  # noqa: E402
 
 # ログレベルマッピング（定数として定義）
 LOG_LEVEL_MAP = {

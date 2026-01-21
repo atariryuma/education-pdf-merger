@@ -234,7 +234,7 @@ class TestExceptionHierarchy:
         """基底クラスでキャッチ可能"""
         try:
             raise PDFConversionError("変換エラー")
-        except PDFMergeError as e:
+        except PDFMergeError:
             assert True
         except Exception:
             pytest.fail("PDFMergeErrorでキャッチされるべき")

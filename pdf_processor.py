@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 from contextlib import contextmanager
-from typing import List, Optional, Tuple, TYPE_CHECKING, Generator
+from typing import List, Tuple, TYPE_CHECKING, Generator
 
 import fitz  # PyMuPDF
 from PyPDF2 import PdfMerger

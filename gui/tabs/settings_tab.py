@@ -12,7 +12,7 @@ from typing import Any, Callable
 from pathlib import Path
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import create_hover_button, open_file_or_folder, create_tooltip
+from gui.utils import create_hover_button, open_file_or_folder
 from path_validator import PathValidator
 from year_utils import calculate_year_short
 
@@ -527,7 +527,6 @@ class SettingsTab(BaseTab):
                     pass
 
                 # セキュアな一時ファイル作成（TOCTOU攻撃対策）
-                import tempfile
                 import uuid
 
                 temp_dir = tempfile.gettempdir()
@@ -546,7 +545,7 @@ class SettingsTab(BaseTab):
 
                     if result and os.path.exists(result):
                         self.tab.after(0, lambda: self.ichitaro_status_label.config(
-                            text=f"✅ 変換成功！", fg="green"))
+                            text="✅ 変換成功！", fg="green"))
                         self.tab.after(0, lambda: messagebox.showinfo(
                             "テスト成功",
                             f"一太郎変換が成功しました。\n\n出力ファイル:\n{result}"
@@ -568,10 +567,11 @@ class SettingsTab(BaseTab):
                     except Exception as cleanup_error:
                         logger.warning(f"一時ファイル削除失敗: {cleanup_error}")
 
-            except Exception as e:
+            except Exception as test_error:
+                error_msg = str(test_error)
+                error_preview = error_msg[:50]
                 self.tab.after(0, lambda: self.ichitaro_status_label.config(
-                    text=f"❌ エラー: {str(e)[:50]}", fg="red"))
-                error_msg = str(e)
+                    text=f"❌ エラー: {error_preview}", fg="red"))
                 self.tab.after(0, lambda: messagebox.showerror(
                     "テストエラー", f"テスト中にエラーが発生しました。\n\n{error_msg}"
                 ))
