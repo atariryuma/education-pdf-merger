@@ -103,7 +103,38 @@ class ConfigLoader:
             except Exception as e:
                 logger.warning(f"ユーザー設定の読み込み中に予期しないエラー: {e}")
 
+        # マイグレーション適用
+        self._apply_migrations(config)
+
         return config
+
+    def _apply_migrations(self, config: Dict[str, Any]) -> None:
+        """
+        設定スキーマのマイグレーション適用
+
+        既存ユーザーの設定に新しいキーを自動追加します。
+
+        Args:
+            config: 設定辞書（この辞書が更新される）
+        """
+        # Google Sheets機能追加時のマイグレーション
+        if 'files' in config:
+            files_config = config['files']
+
+            # reference_mode追加（デフォルト: excel）
+            if 'reference_mode' not in files_config:
+                files_config['reference_mode'] = 'excel'
+                logger.debug("マイグレーション: reference_mode を追加（デフォルト: excel）")
+
+            # google_sheets_reference_url追加
+            if 'google_sheets_reference_url' not in files_config:
+                files_config['google_sheets_reference_url'] = ''
+                logger.debug("マイグレーション: google_sheets_reference_url を追加")
+
+            # google_sheets_reference_sheet追加
+            if 'google_sheets_reference_sheet' not in files_config:
+                files_config['google_sheets_reference_sheet'] = 'メインデータ'
+                logger.debug("マイグレーション: google_sheets_reference_sheet を追加")
 
     def _deep_merge(self, base: dict, override: dict) -> None:
         """

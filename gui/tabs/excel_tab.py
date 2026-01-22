@@ -297,25 +297,42 @@ class ExcelTab(BaseTab):
 
     def _run_excel_update(self) -> None:
         """Excelデータ更新を実行"""
+        # 参照モードを取得
+        reference_mode = self.config.get('files', 'reference_mode', default='excel')
+
         # 実行前にファイル状態を確認
         ref_open, target_open = self._check_excel_files_open()
 
-        if not (ref_open and target_open):
-            ref_filename = self.config.get('files', 'excel_reference')
-            target_filename = self.config.get('files', 'excel_target')
+        # モード別のファイルチェック
+        if reference_mode == 'excel':
+            # Excelモード: 両方のファイルが開かれている必要がある
+            if not (ref_open and target_open):
+                ref_filename = self.config.get('files', 'excel_reference')
+                target_filename = self.config.get('files', 'excel_target')
 
-            missing = []
-            if not ref_open:
-                missing.append(f"• {ref_filename}")
+                missing = []
+                if not ref_open:
+                    missing.append(f"• {ref_filename}")
+                if not target_open:
+                    missing.append(f"• {target_filename}")
+
+                result = messagebox.askokcancel(
+                    "ファイル未オープン",
+                    "以下のファイルが開かれていません:\n\n" + "\n".join(missing) + "\n\n続行しますか？"
+                )
+                if not result:
+                    return
+        elif reference_mode == 'google_sheets':
+            # Google Sheetsモード: ターゲットファイルのみ開かれている必要がある
             if not target_open:
-                missing.append(f"• {target_filename}")
+                target_filename = self.config.get('files', 'excel_target')
 
-            result = messagebox.askokcancel(
-                "ファイル未オープン",
-                "以下のファイルが開かれていません:\n\n" + "\n".join(missing) + "\n\n続行しますか？"
-            )
-            if not result:
-                return
+                result = messagebox.askokcancel(
+                    "ファイル未オープン",
+                    f"ターゲットファイルが開かれていません:\n\n• {target_filename}\n\n続行しますか？"
+                )
+                if not result:
+                    return
 
         def task():
             try:
@@ -323,14 +340,13 @@ class ExcelTab(BaseTab):
                 self.update_status("Excelデータ更新を実行中...")
                 self.log("=== Excelデータ更新開始 ===", "info")
 
-                # 設定から値を取得
-                ref_filename = self.config.get('files', 'excel_reference')
-                target_filename = self.config.get('files', 'excel_target')
-                ref_sheet = self.config.get('files', 'excel_reference_sheet')
-                target_sheet = self.config.get('files', 'excel_target_sheet')
+                # 参照モードを取得
+                reference_mode = self.config.get('files', 'reference_mode', default='excel')
+                self.log(f"参照モード: {reference_mode}", "info")
 
-                self.log(f"参照ファイル: {ref_filename}", "info")
-                self.log(f"反映ファイル: {target_filename}", "info")
+                # ターゲットファイル情報をログ出力
+                target_filename = self.config.get('files', 'excel_target')
+                self.log(f"ターゲットファイル: {target_filename}", "info")
 
                 # 進捗コールバック関数を定義
                 def progress_callback(message: str) -> None:
@@ -338,11 +354,12 @@ class ExcelTab(BaseTab):
                     self.log(message, "info")
                     self.update_status(message)
 
-                # Excel転記処理を実行
-                import update_excel_files
-                transfer = update_excel_files.ExcelTransfer(
-                    ref_filename, target_filename, ref_sheet, target_sheet,
-                    progress_callback=progress_callback
+                # 転送インスタンスを生成（ファクトリーパターン）
+                from transfer_factory import HybridTransferFactory
+                transfer = HybridTransferFactory.create_transfer(
+                    config=self.config,
+                    progress_callback=progress_callback,
+                    cancel_check=None
                 )
                 transfer.execute()
 

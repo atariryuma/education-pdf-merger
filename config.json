@@ -20,10 +20,13 @@
   },
   "files": {
     "separator_template": "Separator.docx",
+    "reference_mode": "excel",
     "excel_reference": "",
     "excel_target": "",
     "excel_reference_sheet": "メインデータ",
-    "excel_target_sheet": "様式４の３ (小)"
+    "excel_target_sheet": "様式４の３ (小)",
+    "google_sheets_reference_url": "",
+    "google_sheets_reference_sheet": "メインデータ"
   },
   "output": {
     "merged_pdf": "merged_output.pdf"

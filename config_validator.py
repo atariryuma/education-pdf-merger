@@ -180,22 +180,64 @@ class ConfigValidator:
 
     def _validate_excel_files(self) -> None:
         """Excelファイル設定の検証"""
-        # 参照ファイル
-        excel_ref = self.config.get('files', 'excel_reference')
-        if not excel_ref or excel_ref.strip() == "":
+        # 参照モードを取得
+        reference_mode = self.config.get('files', 'reference_mode', default='excel')
+
+        if reference_mode == 'excel':
+            # Excelモード: 参照ファイルが必要
+            excel_ref = self.config.get('files', 'excel_reference')
+            if not excel_ref or excel_ref.strip() == "":
+                self.results.append(ValidationResult(
+                    level=ValidationLevel.INFO,
+                    message="Excel参照ファイルが設定されていません（Excel自動転記機能を使用する場合は設定してください）",
+                    field="files.excel_reference"
+                ))
+        elif reference_mode == 'google_sheets':
+            # Google Sheetsモード: URLが必要
+            self._validate_google_sheets_settings()
+        else:
+            # 無効なモード
             self.results.append(ValidationResult(
-                level=ValidationLevel.INFO,
-                message="Excel参照ファイルが設定されていません（Excel自動転記機能を使用する場合は設定してください）",
-                field="files.excel_reference"
+                level=ValidationLevel.ERROR,
+                message=f"無効な参照モード: {reference_mode}（有効な値: 'excel' または 'google_sheets'）",
+                field="files.reference_mode"
             ))
 
-        # 反映先ファイル
+        # 反映先ファイル（共通）
         excel_target = self.config.get('files', 'excel_target')
         if not excel_target or excel_target.strip() == "":
             self.results.append(ValidationResult(
                 level=ValidationLevel.INFO,
                 message="Excel反映先ファイルが設定されていません（Excel自動転記機能を使用する場合は設定してください）",
                 field="files.excel_target"
+            ))
+
+    def _validate_google_sheets_settings(self) -> None:
+        """Google Sheets設定の検証"""
+        # URLの検証
+        sheets_url = self.config.get('files', 'google_sheets_reference_url')
+        if not sheets_url or sheets_url.strip() == "":
+            self.results.append(ValidationResult(
+                level=ValidationLevel.WARNING,
+                message="Google Sheets URLが設定されていません",
+                field="files.google_sheets_reference_url"
+            ))
+        else:
+            # URL形式の検証
+            if not sheets_url.startswith('https://docs.google.com/spreadsheets/d/'):
+                self.results.append(ValidationResult(
+                    level=ValidationLevel.WARNING,
+                    message="Google Sheets URLの形式が正しくない可能性があります（正しい形式: https://docs.google.com/spreadsheets/d/...）",
+                    field="files.google_sheets_reference_url"
+                ))
+
+        # シート名の検証
+        sheets_ref_sheet = self.config.get('files', 'google_sheets_reference_sheet')
+        if not sheets_ref_sheet or sheets_ref_sheet.strip() == "":
+            self.results.append(ValidationResult(
+                level=ValidationLevel.WARNING,
+                message="Google Sheetsのシート名が設定されていません",
+                field="files.google_sheets_reference_sheet"
             ))
 
     def get_missing_required_fields(self) -> List[str]:
