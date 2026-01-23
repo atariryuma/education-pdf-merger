@@ -10,8 +10,17 @@ from tkinter import ttk, messagebox
 import threading
 from typing import Tuple, TYPE_CHECKING
 
+try:
+    import win32com.client
+    import pythoncom
+except ImportError:
+    win32com = None
+    pythoncom = None
+
 from gui.tabs.base_tab import BaseTab
 from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip
+from path_validator import PathValidator
+from transfer_factory import HybridTransferFactory
 
 if TYPE_CHECKING:
     from config_loader import ConfigLoader
@@ -175,22 +184,42 @@ class ExcelTab(BaseTab):
         self.log("準備完了。上記の2つのExcelファイルを開いてから実行してください。", "info")
 
     def _open_excel_file(self, filename: str) -> None:
-        """Excelファイルを開く"""
-        base_path = self.config.get('base_paths', 'google_drive')
-        year = self.config.year
-        year_short = self.config.year_short
-        education_base = self.config.get('directories', 'education_plan_base')
+        """
+        Excelファイルを開く
 
-        # {year_short}プレースホルダーを実際の値に置き換える
-        education_base = education_base.replace('{year_short}', year_short)
+        Args:
+            filename: 開くファイル名（相対パスまたは絶対パス）
+        """
+        # 絶対パス（C:\, \\, /で始まる）の場合はそのまま使用
+        if os.path.isabs(filename) or filename.startswith('\\\\') or filename.startswith('//'):
+            file_path = filename
+        else:
+            # 相対パスの場合は従来通りパス構築
+            base_path = self.config.get('base_paths', 'google_drive')
+            year = self.config.year
+            year_short = self.config.year_short
+            education_base = self.config.get('directories', 'education_plan_base')
 
-        file_path = os.path.join(base_path, year, education_base, filename)
+            # {year_short}プレースホルダーを実際の値に置き換える
+            education_base = education_base.replace('{year_short}', year_short)
 
-        def on_error(error_msg: str):
+            file_path = os.path.join(base_path, year, education_base, filename)
+
+        # PathValidatorでファイルパスを検証
+        is_valid, error_msg, validated_path = PathValidator.validate_file_path(
+            file_path,
+            must_exist=False  # ファイルが存在しなくてもエラーメッセージで通知
+        )
+        if not is_valid:
+            messagebox.showerror("パス検証エラー", error_msg)
+            self.log(f"ファイルパスが無効です: {error_msg}", "error")
+            return
+
+        def on_error(error_msg: str) -> None:
             messagebox.showerror("エラー", error_msg)
             self.log(f"Excelファイルを開けませんでした: {filename}", "error")
 
-        if open_file_or_folder(file_path, on_error):
+        if open_file_or_folder(str(validated_path), on_error):
             self.log(f"Excelでファイルを開きました: {filename}", "info")
             self.update_status(f"Excelでファイルを開きました: {filename}")
 
@@ -201,12 +230,14 @@ class ExcelTab(BaseTab):
         Returns:
             Tuple[bool, bool]: (参照元が開いているか, 対象が開いているか)
         """
+        # win32comが未インストールの場合は即座に返す
+        if win32com is None or pythoncom is None:
+            logger.error("win32comがインストールされていません")
+            return False, False
+
         excel = None
         com_initialized = False
         try:
-            import win32com.client
-            import pythoncom
-
             # COM初期化（失敗時のクリーンアップのためフラグ管理）
             try:
                 pythoncom.CoInitialize()
@@ -215,30 +246,30 @@ class ExcelTab(BaseTab):
                 logger.error(f"COM初期化エラー: {e}")
                 return False, False
 
-            # win32comが未インストールの場合の対応
+            # Excelアプリケーションに接続
             try:
                 excel = win32com.client.Dispatch("Excel.Application")
-            except ImportError as e:
-                logger.error(f"win32comがインストールされていません: {e}")
+            except Exception as e:
+                logger.error(f"Excelアプリケーションへの接続エラー: {e}")
                 return False, False
 
             ref_filename = self.config.get('files', 'excel_reference')
             target_filename = self.config.get('files', 'excel_target')
 
+            # フルパスの場合はファイル名のみを抽出
+            ref_basename = os.path.basename(ref_filename) if ref_filename else ""
+            target_basename = os.path.basename(target_filename) if target_filename else ""
+
             ref_open = False
             target_open = False
 
             for wb in excel.Workbooks:
-                if ref_filename in wb.Name:
+                if ref_basename and ref_basename in wb.Name:
                     ref_open = True
-                if target_filename in wb.Name:
+                if target_basename and target_basename in wb.Name:
                     target_open = True
 
             return ref_open, target_open
-
-        except ImportError as e:
-            logger.error(f"win32comのインポートエラー: {e}")
-            return False, False
 
         except Exception as e:
             logger.warning(f"Excel状態チェックエラー: {e}")
@@ -253,14 +284,9 @@ class ExcelTab(BaseTab):
                     logger.warning(f"COMオブジェクト削除エラー: {e}")
                 excel = None
 
-            # ガベージコレクションを促進
-            import gc
-            gc.collect()
-
             # COM終了処理（初期化成功時のみ実行）
             if com_initialized:
                 try:
-                    import pythoncom
                     pythoncom.CoUninitialize()
                 except Exception as cleanup_error:
                     logger.warning(f"COM終了処理エラー: {cleanup_error}")
@@ -355,7 +381,6 @@ class ExcelTab(BaseTab):
                     self.update_status(message)
 
                 # 転送インスタンスを生成（ファクトリーパターン）
-                from transfer_factory import HybridTransferFactory
                 transfer = HybridTransferFactory.create_transfer(
                     config=self.config,
                     progress_callback=progress_callback,
