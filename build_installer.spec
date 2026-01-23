@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 """
-教育計画PDFマージシステム v3.4.1
+教育計画PDFマージシステム v3.5.0
 PyInstaller ビルド設定ファイル
 
 使用方法:
@@ -47,6 +47,12 @@ hiddenimports = [
     'path_validator',
     'folder_structure_detector',
     'logging_config',
+    'base_excel_transfer',  # v3.5.0で追加
+    'update_excel_files',  # v3.5.0で追加
+    'google_sheets_transfer',  # v3.5.0で追加
+    'google_sheets_reader',  # v3.5.0で追加
+    'google_auth_manager',  # v3.5.0で追加
+    'transfer_factory',  # v3.5.0で追加
 
     # GUI関連
     'gui',
@@ -85,6 +91,17 @@ hiddenimports = [
     'reportlab.pdfbase',
     'reportlab.pdfbase.ttfonts',
     'openpyxl',
+
+    # Google API関連（v3.5.0で追加）
+    'google',
+    'google.auth',
+    'google.auth.transport',
+    'google.auth.transport.requests',
+    'google.oauth2',
+    'google.oauth2.credentials',
+    'googleapiclient',
+    'googleapiclient.discovery',
+    'googleapiclient.errors',
 ]
 
 # customtkinter のデータファイルを収集

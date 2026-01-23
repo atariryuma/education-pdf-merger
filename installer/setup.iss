@@ -1,16 +1,16 @@
-; 教育計画PDFマージシステム v3.4.1 - Inno Setup Script
+; 教育計画PDFマージシステム v3.5.0 - Inno Setup Script
 ; Inno Setup 6.0+ required
 ;
-; Version 3.4.1 - パフォーマンス改善版
+; Version 3.5.0 - Google Sheets対応版
+; - Google Sheets参照機能追加（Excel/Google Sheets切り替え可能）
+; - BaseExcelTransfer基底クラス導入（DRY原則徹底）
 ; - 遅延インポートの最適化（依存性注入方式）
 ; - 初回セットアップウィザード（5ステップ）
 ; - Ghostscript自動検出機能
 ; - 設定検証システム（ERROR/WARNING/INFO）
-; - config.jsonのテンプレート化
-; - UXベストプラクティスに準拠
 
 #define MyAppName "教育計画PDFマージシステム"
-#define MyAppVersion "3.4.1"
+#define MyAppVersion "3.5.0"
 #define MyAppPublisher "教育機関向けPDFツール"
 #define MyAppExeName "教育計画PDFマージシステム.exe"
 #define MyAppURL "https://github.com/your-repo"
