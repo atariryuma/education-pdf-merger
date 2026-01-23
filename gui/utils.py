@@ -16,8 +16,10 @@ class ToolTip:
 
     初心者向けに、ボタンやラベルにマウスを置くと説明が表示される機能
     """
-    def __init__(self, widget: tk.Widget, text: str, delay: int = 500):
+    def __init__(self, widget: tk.Widget, text: str, delay: int = 500) -> None:
         """
+        初期化
+
         Args:
             widget: ツールチップを表示するウィジェット
             text: 表示するテキスト

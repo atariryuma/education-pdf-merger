@@ -5,15 +5,18 @@
 """
 import tkinter as tk
 from tkinter import ttk
-from typing import Any
+from typing import TYPE_CHECKING
 
 from gui.tabs.base_tab import BaseTab
+
+if TYPE_CHECKING:
+    from config_loader import ConfigLoader
 
 
 class FileTab(BaseTab):
     """ファイル管理タブ"""
 
-    def __init__(self, notebook: ttk.Notebook, config: Any, status_bar: tk.Label) -> None:
+    def __init__(self, notebook: ttk.Notebook, config: "ConfigLoader", status_bar: tk.Label) -> None:
         super().__init__(notebook, config, status_bar)
         self._create_ui()
         self.add_to_notebook("📁 ファイル管理")

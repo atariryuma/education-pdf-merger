@@ -44,8 +44,10 @@ class SetupWizard:
         parent: tk.Tk,
         config: ConfigLoader,
         on_complete: Optional[Callable[[], None]] = None
-    ):
+    ) -> None:
         """
+        初期化
+
         Args:
             parent: 親ウィンドウ
             config: 設定オブジェクト

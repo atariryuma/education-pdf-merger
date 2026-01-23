@@ -12,8 +12,10 @@ from typing import Callable, Optional
 class IchitaroConversionDialog(tk.Toplevel):
     """一太郎PDF変換中の警告ダイアログ（非モーダル、常に最前面）"""
 
-    def __init__(self, parent: tk.Widget, cancel_callback: Optional[Callable] = None):
+    def __init__(self, parent: tk.Widget, cancel_callback: Optional[Callable] = None) -> None:
         """
+        初期化
+
         Args:
             parent: 親ウィジェット
             cancel_callback: キャンセルボタンのコールバック関数
@@ -38,14 +40,14 @@ class IchitaroConversionDialog(tk.Toplevel):
         # UI構築
         self._create_widgets()
 
-    def _center_window(self):
+    def _center_window(self) -> None:
         """ウィンドウを画面中央に配置"""
         self.update_idletasks()
         x = (self.winfo_screenwidth() // 2) - (500 // 2)
         y = (self.winfo_screenheight() // 2) - (200 // 2)
         self.geometry(f"+{x}+{y}")
 
-    def _create_widgets(self):
+    def _create_widgets(self) -> None:
         """ウィジェット作成"""
         # メインフレーム
         main_frame = tk.Frame(self, padx=30, pady=30)
@@ -102,7 +104,7 @@ class IchitaroConversionDialog(tk.Toplevel):
             )
             cancel_btn.pack(pady=(10, 0))
 
-    def update_message(self, message: str):
+    def update_message(self, message: str) -> None:
         """
         メッセージを更新
 
@@ -112,13 +114,13 @@ class IchitaroConversionDialog(tk.Toplevel):
         self.message_label.config(text=message)
         self.update_idletasks()
 
-    def _on_cancel(self):
+    def _on_cancel(self) -> None:
         """キャンセルボタンクリック時の処理"""
         if self.cancel_callback:
             self.cancel_callback()
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         """ダイアログを閉じる"""
         try:
             self.progress.stop()

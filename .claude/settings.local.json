@@ -26,7 +26,25 @@
       "Bash(gh run list:*)",
       "Bash(dir \"%LOCALAPPDATA%\\\\PDFMergeSystem\")",
       "Bash(pytest:*)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(git pull:*)",
+      "Bash(python -m ruff check:*)",
+      "Bash(pip install:*)",
+      "Bash(find:*)",
+      "Bash(unzip:*)",
+      "Bash(cat:*)",
+      "Bash(pyinstaller:*)",
+      "Bash(build_installer.bat)",
+      "Bash(cmd /c \"cd installer && build_installer.bat\")",
+      "Bash(test:*)",
+      "Bash(powershell -Command \"cd c:\\\\Projects\\\\education-pdf-merger\\\\installer; .\\\\build_installer.bat\")",
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Inno Setup 6\\\\ISCC.exe\" \"c:\\\\Projects\\\\education-pdf-merger\\\\installer\\\\setup.iss\")",
+      "Bash(python main.py:*)",
+      "Bash(timeout 3 type:*)",
+      "Bash(python:*)",
+      "Bash(del test_google_sheets_integration.py)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

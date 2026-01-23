@@ -5,8 +5,8 @@ Excel自動転記モジュール
 日付、行事時数、欠時数を自動転記・集計する
 """
 import logging
-from datetime import datetime
-from typing import Any, Dict, Tuple, Optional, Callable
+import os
+from typing import Any, Optional, Callable
 
 try:
     import win32com.client
@@ -18,8 +18,9 @@ except ImportError as e:
         "pip install pywin32"
     ) from e
 
+from base_excel_transfer import BaseExcelTransfer
 from exceptions import PDFMergeError
-from constants import ExcelLookIn, ExcelLookAt, ExcelSortOrder, ExcelSortHeader, ExcelTransferConstants, PDFConversionConstants
+from constants import ExcelLookIn, ExcelLookAt, ExcelTransferConstants, PDFConversionConstants
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -30,13 +31,18 @@ class ExcelTransferError(PDFMergeError):
     pass
 
 
-class ExcelTransfer:
+class ExcelTransfer(BaseExcelTransfer):
     """Excel自動転記処理クラス"""
 
-    def __init__(self, ref_filename: str, target_filename: str,
-                 ref_sheet: str, target_sheet: str,
-                 progress_callback: Optional[Callable[[str], None]] = None,
-                 cancel_check: Optional[Callable[[], bool]] = None):
+    def __init__(
+        self,
+        ref_filename: str,
+        target_filename: str,
+        ref_sheet: str,
+        target_sheet: str,
+        progress_callback: Optional[Callable[[str], None]] = None,
+        cancel_check: Optional[Callable[[], bool]] = None
+    ) -> None:
         """
         初期化
 
@@ -48,36 +54,90 @@ class ExcelTransfer:
             progress_callback: 進捗状況を報告するコールバック関数
             cancel_check: キャンセル確認用コールバック関数（Trueで中断）
         """
+        super().__init__(target_filename, target_sheet, progress_callback, cancel_check)
+
         self.ref_filename = ref_filename
-        self.target_filename = target_filename
         self.ref_sheet = ref_sheet
-        self.target_sheet = target_sheet
-        self.progress_callback = progress_callback
-        self.cancel_check = cancel_check
 
-        # COM オブジェクト
-        self.excel: Any = None
+        # 参照ファイル用のCOMオブジェクト
         self.ref_wb: Any = None
-        self.target_wb: Any = None
         self.ref_ws: Any = None
-        self.target_ws: Any = None
-        self._com_initialized: bool = False
 
-    def _report_progress(self, message: str) -> None:
-        """進捗状況を報告"""
-        logger.info(message)
-        if self.progress_callback:
-            self.progress_callback(message)
+    def _get_error_class(self) -> type:
+        """
+        エラークラスを取得
 
-    def _check_cancelled(self) -> bool:
-        """キャンセルチェック"""
-        if self.cancel_check and self.cancel_check():
-            logger.info("ユーザーによって処理がキャンセルされました")
-            return True
-        return False
+        Returns:
+            type: ExcelTransferError
+        """
+        return ExcelTransferError
+
+    def _read_data_row(self, found_row: int, start_col: str, end_col: str) -> list:
+        """
+        参照Excelから行データを読み取る
+
+        Args:
+            found_row: 行番号
+            start_col: 開始列
+            end_col: 終了列
+
+        Returns:
+            list: 行データ
+        """
+        range_str = f"{start_col}{found_row}:{end_col}{found_row}"
+        rng = self.ref_ws.Range(range_str).Value
+
+        if rng is None:
+            return []
+
+        # Excelは2次元タプルで返すので、1次元リストに変換
+        return list(rng[0]) if isinstance(rng, tuple) else [rng]
+
+    def _find_value_in_source(self, search_value: str) -> Optional[int]:
+        """
+        参照ExcelのC列から値を検索
+
+        Args:
+            search_value: 検索値
+
+        Returns:
+            Optional[int]: 見つかった行番号（見つからない場合None）
+        """
+        ref_col_C = self.ref_ws.Columns(ExcelTransferConstants.REF_SEARCH_COL)
+        found_cell = ref_col_C.Find(
+            What=search_value,
+            LookIn=ExcelLookIn.VALUES,
+            LookAt=ExcelLookAt.PART
+        )
+
+        return found_cell.Row if found_cell is not None else None
+
+    def _read_cell_value(self, row: int, col: str) -> Any:
+        """
+        参照Excelからセル値を読み取る
+
+        Args:
+            row: 行番号
+            col: 列
+
+        Returns:
+            Any: セル値
+        """
+        # 列が文字列（"A"）の場合は列番号に変換
+        if isinstance(col, str) and len(col) == 1:
+            col_num = ord(col.upper()) - ord('A') + 1
+            return self.ref_ws.Cells(row, col_num).Value
+        else:
+            # 列名指定の場合
+            return self.ref_ws.Range(f"{col}{row}").Value
 
     def _connect_to_excel(self) -> None:
-        """既存のExcelインスタンスに接続してワークブック/シートを取得"""
+        """
+        既存のExcelインスタンスに接続してワークブック/シートを取得
+
+        Raises:
+            ExcelTransferError: 接続に失敗した場合
+        """
         try:
             # COM初期化（スレッドごとに必要）
             try:
@@ -96,23 +156,27 @@ class ExcelTransfer:
             self.ref_wb = None
             self.target_wb = None
 
+            # フルパスの場合はファイル名のみを抽出
+            ref_basename = os.path.basename(self.ref_filename)
+            target_basename = os.path.basename(self.target_filename)
+
             for wb in self.excel.Workbooks:
-                if self.ref_filename in wb.Name:
+                if ref_basename in wb.Name:
                     self.ref_wb = wb
                     logger.debug(f"参照ファイルを検出: {wb.Name}")
-                if self.target_filename in wb.Name:
+                if target_basename in wb.Name:
                     self.target_wb = wb
                     logger.debug(f"反映ファイルを検出: {wb.Name}")
 
             # ワークブックが見つからない場合のエラー
             if self.ref_wb is None:
                 raise ExcelTransferError(
-                    f"参照ファイルが開かれていません: {self.ref_filename}\n\n"
+                    f"参照ファイルが開かれていません: {ref_basename}\n\n"
                     "Excelで該当ファイルを開いてから実行してください。"
                 )
             if self.target_wb is None:
                 raise ExcelTransferError(
-                    f"反映ファイルが開かれていません: {self.target_filename}\n\n"
+                    f"反映ファイルが開かれていません: {target_basename}\n\n"
                     "Excelで該当ファイルを開いてから実行してください。"
                 )
 
@@ -123,7 +187,9 @@ class ExcelTransfer:
             except Exception as e:
                 raise ExcelTransferError(
                     f"参照シートが見つかりません: {self.ref_sheet}\n\n"
-                    f"ファイル: {self.ref_filename}"
+                    f"ファイル: {self.ref_filename}",
+                    operation="Excel接続",
+                    original_error=e
                 ) from e
 
             try:
@@ -132,23 +198,35 @@ class ExcelTransfer:
             except Exception as e:
                 raise ExcelTransferError(
                     f"反映シートが見つかりません: {self.target_sheet}\n\n"
-                    f"ファイル: {self.target_filename}"
+                    f"ファイル: {self.target_filename}",
+                    operation="Excel接続",
+                    original_error=e
                 ) from e
 
             # 接続状態の検証
             if self.excel is None or self.ref_ws is None or self.target_ws is None:
                 raise ExcelTransferError(
                     "Excelへの接続に失敗しました。\n"
-                    "ワークシートまたはアプリケーションオブジェクトが取得できませんでした。"
+                    "ワークシートまたはアプリケーションオブジェクトが取得できませんでした。",
+                    operation="Excel接続"
                 )
 
         except ExcelTransferError:
             raise
         except Exception as e:
-            raise ExcelTransferError(f"Excelへの接続に失敗しました: {e}", original_error=e) from e
+            raise ExcelTransferError(
+                f"Excelへの接続に失敗しました: {e}",
+                operation="Excel接続",
+                original_error=e
+            ) from e
 
     def _cleanup_excel(self) -> None:
-        """Excel COMオブジェクトをクリーンアップ"""
+        """
+        Excel COMオブジェクトをクリーンアップ
+
+        Note:
+            参照ファイルとターゲットファイルの両方のCOMオブジェクトを解放
+        """
         logger.debug("Excel COMオブジェクトをクリーンアップ中...")
 
         # ワークシート参照を解放
@@ -167,7 +245,7 @@ class ExcelTransfer:
                 logger.warning(f"Excel COMオブジェクト解放エラー: {e}")
             self.excel = None
 
-        # COM終了処理（gc.collect()は不要 - 参照をNoneにすれば自動的に解放される）
+        # COM終了処理
         if self._com_initialized:
             try:
                 pythoncom.CoUninitialize()
@@ -176,214 +254,15 @@ class ExcelTransfer:
                 logger.warning(f"COM終了処理エラー: {e}")
             self._com_initialized = False
 
-    def _count_events_in_found_row(self, found_row: int,
-                                   filter_keyword: Optional[str] = None) -> Dict[int, Tuple[int, int]]:
+    def execute(self) -> None:
         """
-        参照ファイルの found_row の【E～AN】列を一括で取得し、学年毎にカウント
-
-        Args:
-            found_row: 参照ファイルの行番号
-            filter_keyword: フィルター用キーワード（D8～D50用、Noneの場合はループ2,3）
-
-        Returns:
-            辞書 {grade: (event_count, absent_count), ...}（grade 1～6）
+        Excel転記処理を実行
 
         Raises:
-            SystemExit, KeyboardInterrupt: 即座に再スロー
+            ExcelTransferError: 転記処理中にエラーが発生した場合
+            SystemExit: システム終了が要求された場合
+            KeyboardInterrupt: キーボード割り込みが発生した場合
         """
-        try:
-            # E～AN列を一括取得（TOTAL_COLUMNS列＝GRADES_COUNT学年×PERIODS_PER_GRADE校時）
-            range_str = (f"{ExcelTransferConstants.REF_DATA_START_COL}{found_row}:"
-                        f"{ExcelTransferConstants.REF_DATA_END_COL}{found_row}")
-            rng = self.ref_ws.Range(range_str).Value
-
-            if rng is None:
-                logger.warning(f"行 {found_row} のデータが空です")
-                return {
-                    grade: (0, 0)
-                    for grade in range(1, ExcelTransferConstants.GRADES_COUNT + 1)
-                }
-
-            row_data = rng[0]
-
-            # データ長の検証
-            if len(row_data) < ExcelTransferConstants.TOTAL_COLUMNS:
-                logger.warning(
-                    f"行 {found_row} のデータが不足しています"
-                    f"（期待: {ExcelTransferConstants.TOTAL_COLUMNS}列、実際: {len(row_data)}列）"
-                )
-                # 不足分は0として処理を続行
-
-            counts = {}
-
-            for grade in range(1, ExcelTransferConstants.GRADES_COUNT + 1):
-                start_index = (grade - 1) * ExcelTransferConstants.PERIODS_PER_GRADE
-                end_index = start_index + ExcelTransferConstants.PERIODS_PER_GRADE
-
-                # 範囲外チェック
-                if end_index > len(row_data):
-                    counts[grade] = (0, 0)
-                    continue
-
-                group = row_data[start_index:end_index]
-
-                event_count = 0
-                absent_count = 0
-
-                if filter_keyword is not None:
-                    # D8～D50用：完全一致のみカウント
-                    if filter_keyword == ExcelTransferConstants.ABSENT_KEYWORD:
-                        absent_count = sum(
-                            1 for cell in group
-                            if cell is not None and str(cell).strip() == ExcelTransferConstants.ABSENT_KEYWORD
-                        )
-                        event_count = 0
-                    else:
-                        event_count = sum(
-                            1 for cell in group
-                            if cell is not None and str(cell).strip() == filter_keyword
-                        )
-                        absent_count = 0
-                else:
-                    # ループ2,3用：部分一致でカウント
-                    event_count = sum(
-                        1 for cell in group
-                        if cell is not None and any(
-                            keyword in str(cell)
-                            for keyword in ExcelTransferConstants.EVENT_KEYWORDS
-                        )
-                    )
-                    absent_count = sum(
-                        1 for cell in group
-                        if cell is not None and ExcelTransferConstants.ABSENT_KEYWORD in str(cell)
-                    )
-
-                counts[grade] = (event_count, absent_count)
-
-            return counts
-
-        except (SystemExit, KeyboardInterrupt):
-            # システム終了・キーボード割り込みは即座に再スロー
-            raise
-        except Exception as e:
-            logger.error(f"行事時数・欠時数のカウント中にエラー（行 {found_row}）: {e}")
-            # エラーを再スローしてユーザーに通知
-            raise ExcelTransferError(
-                f"行 {found_row} のデータ処理中にエラーが発生しました。\n"
-                f"データに問題がある可能性があります。\n"
-                f"詳細: {e}"
-            ) from e
-
-    def _process_row(self, row: int, search_col: str, filter_keyword: Optional[str] = None) -> None:
-        """
-        1行分の転記処理（参照ファイルから反映ファイルへ）
-
-        Args:
-            row: 反映ファイルの行番号
-            search_col: 検索値を取得する列（D or C）
-            filter_keyword: フィルター用キーワード（Noneの場合は部分一致）
-
-        Note:
-            このメソッドは反映ファイルのワークシートを直接変更します（副作用あり）
-        """
-        # キャンセルチェック
-        if self._check_cancelled():
-            raise ExcelTransferError("ユーザーによって処理がキャンセルされました")
-
-        # 検索値を取得
-        search_value = self.target_ws.Range(f"{search_col}{row}").Value
-        if search_value is None:
-            return
-
-        # 参照ファイルのC列から検索
-        ref_col_C = self.ref_ws.Columns(ExcelTransferConstants.REF_SEARCH_COL)
-        found_cell = ref_col_C.Find(
-            What=search_value,
-            LookIn=ExcelLookIn.VALUES,
-            LookAt=ExcelLookAt.PART
-        )
-
-        if found_cell is not None:
-            # 日付を転記
-            ref_value = self.ref_ws.Cells(
-                found_cell.Row,
-                ExcelTransferConstants.REF_DATE_COL
-            ).Value
-            self.target_ws.Range(
-                f"{ExcelTransferConstants.TARGET_DATE_COL}{row}"
-            ).Value = ref_value
-
-            # 処理日を記録
-            today_str = datetime.today().strftime('%Y-%m-%d')
-            self.target_ws.Range(
-                f"{ExcelTransferConstants.TARGET_PROCESS_DATE_COL}{row}"
-            ).Value = today_str
-
-            logger.debug(
-                f"Row {row} ({search_col}列): '{search_value}' → "
-                f"参照ファイルの行 {found_cell.Row} の A列: {ref_value}"
-            )
-
-            # 行事時数・欠時数をカウント
-            counts = self._count_events_in_found_row(found_cell.Row, filter_keyword)
-
-            # 学年別に転記
-            for grade in range(1, ExcelTransferConstants.GRADES_COUNT + 1):
-                event_count, absent_count = counts[grade]
-                tgt_event, tgt_absent = ExcelTransferConstants.GRADE_COLUMN_MAPPING[grade]
-
-                # 0の場合は空白にする（帳票向け）
-                self.target_ws.Range(f"{tgt_event}{row}").Value = event_count if event_count else ""
-                self.target_ws.Range(f"{tgt_absent}{row}").Value = absent_count if absent_count else ""
-
-                logger.debug(
-                    f"  → Grade {grade} (Row {row}): "
-                    f"行事時数={event_count}, 欠時数={absent_count}"
-                )
-        else:
-            # 見つからない場合はA列をクリア
-            self.target_ws.Range(
-                f"{ExcelTransferConstants.TARGET_DATE_COL}{row}"
-            ).Value = ""
-            logger.debug(
-                f"Row {row} ({search_col}列): '{search_value}' は参照ファイルに見つかりませんでした"
-            )
-
-    def _sort_range(self, range_str: str, key_cell: str) -> None:
-        """
-        指定範囲をB列（日付）で昇順ソート
-
-        Args:
-            range_str: ソート範囲（例: "A8:P50"）
-            key_cell: ソートキー（例: "B8"）
-        """
-        try:
-            # 結合セルがある場合は解除
-            try:
-                self.target_ws.Range(range_str).UnMerge()
-            except Exception as e:
-                # 結合セルがない場合のエラーは無視
-                logger.debug(f"UnMerge実行（結合セルなしの可能性）: {e}")
-
-            # B列の日付順にソート（昇順）
-            self.target_ws.Range(range_str).Sort(
-                Key1=self.target_ws.Range(key_cell),
-                Order1=ExcelSortOrder.ASCENDING,
-                Header=ExcelSortHeader.NO
-            )
-            logger.debug(f"範囲 {range_str} を日付順に並び替えました")
-        except Exception as e:
-            logger.error(f"並び替え中にエラー ({range_str}): {e}")
-            # ソートエラーは重要なので警告してエラーを再スロー
-            raise ExcelTransferError(
-                f"データの並び替えに失敗しました。\n"
-                f"範囲: {range_str}\n"
-                f"詳細: {e}\n\n"
-                f"結合セルまたはデータ形式に問題がある可能性があります。"
-            ) from e
-
-    def execute(self) -> None:
-        """Excel転記処理を実行"""
         logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
         logger.info("Excel自動転記処理を開始")
         logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
@@ -394,91 +273,8 @@ class ExcelTransfer:
             self._connect_to_excel()
             logger.info("Excelファイルに接続しました")
 
-            # ループ1: D8～D50（フィルターあり）
-            logger.info(PDFConversionConstants.LOG_SEPARATOR_MINOR)
-            logger.info(
-                f"【ループ1】{ExcelTransferConstants.LOOP1_SEARCH_COL}"
-                f"{ExcelTransferConstants.LOOP1_START_ROW}～"
-                f"{ExcelTransferConstants.LOOP1_END_ROW - 1} の処理を開始"
-            )
-            self._report_progress("ループ1: フィルター付き転記を実行中...")
-
-            # 【パフォーマンス最適化】C列のフィルターキーワードを一括取得
-            # COM操作を43回から1回に削減（10倍以上の高速化）
-            start_row = ExcelTransferConstants.LOOP1_START_ROW
-            end_row = ExcelTransferConstants.LOOP1_END_ROW
-            filter_range_addr = (
-                f"{ExcelTransferConstants.TARGET_FILTER_COL}{start_row}:"
-                f"{ExcelTransferConstants.TARGET_FILTER_COL}{end_row - 1}"
-            )
-            filter_range_values = self.target_ws.Range(filter_range_addr).Value
-
-            # 一括取得した値をリスト化（1次元配列に変換）
-            filter_list = []
-            if filter_range_values:
-                # Valueが2次元タプルで返される場合の処理
-                if isinstance(filter_range_values, tuple):
-                    filter_list = [row[0] if row else None for row in filter_range_values]
-                else:
-                    # 単一値の場合
-                    filter_list = [filter_range_values]
-
-            logger.debug(f"フィルターキーワードを一括取得: {len(filter_list)}件")
-
-            for i, row in enumerate(range(start_row, end_row)):
-                # リストから取得（COM操作なし）
-                filter_keyword = filter_list[i] if i < len(filter_list) else None
-                if filter_keyword is not None:
-                    filter_keyword = str(filter_keyword).strip()
-
-                self._process_row(row, ExcelTransferConstants.LOOP1_SEARCH_COL, filter_keyword)
-
-            # ループ1の範囲を並び替え
-            self._sort_range(
-                ExcelTransferConstants.LOOP1_SORT_RANGE,
-                ExcelTransferConstants.LOOP1_SORT_KEY
-            )
-            logger.info("【ループ1】完了")
-
-            # ループ2: C55～C62（フィルターなし）
-            logger.info(PDFConversionConstants.LOG_SEPARATOR_MINOR)
-            logger.info(
-                f"【ループ2】{ExcelTransferConstants.LOOP2_SEARCH_COL}"
-                f"{ExcelTransferConstants.LOOP2_START_ROW}～"
-                f"{ExcelTransferConstants.LOOP2_END_ROW - 1} の処理を開始"
-            )
-            self._report_progress("ループ2: 通常転記を実行中...")
-
-            for row in range(ExcelTransferConstants.LOOP2_START_ROW,
-                           ExcelTransferConstants.LOOP2_END_ROW):
-                self._process_row(row, ExcelTransferConstants.LOOP2_SEARCH_COL, None)
-
-            # ループ2の範囲を並び替え
-            self._sort_range(
-                ExcelTransferConstants.LOOP2_SORT_RANGE,
-                ExcelTransferConstants.LOOP2_SORT_KEY
-            )
-            logger.info("【ループ2】完了")
-
-            # ループ3: C67～C96（フィルターなし）
-            logger.info(PDFConversionConstants.LOG_SEPARATOR_MINOR)
-            logger.info(
-                f"【ループ3】{ExcelTransferConstants.LOOP3_SEARCH_COL}"
-                f"{ExcelTransferConstants.LOOP3_START_ROW}～"
-                f"{ExcelTransferConstants.LOOP3_END_ROW - 1} の処理を開始"
-            )
-            self._report_progress("ループ3: 通常転記を実行中...")
-
-            for row in range(ExcelTransferConstants.LOOP3_START_ROW,
-                           ExcelTransferConstants.LOOP3_END_ROW):
-                self._process_row(row, ExcelTransferConstants.LOOP3_SEARCH_COL, None)
-
-            # ループ3の範囲を並び替え
-            self._sort_range(
-                ExcelTransferConstants.LOOP3_SORT_RANGE,
-                ExcelTransferConstants.LOOP3_SORT_KEY
-            )
-            logger.info("【ループ3】完了")
+            # 3つのループを実行（基底クラスの共通処理）
+            self._execute_transfer_loops()
 
             logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
             logger.info("Excel自動転記処理が完了しました")
@@ -496,7 +292,9 @@ class ExcelTransfer:
                 f"Excel転記処理中にエラーが発生しました\n"
                 f"参照: {self.ref_filename} ({self.ref_sheet})\n"
                 f"対象: {self.target_filename} ({self.target_sheet})\n"
-                f"エラー: {e}"
+                f"エラー: {e}",
+                operation="転記処理",
+                original_error=e
             ) from e
         finally:
             # 必ずクリーンアップを実行

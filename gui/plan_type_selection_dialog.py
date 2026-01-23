@@ -4,7 +4,7 @@
 フォルダ構造判定が曖昧な場合にユーザーに選択を促す
 """
 import tkinter as tk
-from typing import Callable
+from typing import Callable, Any
 
 
 class PlanTypeSelectionDialog(tk.Toplevel):
@@ -13,9 +13,9 @@ class PlanTypeSelectionDialog(tk.Toplevel):
     def __init__(
         self,
         parent: tk.Widget,
-        detection_result,
+        detection_result: Any,
         callback: Callable[[str], None]
-    ):
+    ) -> None:
         """
         Args:
             parent: 親ウィジェット
@@ -41,14 +41,14 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         # UI構築
         self._create_widgets()
 
-    def _center_window(self):
+    def _center_window(self) -> None:
         """ウィンドウを画面中央に配置"""
         self.update_idletasks()
         x = (self.winfo_screenwidth() // 2) - (550 // 2)
         y = (self.winfo_screenheight() // 2) - (450 // 2)
         self.geometry(f"+{x}+{y}")
 
-    def _create_widgets(self):
+    def _create_widgets(self) -> None:
         """ウィジェット作成"""
         main_frame = tk.Frame(self, padx=30, pady=30)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -155,12 +155,17 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         )
         cancel_btn.pack()
 
-    def _on_select(self, plan_type: str):
-        """選択ボタンクリック時の処理"""
+    def _on_select(self, plan_type: str) -> None:
+        """
+        選択ボタンクリック時の処理
+
+        Args:
+            plan_type: 選択された計画種別（"education" or "event"）
+        """
         self.destroy()
         if self.callback:
             self.callback(plan_type)
 
-    def _on_cancel(self):
+    def _on_cancel(self) -> None:
         """キャンセルボタンクリック時の処理"""
         self.destroy()

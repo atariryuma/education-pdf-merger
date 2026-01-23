@@ -59,6 +59,15 @@ class SettingsTab(BaseTab):
             year_short = calculate_year_short(year)
             self.year_short_var.set(year_short)
 
+    def _show_file_open_error(self, error_msg: str) -> None:
+        """
+        ファイル/フォルダを開く際のエラーを表示（共通処理）
+
+        Args:
+            error_msg: エラーメッセージ
+        """
+        messagebox.showerror("エラー", error_msg)
+
     def _create_ui(self) -> None:
         """UIを構築"""
         # スクロール可能なメインコンテナ（BaseTabの共通メソッドを使用）
@@ -288,9 +297,18 @@ class SettingsTab(BaseTab):
                 filetypes=[("実行ファイル", "*.exe"), ("すべて", "*.*")]
             )
             if file_path:
-                self.gs_var.set(file_path)
+                # PathValidatorで検証
+                is_valid, error_msg, validated_path = PathValidator.validate_file_path(
+                    file_path,
+                    must_exist=True
+                )
+                if not is_valid:
+                    messagebox.showerror("パス検証エラー", error_msg)
+                    return
+
+                self.gs_var.set(str(validated_path))
                 self._update_gs_status()
-                self.update_status(f"Ghostscript: {os.path.basename(file_path)}")
+                self.update_status(f"Ghostscript: {validated_path.name}")
         except Exception as e:
             messagebox.showerror("参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
 
@@ -320,8 +338,17 @@ class SettingsTab(BaseTab):
                 filetypes=[("Excel", "*.xlsx;*.xls"), ("すべて", "*.*")]
             )
             if file_path:
-                var.set(os.path.basename(file_path))
-                self.update_status(f"Excelファイル: {os.path.basename(file_path)}")
+                # PathValidatorで検証
+                is_valid, error_msg, validated_path = PathValidator.validate_file_path(
+                    file_path,
+                    must_exist=True
+                )
+                if not is_valid:
+                    messagebox.showerror("パス検証エラー", error_msg)
+                    return
+
+                var.set(validated_path.name)
+                self.update_status(f"Excelファイル: {validated_path.name}")
         except Exception as e:
             messagebox.showerror("参照エラー", f"Excelファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
 
@@ -333,10 +360,7 @@ class SettingsTab(BaseTab):
             messagebox.showwarning("警告", "フォルダパスが設定されていません。")
             return
 
-        def on_error(error_msg: str):
-            messagebox.showerror("エラー", error_msg)
-
-        if open_file_or_folder(folder_path_str, on_error):
+        if open_file_or_folder(folder_path_str, self._show_file_open_error):
             self.update_status(f"フォルダを開きました: {Path(folder_path_str).name}")
 
     def _open_temp_folder(self) -> None:
@@ -361,10 +385,7 @@ class SettingsTab(BaseTab):
                 return
 
         # エクスプローラーで開く（非同期）
-        def on_error(error_msg: str):
-            messagebox.showerror("エラー", error_msg)
-
-        if open_file_or_folder(str(temp_path), on_error):
+        if open_file_or_folder(str(temp_path), self._show_file_open_error):
             self.update_status("一時フォルダを開きました")
 
     def _open_excel_file_from_settings(self, var: tk.StringVar) -> None:
@@ -385,10 +406,7 @@ class SettingsTab(BaseTab):
 
         file_path = os.path.join(base_path, year, education_base, filename)
 
-        def on_error(error_msg: str):
-            messagebox.showerror("エラー", error_msg)
-
-        if open_file_or_folder(file_path, on_error):
+        if open_file_or_folder(file_path, self._show_file_open_error):
             self.update_status(f"Excelファイルを開きました: {filename}")
 
     def save_settings(self) -> None:
@@ -451,10 +469,7 @@ class SettingsTab(BaseTab):
         """config.jsonをテキストエディタで開く"""
         config_path = self.config.config_path
 
-        def on_error(error_msg: str):
-            messagebox.showerror("エラー", error_msg)
-
-        if open_file_or_folder(config_path, on_error):
+        if open_file_or_folder(config_path, self._show_file_open_error):
             self.update_status("config.jsonを開きました")
 
     def _auto_detect_ghostscript(self) -> None:
@@ -590,12 +605,9 @@ class SettingsTab(BaseTab):
         # 今日のログファイル
         log_file = os.path.join(log_dir, f"pdf_merge_{datetime.now():%Y%m%d}.log")
 
-        def on_error(error_msg: str):
-            messagebox.showerror("エラー", error_msg)
-
         if os.path.exists(log_file):
             # ログファイルをデフォルトのテキストエディタで開く
-            if open_file_or_folder(log_file, on_error):
+            if open_file_or_folder(log_file, self._show_file_open_error):
                 self.update_status("ログファイルを開きました")
         else:
             # ログファイルが存在しない場合はログディレクトリを開く
