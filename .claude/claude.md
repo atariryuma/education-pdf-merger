@@ -675,7 +675,7 @@ A: 明確な目標値はありませんが、コアモジュール（`pdf_merge_
 
 **Q: インストーラーも作成できますか？**
 
-A: はい。Inno Setupを使用します。詳細は[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)を参照してください。
+A: はい。Inno Setupを使用します。`installer/setup.iss`を参照してください。
 
 **Q: ビルド時間はどのくらいですか？**
 
@@ -776,7 +776,6 @@ pytest -m unit
 
 - [README.md](README.md) - プロジェクト概要とユーザー向けガイド
 - [CHANGELOG.md](CHANGELOG.md) - バージョン履歴
-- [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) - ビルド手順詳細
 - [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md) - Google Sheets連携セットアップ
 - [.github/workflows/ci.yml](.github/workflows/ci.yml) - CI/CD設定
 
