@@ -12,6 +12,28 @@ Word、Excel、PowerPoint、一太郎、画像ファイルを目次付き単一P
 
 ---
 
+## 開発環境の前提条件
+
+### 必須要件
+
+- **OS**: Windows 10/11（Windowsのみ対応）
+- **Python**: 3.8以上（推奨: 3.9+）
+- **Microsoft Office**: Word、Excel、PowerPoint（COM経由で操作）
+- **Ghostscript**: PDF圧縮用（自動検出可能）
+
+### オプション
+
+- **一太郎**: .jtdファイル変換を使用する場合のみ
+- **Google Cloud プロジェクト**: Google Sheets参照機能を使用する場合（[詳細](docs/GOOGLE_SHEETS_SETUP.md)）
+
+### 重要な制限事項
+
+- ⚠️ **Windowsのみ**: Win32 COM、pywinautoを使用するためmacOS/Linuxは非対応
+- ⚠️ **Office必須**: Word/Excel/PowerPoint変換にはOfficeインストールが必要
+- ⚠️ **UI自動化**: 一太郎変換はUI自動化のため、実行中は他の操作を避ける
+
+---
+
 ## 開発コマンド
 
 ### 環境セットアップ
@@ -82,6 +104,52 @@ build.bat
 
 # 生成物: dist\教育計画PDFマージシステム.exe
 ```
+
+---
+
+## CI/CD
+
+### GitHub Actions
+
+3つのジョブで自動品質チェックを実施（`.github/workflows/ci.yml`）:
+
+#### 1. **品質チェック** (quality)
+
+```bash
+# 型チェック
+mypy --config-file mypy.ini --no-error-summary .
+
+# リント
+ruff check . --output-format=github
+
+# セキュリティチェック
+bandit -r . -f screen --skip B101,B601
+```
+
+#### 2. **テスト** (test)
+
+```bash
+# テスト実行 + カバレッジ
+pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing -v
+
+# カバレッジレポートをCodecovにアップロード
+```
+
+#### 3. **ビルド検証** (build)
+
+```bash
+# PyInstallerでEXE生成
+pyinstaller build_installer.spec --clean --noconfirm
+
+# 生成物の検証
+# 成果物を7日間保存
+```
+
+### トリガー
+
+- `main`、`develop`ブランチへのpush
+- `main`、`develop`へのプルリクエスト
+- 手動実行（workflow_dispatch）
 
 ---
 
@@ -457,6 +525,184 @@ transfer = factory.create_transfer()  # config.transfer_mode で選択
 
 ---
 
+## トラブルシューティング
+
+### 開発環境の問題
+
+#### ❌ ModuleNotFoundError: No module named 'XXX'
+
+**原因**: 依存関係が未インストール
+
+**解決策**:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+#### ❌ pytest/ruff/mypy: command not found
+
+**原因**: 開発用ツールが未インストール、またはPATHが通っていない
+
+**解決策**:
+
+```bash
+# 仮想環境が有効化されているか確認
+venv\Scripts\activate
+
+# 開発用依存関係を再インストール
+pip install -r requirements-dev.txt
+```
+
+#### ❌ pywin32エラー: COM object is not available
+
+**原因**: Microsoft Officeが未インストール、またはCOM登録が不完全
+
+**解決策**:
+
+1. Microsoft Officeがインストールされているか確認
+2. 管理者権限でpywin32のCOM登録を実行:
+
+```bash
+python venv\Scripts\pywin32_postinstall.py -install
+```
+
+### テストの問題
+
+#### ❌ テストが失敗する
+
+**原因**: 環境依存の問題（Office、Ghostscript、一太郎など）
+
+**解決策**:
+
+```bash
+# 環境依存テストをスキップ
+pytest -m "not slow"
+
+# ユニットテストのみ実行
+pytest -m unit
+```
+
+### ビルドの問題
+
+#### ❌ PyInstaller: ModuleNotFoundError at runtime
+
+**原因**: `build_installer.spec`の`hiddenimports`に必要なモジュールが未登録
+
+**解決策**:
+
+1. `build_installer.spec`の`hiddenimports`リストに追加
+2. クリーンビルド実行: `build.bat`
+
+#### ❌ 実行ファイルサイズが大きい（100MB超）
+
+**原因**: 正常（Python + 依存ライブラリを含むため）
+
+**内訳**:
+
+- Python インタープリタ
+- customtkinter、PyPDF2、PyMuPDF、reportlab、Pillow
+- pywin32、pywinauto
+
+### Google Sheets連携
+
+#### ❌ 認証情報ファイルが見つかりません
+
+**原因**: `credentials.json`が正しい場所にない
+
+**解決策**:
+
+1. `credentials.json`をプロジェクトルートに配置
+2. または`%LOCALAPPDATA%\PDFMergeSystem\credentials.json`に配置
+3. 詳細: [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md)
+
+#### ❌ OAuth認証ブラウザが開かない
+
+**原因**: ファイアウォールでlocalhost通信がブロック
+
+**解決策**:
+
+- IT部門にlocalhost:8080-8090の通信許可を依頼
+- または個人ネットワークで初回認証を実施
+
+### 一太郎変換
+
+#### ❌ 一太郎変換が途中で止まる
+
+**原因**: UI自動化のタイミング問題
+
+**解決策**:
+
+`config.json`でタイミングを調整:
+
+```json
+{
+  "ichitaro": {
+    "wait_time": 3.0,
+    "save_wait": 5.0
+  }
+}
+```
+
+---
+
+## よくある質問（FAQ）
+
+### FAQ: 開発環境
+
+**Q: macOS/Linuxで開発できますか？**
+
+A: いいえ。Win32 COM、pywinautoを使用するためWindows専用です。
+
+**Q: Python 3.12で動作しますか？**
+
+A: はい。Python 3.8〜3.12で動作確認済みです。
+
+**Q: 仮想環境は必須ですか？**
+
+A: 推奨です。システムPythonとの競合を避けるため、venvまたはcondaの使用を強く推奨します。
+
+### FAQ: テスト
+
+**Q: テストにOfficeインストールは必要ですか？**
+
+A: ユニットテスト（`-m unit`）はモックを使用するため不要です。統合テストは必要です。
+
+**Q: カバレッジ目標は何%ですか？**
+
+A: 明確な目標値はありませんが、コアモジュール（`pdf_merge_orchestrator`、`document_collector`など）は80%以上を推奨します。
+
+### FAQ: ビルド
+
+**Q: インストーラーも作成できますか？**
+
+A: はい。Inno Setupを使用します。詳細は[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)を参照してください。
+
+**Q: ビルド時間はどのくらいですか？**
+
+A: 環境により異なりますが、通常2〜5分程度です。
+
+### Google Sheets
+
+**Q: 組織アカウント（Google Workspace）で使用できますか？**
+
+A: はい。IT管理者がGoogle Sheets APIを無効にしていない限り使用可能です。
+
+**Q: オフラインで使用できますか？**
+
+A: Google Sheets参照機能はインターネット接続が必要です。Excelモード（`reference_mode: "excel"`）ならオフライン可能です。
+
+### アーキテクチャ
+
+**Q: なぜconvertersディレクトリを分けたのですか？**
+
+A: 単一責任の原則（SRP）に従い、各形式の変換ロジックを独立させるためです（v3.3.0リファクタリング）。
+
+**Q: BaseExcelTransferは何のためですか？**
+
+A: ExcelとGoogle Sheetsの共通ロジックを抽出し、DRY原則を徹底するためです（v3.5.0導入）。
+
+---
+
 ## バージョン管理
 
 ### コミットメッセージ
@@ -476,6 +722,63 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 - **v3.5.0** (2026-01): Google Sheets参照機能、BaseExcelTransfer導入（DRY徹底）
 - **v3.4.1** (2026-01): Ghostscript自動検出
 - **v3.3.0** (2025-12): PDFMergeOrchestrator、セットアップウィザード
+
+---
+
+## クイックリファレンス
+
+### 新規開発者向け：5分でスタート
+
+```bash
+# 1. リポジトリをクローン
+git clone <repository-url>
+cd education-pdf-merger
+
+# 2. 仮想環境セットアップ
+python -m venv venv
+venv\Scripts\activate
+
+# 3. 依存関係インストール
+pip install -r requirements-dev.txt
+
+# 4. アプリケーション起動
+python run_app.py
+
+# 5. テスト実行（オプション）
+pytest -m unit
+```
+
+### よく使うコマンド一覧
+
+| 目的 | コマンド |
+| --- | --- |
+| アプリ起動 | `python run_app.py` |
+| 全テスト実行 | `pytest` |
+| ユニットテストのみ | `pytest -m unit` |
+| リント・フォーマット | `ruff check --fix . && ruff format .` |
+| 型チェック | `mypy --config-file=mypy.ini` |
+| EXEビルド | `build.bat` |
+| pre-commit手動実行 | `pre-commit run --all-files` |
+
+### 重要なファイル
+
+| ファイル | 役割 |
+| --- | --- |
+| [run_app.py](run_app.py) | アプリケーションエントリーポイント |
+| [pdf_merge_orchestrator.py](pdf_merge_orchestrator.py) | メイン処理フロー制御 |
+| [config.json](config.json) | プロジェクト設定（テンプレート） |
+| [requirements-dev.txt](requirements-dev.txt) | 開発用依存関係 |
+| [mypy.ini](mypy.ini) | 型チェック設定 |
+| [pytest.ini](pytest.ini) | テスト設定 |
+| [build_installer.spec](build_installer.spec) | PyInstallerビルド設定 |
+
+### 関連ドキュメント
+
+- [README.md](README.md) - プロジェクト概要とユーザー向けガイド
+- [CHANGELOG.md](CHANGELOG.md) - バージョン履歴
+- [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) - ビルド手順詳細
+- [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md) - Google Sheets連携セットアップ
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) - CI/CD設定
 
 ---
 
