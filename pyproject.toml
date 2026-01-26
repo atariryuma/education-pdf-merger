@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf-merge-system"
-version = "3.2"
+version = "3.5.0"
 description = "教育計画PDFマージシステム - 各種ドキュメントをPDFに変換・マージするWindowsアプリケーション"
 readme = "README.md"
 requires-python = ">=3.8"
