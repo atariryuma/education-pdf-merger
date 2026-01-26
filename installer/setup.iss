@@ -52,11 +52,10 @@ Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; 設定ファイル（dist/にコピーされたもの）
 Source: "..\dist\config.json"; DestDir: "{app}"; Flags: confirmoverwrite
 
-; ドキュメント（v3.4.0）
+; ドキュメント（v3.5.0）
 Source: "..\CHANGELOG.md"; DestDir: "{app}\docs"; DestName: "CHANGELOG.txt"; Flags: ignoreversion
-Source: "..\BUILD_INSTRUCTIONS.md"; DestDir: "{app}\docs"; DestName: "BUILD_INSTRUCTIONS.txt"; Flags: ignoreversion
-Source: "..\RELEASE_NOTES_v3.4.0.md"; DestDir: "{app}\docs"; DestName: "RELEASE_NOTES_v3.4.0.txt"; Flags: ignoreversion
-Source: "..\RELEASE_NOTES_v3.3.0.md"; DestDir: "{app}\docs"; DestName: "RELEASE_NOTES_v3.3.0.txt"; Flags: ignoreversion
+Source: "..\README.md"; DestDir: "{app}\docs"; DestName: "README.txt"; Flags: ignoreversion
+Source: "..\docs\GOOGLE_SHEETS_SETUP.md"; DestDir: "{app}\docs"; DestName: "GOOGLE_SHEETS_SETUP.txt"; Flags: ignoreversion
 
 ; Ghostscript検出用スクリプト（インストール後に削除）- オプション
 ; Source: "dist\post_install.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: FileExists('..\dist\post_install.exe')
@@ -210,7 +209,7 @@ begin
 end;
 
 [Messages]
-WelcomeLabel1=教育計画PDFマージシステム v3.4.1 へようこそ
-WelcomeLabel2=このプログラムは、教育計画や行事計画のPDFファイルを効率的にマージするツールです。%n%n【v3.4.1の改善点】%n• パフォーマンス最適化（遅延インポート改善）%n• コード品質向上（CLAUDE.md準拠）%n%n【主な機能】%n• 初回セットアップウィザード（5ステップガイド）%n• Ghostscript自動検出機能%n• 設定検証システム（ERROR/WARNING/INFO）%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像ファイルのPDF変換%n• 一太郎文書のPDF変換%n• 自動フォルダ構造検出%n• Excel自動転記機能%n%nセットアップを続行するには「次へ」をクリックしてください。
+WelcomeLabel1=教育計画PDFマージシステム v3.5.0 へようこそ
+WelcomeLabel2=このプログラムは、教育計画や行事計画のPDFファイルを効率的にマージするツールです。%n%n【v3.5.0の新機能】%n• Google Sheets参照機能（クラウドでデータ一元管理）%n• Excel/Google Sheetsの柔軟な切り替え%n• BaseExcelTransfer導入（コード品質向上）%n%n【主な機能】%n• 初回セットアップウィザード（5ステップガイド）%n• Ghostscript自動検出機能%n• 設定検証システム（ERROR/WARNING/INFO）%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像ファイルのPDF変換%n• 一太郎文書のPDF変換%n• 自動フォルダ構造検出%n• Excel/Google Sheets自動転記機能%n%nセットアップを続行するには「次へ」をクリックしてください。
 
-FinishedLabel=教育計画PDFマージシステム v3.4.1のインストールが完了しました。%n%n【v3.4.1の改善点】%n• パフォーマンスが向上しました%n• 初回起動時にセットアップウィザードが自動的に表示されます%n• Ghostscriptが自動検出されるため手動設定不要です%n• ドキュメントフォルダに詳細情報があります%n• Microsoft Office（Word/Excel/PowerPoint）が必要です%n• 一太郎ファイルを変換する場合は一太郎が必要です%n%n【詳細情報】%n変更履歴（CHANGELOG.txt）とリリースノート（RELEASE_NOTES_v3.4.0.txt）をご覧ください。
+FinishedLabel=教育計画PDFマージシステム v3.5.0のインストールが完了しました。%n%n【v3.5.0の新機能】%n• Google Sheets参照機能が利用可能になりました%n• Excel/Google Sheetsを切り替えて使用できます%n• Google Sheets連携の設定方法は GOOGLE_SHEETS_SETUP.txt をご覧ください%n• 初回起動時にセットアップウィザードが自動的に表示されます%n• Ghostscriptが自動検出されるため手動設定不要です%n%n【必須環境】%n• Microsoft Office（Word/Excel/PowerPoint）が必要です%n• 一太郎ファイルを変換する場合は一太郎が必要です%n• Google Sheets連携にはインターネット接続が必要です%n%n【詳細情報】%nドキュメントフォルダに変更履歴（CHANGELOG.txt）とセットアップガイド（GOOGLE_SHEETS_SETUP.txt）があります。
