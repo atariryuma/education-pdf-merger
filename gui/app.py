@@ -118,8 +118,6 @@ class PDFMergeApp:
         self.temp_var = tk.StringVar(value=temp_path)
 
         self.gs_var = tk.StringVar(value=self.config.get('ghostscript', 'executable'))
-        self.excel_ref_var = tk.StringVar(value=self.config.get('files', 'excel_reference'))
-        self.excel_target_var = tk.StringVar(value=self.config.get('files', 'excel_target'))
 
     def _load_last_settings(self) -> dict:
         """最後の設定を読み込み"""
@@ -152,13 +150,14 @@ class PDFMergeApp:
         self.root.bind('<F5>', self._handle_f5)
 
     def _handle_f5(self, event) -> str:
-        """F5キーの処理"""
+        """F5キーの処理（Excel処理タブで自動検出を実行）"""
         if not hasattr(self, 'notebook') or self.notebook is None:
             return 'break'
         try:
             current_tab = self.notebook.index(self.notebook.select())
             if current_tab == 1:  # Excel処理タブ
-                self.excel_tab.check_files_status()
+                # v3.5.0: ファイル自動検出を実行
+                self.excel_tab._auto_detect_files()
         except Exception as e:
             logger.debug(f"F5キー処理でエラー: {e}")
         return 'break'
@@ -202,9 +201,11 @@ class PDFMergeApp:
             self.notebook, self.config, self.status_bar,
             self.year_var, self.year_short_var,
             self.gdrive_var, self.temp_var, self.gs_var,
-            self.excel_ref_var, self.excel_target_var,
             on_reload=self._reload_settings
         )
+
+        # ExcelTabに設定タブへの参照を設定
+        self.excel_tab.set_settings_tab(self.settings_tab)
 
     def _create_menu(self) -> None:
         """メニューバーを作成"""
@@ -239,11 +240,6 @@ class PDFMergeApp:
             self.gdrive_var.set(self.config.get('base_paths', 'google_drive'))
             self.temp_var.set(self.config.get('base_paths', 'local_temp'))
             self.gs_var.set(self.config.get('ghostscript', 'executable'))
-            self.excel_ref_var.set(self.config.get('files', 'excel_reference'))
-            self.excel_target_var.set(self.config.get('files', 'excel_target'))
-
-            # Excelタブのラベルも更新
-            self.excel_tab.update_labels()
 
             # タブのconfigを更新
             self.pdf_tab.config = self.config
@@ -319,8 +315,6 @@ F5 : ファイル状態を確認
                     self.gdrive_var.set(self.config.get('base_paths', 'google_drive') or "")
                     self.temp_var.set(self.config.get('base_paths', 'local_temp') or "")
                     self.gs_var.set(self.config.get('ghostscript', 'executable') or "")
-                    self.excel_ref_var.set(self.config.get('files', 'excel_reference') or "")
-                    self.excel_target_var.set(self.config.get('files', 'excel_target') or "")
 
                     # 各タブのconfigも更新
                     if hasattr(self, 'pdf_tab'):

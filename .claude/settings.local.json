@@ -44,7 +44,28 @@
       "Bash(python:*)",
       "Bash(del test_google_sheets_integration.py)",
       "Bash(dir:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(./build.bat)",
+      "Bash(where iscc.exe)",
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Inno Setup 6\\\\ISCC.exe\" installersetup.iss)",
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\Inno Setup 6\\\\ISCC.exe\" setup.iss)",
+      "Bash(ruff:*)",
+      "Bash(mypy:*)",
+      "Bash(git rm:*)",
+      "Bash(chcp 65001)",
+      "Bash(./build_installer.bat)",
+      "Bash(\"/c/Program Files \\(x86\\)/Inno Setup 6/ISCC.exe\" \"c:/Projects/education-pdf-merger/installer/setup.iss\")",
+      "Bash(cmd /c build.bat)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"cd ''C:\\\\Projects\\\\education-pdf-merger''; & ''.\\\\build.bat''\")",
+      "Bash(\"/c/Program Files \\(x86\\)/Inno Setup 6/ISCC.exe\" \"C:\\\\Projects\\\\education-pdf-merger\\\\installer\\\\setup.iss\")",
+      "Bash(tasklist:*)",
+      "Bash(cmd /c build_installer.bat)",
+      "Bash(\"/c/Program Files \\(x86\\)/Inno Setup 6/ISCC.exe\" /c/Projects/education-pdf-merger/installer/setup.iss)",
+      "Bash(powershell.exe -Command \"\\(Get-Item ''dist\\\\教育計画PDFマージシステム.exe''\\).VersionInfo | Select-Object FileVersion, ProductVersion, ProductName, FileDescription | Format-List\")",
+      "Bash(\"C:/Program Files \\(x86\\)/Inno Setup 6/ISCC.exe\" installer/setup.iss)"
     ]
   }
 }

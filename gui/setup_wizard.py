@@ -76,8 +76,7 @@ class SetupWizard:
         self.gdrive_var = tk.StringVar(value="")
         # 自動設定項目（ユーザー入力不要）
         self.local_temp_var = tk.StringVar(value="")  # デフォルト: temp_pdfs
-        self.excel_ref_var = tk.StringVar(value="")  # 後で設定タブで設定
-        self.excel_target_var = tk.StringVar(value="")  # 後で設定タブで設定
+        # v3.5.0: Excelファイルパスは削除（セッション内管理に変更）
         self.gs_var = tk.StringVar(value="")  # 自動検出
         self.gs_enabled_var = tk.BooleanVar(value=True)
 
@@ -715,9 +714,7 @@ class SetupWizard:
             self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get().strip())
             self.config.set('base_paths', 'local_temp', value=self.local_temp_var.get().strip())
 
-            # Excelファイル設定
-            self.config.set('files', 'excel_reference', value=self.excel_ref_var.get().strip())
-            self.config.set('files', 'excel_target', value=self.excel_target_var.get().strip())
+            # v3.5.0: Excelファイル設定は削除（セッション内管理に変更）
 
             # Ghostscript設定
             if self.gs_enabled_var.get() and self.gs_var.get():

@@ -14,7 +14,7 @@ from win32com import client
 import pythoncom
 
 from exceptions import PDFConversionError
-from constants import WordFormat, ExcelFormat, PowerPointFormat
+from constants import WordFormat, ExcelFormat, PowerPointFormat, PDFConversionConstants
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +188,7 @@ class OfficeConverter:
 
         # ネットワークパスの場合はローカルにコピー
         base_name = os.path.basename(file_path)
-        local_copy = os.path.join(self.temp_dir, "local_copy_" + base_name)
+        local_copy = os.path.join(self.temp_dir, PDFConversionConstants.LOCAL_COPY_PREFIX + base_name)
 
         try:
             shutil.copy2(file_path, local_copy)

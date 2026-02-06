@@ -270,7 +270,7 @@ class DocumentCollector:
             logger.info(f"--- 処理中 [{idx}/{total_items}]: {item} ---")
 
             # 表紙ファイルの処理
-            if os.path.isfile(item_path) and "表紙" in item:
+            if os.path.isfile(item_path) and PDFConstants.COVER_FILE_KEYWORD in item:
                 current_page = self._process_cover_file(item_path, content_pdfs, current_page)
                 continue
 
@@ -287,4 +287,19 @@ class DocumentCollector:
                 )
 
         logger.info(f"ドキュメント収集完了: {len(content_pdfs)}ファイル, {len(toc_entries)}目次エントリ")
+
+        # 空ディレクトリチェック
+        if not content_pdfs:
+            from exceptions import PDFProcessingError
+            raise PDFProcessingError(
+                f"処理可能なドキュメントが見つかりませんでした。\n\n"
+                f"ディレクトリ: {target_dir}\n"
+                f"サポートされているファイル形式:\n"
+                f"  - Office: .doc, .docx, .xls, .xlsx, .ppt, .pptx\n"
+                f"  - PDF: .pdf\n"
+                f"  - 画像: .jpg, .jpeg, .png\n"
+                f"  - 一太郎: .jtd",
+                operation="ドキュメント収集"
+            )
+
         return toc_entries, content_pdfs

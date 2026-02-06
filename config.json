@@ -20,13 +20,8 @@
   },
   "files": {
     "separator_template": "Separator.docx",
-    "reference_mode": "excel",
-    "excel_reference": "",
-    "excel_target": "",
     "excel_reference_sheet": "メインデータ",
-    "excel_target_sheet": "様式４の３ (小)",
-    "google_sheets_reference_url": "",
-    "google_sheets_reference_sheet": "メインデータ"
+    "excel_target_sheet": "様式４の３ (小)"
   },
   "output": {
     "merged_pdf": "merged_output.pdf"
@@ -35,6 +30,10 @@
     "ichitaro_ready_timeout": 30,
     "max_retries": 3,
     "save_wait_seconds": 20
+  },
+  "excel_auto_detect": {
+    "reference_keywords": ["編集用", "年間行事", "行事計画", "メインデータ"],
+    "target_keywords": ["様式4", "様式４", "様式4の3", "様式４の３"]
   },
   "excel_transfer": {
     "loop1": {
@@ -72,5 +71,24 @@
       "5": ["M", "N"],
       "6": ["O", "P"]
     }
+  },
+  "excel_default_event_names": {
+    "school_events": [
+      "入学式", "始業式", "1学期終業式", "2学期始業式", "2学期終業式",
+      "3学期始業式", "卒業式", "修了式", "離任式",
+      "避難訓練（火災）", "避難訓練（不審者）", "避難訓練（地震津波）",
+      "健康診断（内科）", "健康診断（歯科）", "定期健康診断",
+      "プール開き", "プール納め",
+      "校外学習（1・2年）", "校外学習（3・4年）", "校外学習（5・6年）",
+      "修学旅行", "学習発表会", "学芸会", "運動会", "文化祭",
+      "作業的行事（草刈り作業）", "作業的行事（清掃活動）"
+    ],
+    "student_council_events": [
+      "一年生を迎える会", "児童会総会", "六年生を送る会"
+    ],
+    "other_activities": [
+      "週番活動", "全校朝会", "音楽朝会", "読書旬間", "学習旬間",
+      "校内研（授業研究会）", "特別時程期間"
+    ]
   }
 }

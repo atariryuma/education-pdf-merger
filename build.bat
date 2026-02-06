@@ -2,7 +2,7 @@
 chcp 65001 > nul
 echo ========================================
 echo 教育計画PDFマージシステム ビルドスクリプト
-echo Version 3.5.0 - Google Sheets対応版
+echo Version 3.5.7 - 転記処理のCOM接続修正
 echo ========================================
 echo.
 
@@ -56,12 +56,9 @@ if exist "dist\教育計画PDFマージシステム.exe" (
 
     echo.
     echo ビルド情報:
-    echo   - バージョン: 3.5.0
-    echo   - Google Sheets参照機能追加
-    echo   - BaseExcelTransfer基底クラス導入（DRY原則徹底）
-    echo   - パフォーマンス改善（遅延インポート最適化）
-    echo   - 初回セットアップウィザード実装
-    echo   - Ghostscript自動検出機能
+    echo   - バージョン: 3.5.7
+    echo   - 転記処理のCOM接続修正
+    echo   - populate_event_names()が正しくターゲットファイルのみに接続
     echo.
     for %%F in ("dist\教育計画PDFマージシステム.exe") do (
         echo   - ファイルサイズ: %%~zF bytes

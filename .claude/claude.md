@@ -2,8 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **最終更新**: 2026-01-26
-> **バージョン**: 3.5.0
+> **最終更新**: 2026-01-29
+> **バージョン**: 3.5.6 (転記機能の重大なバグ修正)
+>
+> ⚠️ **重要な変更 (2026-01-29)**:
+> 転記機能の重大なバグを修正しました。ConfigLoader（設定タブ/Excel読み込み）で設定した行事名が転記処理で正しく使用されるようになりました。
+> 転記実行前に、最新の行事名が自動的にターゲットExcelに設定されます。
 
 ## プロジェクト概要
 
@@ -24,7 +28,6 @@ Word、Excel、PowerPoint、一太郎、画像ファイルを目次付き単一P
 ### オプション
 
 - **一太郎**: .jtdファイル変換を使用する場合のみ
-- **Google Cloud プロジェクト**: Google Sheets参照機能を使用する場合（[詳細](docs/GOOGLE_SHEETS_SETUP.md)）
 
 ### 重要な制限事項
 
@@ -166,10 +169,7 @@ GUI層 (gui/)
   ├─ document_collector.py    (ディレクトリ走査・目次生成)
   ├─ pdf_converter.py          (形式変換ファサード)
   ├─ pdf_processor.py          (PDF操作)
-  └─ Excel処理
-      ├─ base_excel_transfer.py (抽象基底クラス)
-      ├─ update_excel_files.py  (Excel COM実装)
-      └─ google_sheets_transfer.py (Google Sheets API実装)
+  └─ update_excel_files.py     (Excel処理・転記機能)
   ↓ 依存
 インフラ層
   ├─ config_loader.py
@@ -200,11 +200,10 @@ GUI層 (gui/)
 | `pdf_converter.py` | 各種形式→PDF変換のファサード | 厳密 |
 | `pdf_processor.py` | PDF操作（マージ、分割、TOC、ブックマーク、ページ番号） | 厳密 |
 | `folder_structure_detector.py` | 教育計画（3階層）/行事計画（2階層）の検出 | 厳密 |
-| `base_excel_transfer.py` | Excel処理の抽象基底クラス（DRY） | 厳密 |
-| `transfer_factory.py` | Excel/Google Sheetsの実装選択（Factory Pattern） | 厳密 |
+| `update_excel_files.py` | Excel転記処理（COM操作・行事名管理） | 厳密 |
 | `config_loader.py` | 設定読み込み・パス解決・デフォルト値マージ | 通常 |
 | `path_validator.py` | パス検証・TOCTOU対策 | 厳密 |
-| `exceptions.py` | カスタム例外階層（12種類） | 厳密 |
+| `exceptions.py` | カスタム例外階層（9種類） | 厳密 |
 | `converters/office_converter.py` | Word/Excel/PPT変換（COM） | 緩和（COM型なし） |
 | `converters/ichitaro_converter.py` | 一太郎変換（pywinauto） | 緩和（UI自動化） |
 | `gui/` | customtkinterベースのGUI | 緩和（tkinter型不完全） |
@@ -221,12 +220,10 @@ PDFMergeError (基底クラス)
 ├── PDFProcessingError (operation属性)
 ├── ExcelProcessingError (file_path, operation属性)
 ├── FolderStructureError (directory_path属性)
-├── CancelledError
-├── GoogleSheetsError (operation属性)
-└── GoogleAuthError (auth_stage属性)
+└── CancelledError
 ```
 
-すべて `original_error` パラメータで例外チェーン可能。
+すべて（CancelledError除く）`original_error` パラメータで例外チェーン可能。
 
 ---
 
@@ -325,10 +322,8 @@ class PDFMergeOrchestrator:
 
 ### デザインパターン
 
-- **Factory Pattern**: `HybridTransferFactory` が Excel/Google Sheets 実装を選択
-- **Strategy Pattern**: `BaseExcelTransfer` を継承した複数実装
 - **Facade Pattern**: `PDFConverter` が複数の変換機を隠蔽
-- **Template Method**: `BaseExcelTransfer` の共通フロー定義
+- **Dependency Injection**: コンストラクタで依存を注入（テスタビリティ向上）
 
 ---
 
@@ -460,9 +455,8 @@ pywinautoベースのUI操作は時間がかかるため、`config.json` でタ�
 
 ### モック推奨箇所
 
-- Win32 COM操作（`office_converter.py`）
+- Win32 COM操作（`office_converter.py`、`update_excel_files.py`）
 - pywinauto UI操作（`ichitaro_converter.py`）
-- Google Sheets API（`google_sheets_reader.py`）
 
 ---
 
@@ -475,44 +469,49 @@ pywinautoベースのUI操作は時間がかかるため、`config.json` でタ�
 
 `ConfigLoader` が両方をマージし、ユーザー設定が優先される。
 
+### Excel転記機能の検索語管理 (重要)
+
+転記機能は以下の2ステップで動作：
+
+1. **ステップ1: 行事名の設定** (`populate_event_names`)
+   - ConfigLoaderから最新の行事名を取得
+   - ターゲットExcelのC列/D列に書き込み
+   - 設定タブやExcel読み込みで変更された内容を反映
+
+2. **ステップ2: 転記処理** (`execute`)
+   - ターゲットExcelのC列/D列から検索語を読み取り
+   - 参照Excelで検索して転記
+
+**データフロー**:
+
+```text
+設定タブ/Excel読み込み
+  ↓
+ConfigLoader.save_event_names() → user_config.json
+  ↓
+転記実行時: ConfigLoader.get_event_names()
+  ↓
+populate_event_names() → ターゲットExcelに設定
+  ↓
+execute() → ターゲットExcelから読み取り → 参照Excelで検索
+```
+
 ### 主要設定項目
 
 ```json
 {
   "year": "2025",                    // 年度（西暦）
   "year_short": "R7",                // 和暦略称（自動計算）
-  "transfer_mode": "google_sheets",  // "excel" or "google_sheets"
-  "base_paths": {
-    "google_drive": "...",
-    "local_temp": "..."
+  "excel_default_event_names": {     // 転記用デフォルト行事名
+    "school_events": [...],
+    "student_council_events": [...],
+    "other_activities": [...]
   },
   "ghostscript": {
     "executable": "gswin64c.exe"     // 自動検出可能
   }
 }
 ```
-
----
-
-## Google Sheets統合（v3.5.0）
-
-### OAuth認証フロー
-
-1. `google_auth_manager.py` がトークンライフサイクル管理
-2. 初回: ブラウザで認証 → `token.pickle` 保存
-3. 2回目以降: トークン自動更新
-
-### Factory による実装切り替え
-
-```python
-# transfer_factory.py
-factory = HybridTransferFactory(config)
-transfer = factory.create_transfer()  # config.transfer_mode で選択
-
-# ExcelTransfer または GoogleSheetsTransfer を返す
-```
-
-両方とも `BaseExcelTransfer` を継承しているため、インターフェース統一。
 
 ---
 
@@ -603,27 +602,6 @@ pytest -m unit
 - customtkinter、PyPDF2、PyMuPDF、reportlab、Pillow
 - pywin32、pywinauto
 
-### Google Sheets連携
-
-#### ❌ 認証情報ファイルが見つかりません
-
-**原因**: `credentials.json`が正しい場所にない
-
-**解決策**:
-
-1. `credentials.json`をプロジェクトルートに配置
-2. または`%LOCALAPPDATA%\PDFMergeSystem\credentials.json`に配置
-3. 詳細: [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md)
-
-#### ❌ OAuth認証ブラウザが開かない
-
-**原因**: ファイアウォールでlocalhost通信がブロック
-
-**解決策**:
-
-- IT部門にlocalhost:8080-8090の通信許可を依頼
-- または個人ネットワークで初回認証を実施
-
 ### 一太郎変換
 
 #### ❌ 一太郎変換が途中で止まる
@@ -681,25 +659,21 @@ A: はい。Inno Setupを使用します。`installer/setup.iss`を参照して�
 
 A: 環境により異なりますが、通常2〜5分程度です。
 
-### Google Sheets
+### FAQ: Excel転記
 
-**Q: 組織アカウント（Google Workspace）で使用できますか？**
+**Q: 行事名はどこで設定しますか？**
 
-A: はい。IT管理者がGoogle Sheets APIを無効にしていない限り使用可能です。
+A: 設定タブで編集するか、Excelタブの「Excelから行事名を読込」ボタンで一括読み込みできます。
 
-**Q: オフラインで使用できますか？**
+**Q: 転記時に行事名が見つからないのはなぜですか？**
 
-A: Google Sheets参照機能はインターネット接続が必要です。Excelモード（`reference_mode: "excel"`）ならオフライン可能です。
+A: ConfigLoaderに行事名が設定されているか確認してください。転記実行前に自動的にターゲットExcelに設定されます。
 
 ### アーキテクチャ
 
 **Q: なぜconvertersディレクトリを分けたのですか？**
 
 A: 単一責任の原則（SRP）に従い、各形式の変換ロジックを独立させるためです（v3.3.0リファクタリング）。
-
-**Q: BaseExcelTransferは何のためですか？**
-
-A: ExcelとGoogle Sheetsの共通ロジックを抽出し、DRY原則を徹底するためです（v3.5.0導入）。
 
 ---
 
@@ -719,7 +693,8 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 
 ### 最近の主要更新
 
-- **v3.5.0** (2026-01): Google Sheets参照機能、BaseExcelTransfer導入（DRY徹底）
+- **v3.5.6** (2026-01): 転記機能の重大なバグ修正（検索語の自動設定）
+- **v3.5.0** (2026-01): Google Sheets機能削除、Excel処理の統一化
 - **v3.4.1** (2026-01): Ghostscript自動検出
 - **v3.3.0** (2025-12): PDFMergeOrchestrator、セットアップウィザード
 
@@ -776,7 +751,6 @@ pytest -m unit
 
 - [README.md](README.md) - プロジェクト概要とユーザー向けガイド
 - [CHANGELOG.md](CHANGELOG.md) - バージョン履歴
-- [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md) - Google Sheets連携セットアップ
 - [.github/workflows/ci.yml](.github/workflows/ci.yml) - CI/CD設定
 
 ---

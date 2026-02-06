@@ -107,12 +107,15 @@ class PDFProcessor:
         finally:
             merger.close()
 
-    def compress_pdf(self, pdf_path: str) -> None:
+    def compress_pdf(self, pdf_path: str) -> bool:
         """
         GhostscriptでPDFを圧縮.
 
         Args:
             pdf_path: 圧縮対象のPDFパス
+
+        Returns:
+            bool: 圧縮成功時True、失敗時False
         """
         try:
             with self._atomic_pdf_operation(pdf_path) as tmp_file:
@@ -132,12 +135,16 @@ class PDFProcessor:
 
                 subprocess.run(gs_command, check=True, timeout=PDFConstants.GS_TIMEOUT_SECONDS)
                 logger.info(f"Ghostscriptを使用してPDFを圧縮しました: {pdf_path}")
+                return True
         except subprocess.TimeoutExpired:
             logger.error(f"Ghostscriptがタイムアウトしました: {pdf_path}")
+            return False
         except subprocess.CalledProcessError as e:
             logger.error(f"Ghostscript実行エラー ({pdf_path}): {e}")
+            return False
         except Exception as e:
             logger.error(f"PDF圧縮エラー ({pdf_path}): {e}")
+            return False
 
     def get_page_count(self, pdf_path: str) -> int:
         """
@@ -221,8 +228,10 @@ class PDFProcessor:
                 for title, level, page in toc_entries:
                     # ページ番号を有効範囲に補正
                     if page < 1:
+                        logger.warning(f"目次エントリ '{title}' のページ番号が範囲外: {page} < 1")
                         page = 1
                     if page > page_count:
+                        logger.warning(f"目次エントリ '{title}' のページ番号が範囲外: {page} > {page_count}")
                         page = page_count
                     corrected_outlines.append([level, title, page])
 

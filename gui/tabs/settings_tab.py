@@ -32,8 +32,6 @@ class SettingsTab(BaseTab):
         gdrive_var: tk.StringVar,
         temp_var: tk.StringVar,
         gs_var: tk.StringVar,
-        excel_ref_var: tk.StringVar,
-        excel_target_var: tk.StringVar,
         on_reload: Callable[[], None]
     ) -> None:
         super().__init__(notebook, config, status_bar)
@@ -42,8 +40,6 @@ class SettingsTab(BaseTab):
         self.gdrive_var = gdrive_var
         self.temp_var = temp_var
         self.gs_var = gs_var
-        self.excel_ref_var = excel_ref_var
-        self.excel_target_var = excel_target_var
         self.on_reload = on_reload
 
         # 年度変更時に自動でyear_shortを更新
@@ -193,27 +189,56 @@ class SettingsTab(BaseTab):
         log_button_frame.pack(anchor="w", padx=10, pady=(5, 3))
         tk.Button(log_button_frame, text="📄 ログファイルを開く", command=self._open_log_file, font=("メイリオ", 8)).pack(side="left")
 
-        # --- Excelファイル設定 ---
-        excel_frame = tk.LabelFrame(main_container, text="📊 Excelファイル設定", font=("メイリオ", 10, "bold"))
-        excel_frame.pack(fill="x", pady=8)
+        # --- 行事名設定（折りたたみ式） ---
+        event_names_container = tk.Frame(main_container)
+        event_names_container.pack(fill="x", pady=8)
 
-        tk.Label(excel_frame, text="参照元:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(excel_frame, textvariable=self.excel_ref_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
+        # トグルボタン付きヘッダー
+        event_header_frame = tk.Frame(event_names_container)
+        event_header_frame.pack(fill="x")
 
-        excel_ref_btn_frame = tk.Frame(excel_frame)
-        excel_ref_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
-        tk.Button(excel_ref_btn_frame, text="📄", command=lambda: self._browse_excel_file(self.excel_ref_var), width=3).pack(side="left", padx=1)
-        tk.Button(excel_ref_btn_frame, text="📂", command=lambda: self._open_excel_file_from_settings(self.excel_ref_var), width=3).pack(side="left", padx=1)
+        self.event_names_expanded = tk.BooleanVar(value=False)  # デフォルトで折りたたみ
 
-        tk.Label(excel_frame, text="対象:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(excel_frame, textvariable=self.excel_target_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
+        self.event_toggle_button = tk.Button(
+            event_header_frame,
+            text="▶ 行事名設定（Excel転記用）を展開",
+            command=self._toggle_event_names_section,
+            font=("メイリオ", 10, "bold"),
+            relief="flat",
+            anchor="w",
+            cursor="hand2",
+            bg="#f0f0f0"
+        )
+        self.event_toggle_button.pack(fill="x", padx=5, pady=2)
 
-        excel_target_btn_frame = tk.Frame(excel_frame)
-        excel_target_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
-        tk.Button(excel_target_btn_frame, text="📄", command=lambda: self._browse_excel_file(self.excel_target_var), width=3).pack(side="left", padx=1)
-        tk.Button(excel_target_btn_frame, text="📂", command=lambda: self._open_excel_file_from_settings(self.excel_target_var), width=3).pack(side="left", padx=1)
+        # 折りたたみ可能なコンテンツフレーム
+        self.event_names_content = tk.Frame(event_names_container)
+        # デフォルトでは非表示（pack_forget状態）
 
-        excel_frame.columnconfigure(1, weight=1)
+        # タブビュー作成
+        self.event_tabs = ttk.Notebook(self.event_names_content)
+        self.event_tabs.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # 各カテゴリのタブを作成
+        self.event_listboxes = {}
+        self.event_categories = {
+            "school_events": "学校行事名 (D列)",
+            "student_council_events": "児童会行事名 (C列)",
+            "other_activities": "その他の活動 (C列)"
+        }
+
+        for category, tab_name in self.event_categories.items():
+            tab_frame = tk.Frame(self.event_tabs)
+            self.event_tabs.add(tab_frame, text=tab_name)
+            self._create_event_listbox_panel(tab_frame, category)
+
+        # 説明ラベル（折りたたみ時も表示）
+        tk.Label(
+            event_names_container,
+            text="💡 Excelタブから行事名を読み込めます。カスタマイズする場合は上記を展開してください。",
+            font=("メイリオ", 8),
+            fg="#666"
+        ).pack(anchor="w", padx=15, pady=(3, 0))
 
         # --- ボタン行 ---
         button_frame = tk.Frame(main_container)
@@ -251,6 +276,304 @@ class SettingsTab(BaseTab):
             cursor="hand2"
         )
         edit_btn.pack(side="left", padx=5)
+
+    def _toggle_event_names_section(self) -> None:
+        """行事名設定セクションを展開/折りたたみ"""
+        if self.event_names_expanded.get():
+            # 折りたたむ
+            self.event_names_content.pack_forget()
+            self.event_toggle_button.config(text="▶ 行事名設定（Excel転記用）を展開")
+            self.event_names_expanded.set(False)
+        else:
+            # 展開
+            self.event_names_content.pack(fill="both", expand=True, padx=5, pady=5)
+            self.event_toggle_button.config(text="▼ 行事名設定（Excel転記用）を折りたたむ")
+            self.event_names_expanded.set(True)
+
+    def _create_event_listbox_panel(self, parent: tk.Frame, category: str) -> None:
+        """リストボックスパネルを作成"""
+        # メインコンテナ（左右分割）
+        container = tk.Frame(parent)
+        container.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # 左側: リストボックス
+        list_frame = tk.Frame(container)
+        list_frame.pack(side="left", fill="both", expand=True)
+
+        # スクロールバー付きリストボックス
+        scrollbar = tk.Scrollbar(list_frame)
+        scrollbar.pack(side="right", fill="y")
+
+        listbox = tk.Listbox(
+            list_frame,
+            yscrollcommand=scrollbar.set,
+            font=("メイリオ", 9),
+            height=12,
+            selectmode="single"
+        )
+        listbox.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=listbox.yview)
+
+        # リストボックスを保存
+        self.event_listboxes[category] = listbox
+
+        # 行事名をロード
+        self._load_event_names_to_listbox(category)
+
+        # 右側: ボタンパネル
+        button_panel = tk.Frame(container)
+        button_panel.pack(side="right", fill="y", padx=(10, 0))
+
+        # ボタン作成
+        tk.Button(
+            button_panel,
+            text="➕ 追加",
+            command=lambda: self._on_add_event_name(category),
+            font=("メイリオ", 9),
+            width=12,
+            cursor="hand2"
+        ).pack(pady=3)
+
+        tk.Button(
+            button_panel,
+            text="✏️ 編集",
+            command=lambda: self._on_edit_event_name(category),
+            font=("メイリオ", 9),
+            width=12,
+            cursor="hand2"
+        ).pack(pady=3)
+
+        tk.Button(
+            button_panel,
+            text="🗑️ 削除",
+            command=lambda: self._on_delete_event_name(category),
+            font=("メイリオ", 9),
+            width=12,
+            cursor="hand2"
+        ).pack(pady=3)
+
+        tk.Label(button_panel, text="").pack(pady=3)  # スペーサー
+
+        tk.Button(
+            button_panel,
+            text="⬆️ 上へ",
+            command=lambda: self._on_move_up(category),
+            font=("メイリオ", 9),
+            width=12,
+            cursor="hand2"
+        ).pack(pady=3)
+
+        tk.Button(
+            button_panel,
+            text="⬇️ 下へ",
+            command=lambda: self._on_move_down(category),
+            font=("メイリオ", 9),
+            width=12,
+            cursor="hand2"
+        ).pack(pady=3)
+
+        tk.Label(button_panel, text="").pack(pady=8)  # スペーサー
+
+        tk.Button(
+            button_panel,
+            text="🔄 デフォルトに戻す",
+            command=lambda: self._on_reset_to_default(category),
+            font=("メイリオ", 8),
+            width=12,
+            cursor="hand2",
+            fg="blue"
+        ).pack(pady=3)
+
+    def _load_event_names_to_listbox(self, category: str) -> None:
+        """行事名をリストボックスに読み込み"""
+        listbox = self.event_listboxes[category]
+        listbox.delete(0, tk.END)
+
+        event_names = self.config.get_event_names(category)
+        for name in event_names:
+            listbox.insert(tk.END, name)
+
+    def reload_event_names(self) -> None:
+        """すべてのカテゴリの行事名をリロード（外部から呼び出し可能）"""
+        logger.info("設定タブの行事名をリロードしています...")
+        for category in self.event_categories.keys():
+            self._load_event_names_to_listbox(category)
+        logger.info("設定タブの行事名をリロードしました")
+
+    def _on_add_event_name(self, category: str) -> None:
+        """行事名を追加"""
+        from tkinter import simpledialog
+
+        new_name = simpledialog.askstring(
+            "行事名を追加",
+            "新しい行事名を入力してください:",
+            parent=self.tab
+        )
+
+        if new_name and new_name.strip():
+            new_name = new_name.strip()
+            event_names = self.config.get_event_names(category)
+            event_names.append(new_name)
+
+            try:
+                self.config.save_event_names(category, event_names)
+                self._load_event_names_to_listbox(category)
+                self.update_status(f"行事名を追加: {new_name}")
+            except Exception as e:
+                logger.error(f"行事名追加エラー: {e}", exc_info=True)
+                messagebox.showerror("追加エラー", f"行事名の追加に失敗しました。\n\n詳細: {e}")
+
+    def _on_edit_event_name(self, category: str) -> None:
+        """行事名を編集"""
+        from tkinter import simpledialog
+
+        listbox = self.event_listboxes[category]
+        selection = listbox.curselection()
+
+        if not selection:
+            messagebox.showwarning("未選択", "編集する行事名を選択してください。")
+            return
+
+        index = selection[0]
+        event_names = self.config.get_event_names(category)
+        old_name = event_names[index]
+
+        new_name = simpledialog.askstring(
+            "行事名を編集",
+            "行事名を編集してください:",
+            initialvalue=old_name,
+            parent=self.tab
+        )
+
+        if new_name and new_name.strip() and new_name.strip() != old_name:
+            new_name = new_name.strip()
+            event_names[index] = new_name
+
+            try:
+                self.config.save_event_names(category, event_names)
+                self._load_event_names_to_listbox(category)
+                listbox.selection_set(index)  # 編集後も同じ位置を選択
+                self.update_status(f"行事名を編集: {old_name} → {new_name}")
+            except Exception as e:
+                logger.error(f"行事名編集エラー: {e}", exc_info=True)
+                messagebox.showerror("編集エラー", f"行事名の編集に失敗しました。\n\n詳細: {e}")
+
+    def _on_delete_event_name(self, category: str) -> None:
+        """行事名を削除"""
+        listbox = self.event_listboxes[category]
+        selection = listbox.curselection()
+
+        if not selection:
+            messagebox.showwarning("未選択", "削除する行事名を選択してください。")
+            return
+
+        index = selection[0]
+        event_names = self.config.get_event_names(category)
+        name = event_names[index]
+
+        # 確認ダイアログ
+        result = messagebox.askyesno(
+            "削除確認",
+            f"「{name}」を削除しますか？",
+            parent=self.tab
+        )
+
+        if result:
+            event_names.pop(index)
+
+            try:
+                self.config.save_event_names(category, event_names)
+                self._load_event_names_to_listbox(category)
+                self.update_status(f"行事名を削除: {name}")
+            except Exception as e:
+                logger.error(f"行事名削除エラー: {e}", exc_info=True)
+                messagebox.showerror("削除エラー", f"行事名の削除に失敗しました。\n\n詳細: {e}")
+
+    def _on_move_up(self, category: str) -> None:
+        """行事名を上へ移動"""
+        listbox = self.event_listboxes[category]
+        selection = listbox.curselection()
+
+        if not selection:
+            messagebox.showwarning("未選択", "移動する行事名を選択してください。")
+            return
+
+        index = selection[0]
+
+        if index == 0:
+            messagebox.showinfo("移動不可", "既に最上位です。")
+            return
+
+        event_names = self.config.get_event_names(category)
+        event_names[index], event_names[index - 1] = event_names[index - 1], event_names[index]
+
+        try:
+            self.config.save_event_names(category, event_names)
+            self._load_event_names_to_listbox(category)
+            listbox.selection_set(index - 1)  # 移動後の位置を選択
+            self.update_status(f"行事名を上へ移動: {event_names[index - 1]}")
+        except Exception as e:
+            logger.error(f"行事名移動エラー: {e}", exc_info=True)
+            messagebox.showerror("移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}")
+
+    def _on_move_down(self, category: str) -> None:
+        """行事名を下へ移動"""
+        listbox = self.event_listboxes[category]
+        selection = listbox.curselection()
+
+        if not selection:
+            messagebox.showwarning("未選択", "移動する行事名を選択してください。")
+            return
+
+        index = selection[0]
+        event_names = self.config.get_event_names(category)
+
+        if index == len(event_names) - 1:
+            messagebox.showinfo("移動不可", "既に最下位です。")
+            return
+
+        event_names[index], event_names[index + 1] = event_names[index + 1], event_names[index]
+
+        try:
+            self.config.save_event_names(category, event_names)
+            self._load_event_names_to_listbox(category)
+            listbox.selection_set(index + 1)  # 移動後の位置を選択
+            self.update_status(f"行事名を下へ移動: {event_names[index + 1]}")
+        except Exception as e:
+            logger.error(f"行事名移動エラー: {e}", exc_info=True)
+            messagebox.showerror("移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}")
+
+    def _on_reset_to_default(self, category: str) -> None:
+        """行事名をデフォルトに戻す"""
+        # 確認ダイアログ
+        result = messagebox.askyesno(
+            "デフォルトに戻す",
+            "行事名をデフォルト値に戻しますか？\n\n現在の設定は失われます。",
+            parent=self.tab
+        )
+
+        if not result:
+            return
+
+        # user_config.json から該当カテゴリを削除
+        if "excel_event_names" in self.config.user_config:
+            if category in self.config.user_config["excel_event_names"]:
+                del self.config.user_config["excel_event_names"][category]
+
+                try:
+                    # user_config.json に保存
+                    import json
+                    with open(self.config.user_config_path, 'w', encoding='utf-8') as f:
+                        json.dump(self.config.user_config, f, ensure_ascii=False, indent=2)
+
+                    self._load_event_names_to_listbox(category)
+                    self.update_status("行事名をデフォルトに戻しました")
+                    messagebox.showinfo("完了", "行事名をデフォルト値に戻しました。")
+                except Exception as e:
+                    logger.error(f"デフォルト復元エラー: {e}", exc_info=True)
+                    messagebox.showerror("エラー", f"デフォルト値への復元に失敗しました。\n\n詳細: {e}")
+        else:
+            messagebox.showinfo("完了", "既にデフォルト値です。")
 
     def _browse_folder(self, var: tk.StringVar) -> None:
         """フォルダを参照（PathValidatorベース）"""
@@ -312,46 +635,6 @@ class SettingsTab(BaseTab):
         except Exception as e:
             messagebox.showerror("参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
 
-    def _browse_excel_file(self, var: tk.StringVar) -> None:
-        """Excelファイルを参照"""
-        try:
-            base_path = self.config.get('base_paths', 'google_drive')
-            year = self.config.year
-            year_short = self.config.year_short
-            education_base = self.config.get('directories', 'education_plan_base')
-
-            # {year_short}プレースホルダーを実際の値に置き換える
-            education_base = education_base.replace('{year_short}', year_short)
-
-            initial_dir_candidate = os.path.join(base_path, year, education_base)
-
-            # フリーズ防止: PathValidator.get_safe_initial_dirを使用
-            safe_initial_dir = PathValidator.get_safe_initial_dir(
-                initial_dir_candidate,
-                fallback=Path.home()
-            )
-            initial_dir = str(safe_initial_dir)
-
-            file_path = filedialog.askopenfilename(
-                title="Excelファイルを選択",
-                initialdir=initial_dir,
-                filetypes=[("Excel", "*.xlsx;*.xls"), ("すべて", "*.*")]
-            )
-            if file_path:
-                # PathValidatorで検証
-                is_valid, error_msg, validated_path = PathValidator.validate_file_path(
-                    file_path,
-                    must_exist=True
-                )
-                if not is_valid:
-                    messagebox.showerror("パス検証エラー", error_msg)
-                    return
-
-                var.set(validated_path.name)
-                self.update_status(f"Excelファイル: {validated_path.name}")
-        except Exception as e:
-            messagebox.showerror("参照エラー", f"Excelファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
-
     def _open_folder(self, var: tk.StringVar) -> None:
         """フォルダをエクスプローラーで開く"""
         folder_path_str = var.get().strip()
@@ -388,27 +671,6 @@ class SettingsTab(BaseTab):
         if open_file_or_folder(str(temp_path), self._show_file_open_error):
             self.update_status("一時フォルダを開きました")
 
-    def _open_excel_file_from_settings(self, var: tk.StringVar) -> None:
-        """Excelファイルを開く（設定タブから）"""
-        filename = var.get().strip()
-
-        if not filename:
-            messagebox.showwarning("警告", "ファイル名が設定されていません。")
-            return
-
-        base_path = self.config.get('base_paths', 'google_drive')
-        year = self.config.year
-        year_short = self.config.year_short
-        education_base = self.config.get('directories', 'education_plan_base')
-
-        # {year_short}プレースホルダーを実際の値に置き換える
-        education_base = education_base.replace('{year_short}', year_short)
-
-        file_path = os.path.join(base_path, year, education_base, filename)
-
-        if open_file_or_folder(file_path, self._show_file_open_error):
-            self.update_status(f"Excelファイルを開きました: {filename}")
-
     def save_settings(self) -> None:
         """設定を保存（入力検証付き - ベストプラクティス準拠）"""
         year = self.year_var.get().strip()
@@ -422,8 +684,6 @@ class SettingsTab(BaseTab):
         self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get())
         self.config.set('base_paths', 'local_temp', value=self.temp_var.get())
         self.config.set('ghostscript', 'executable', value=self.gs_var.get())
-        self.config.set('files', 'excel_reference', value=self.excel_ref_var.get())
-        self.config.set('files', 'excel_target', value=self.excel_target_var.get())
 
         # 一太郎設定の保存（入力検証付き）
         validation_errors = []
@@ -612,7 +872,7 @@ class SettingsTab(BaseTab):
         else:
             # ログファイルが存在しない場合はログディレクトリを開く
             if os.path.exists(log_dir):
-                if open_file_or_folder(log_dir, on_error):
+                if open_file_or_folder(log_dir, self._show_file_open_error):
                     self.update_status("ログディレクトリを開きました")
             else:
                 messagebox.showwarning(

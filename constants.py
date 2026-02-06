@@ -111,7 +111,7 @@ class AppConstants:
     """アプリケーション定数"""
 
     # バージョン情報
-    VERSION = "3.4.0"
+    VERSION = "3.5.8"
     APP_NAME = "教育計画PDFマージシステム"
 
     # デフォルトタイムアウト（秒）
@@ -172,6 +172,9 @@ class PDFConstants:
     GS_COMPATIBILITY_LEVEL = "1.4"     # PDF互換性レベル
     GS_PDF_SETTINGS = "/ebook"         # 品質設定
     GS_TIMEOUT_SECONDS = 30            # タイムアウト（秒）
+
+    # ファイル名キーワード
+    COVER_FILE_KEYWORD = "表紙"        # 表紙ファイルを識別するキーワード
 
 
 class IchitaroWaitTimes:
@@ -237,6 +240,8 @@ class PDFConversionConstants:
     LOG_MARK_SUCCESS = "✓"
     LOG_MARK_FAILURE = "✗"
     LOG_SEPARATOR_MAJOR = "=" * 60
+    LOG_SEPARATOR_MINOR = "-" * 60
 
     # ファイル名のデフォルト値
     DEFAULT_SEPARATOR_NAME = 'separator'
+    LOCAL_COPY_PREFIX = 'local_copy_'  # Office変換時のローカルコピーファイル名プレフィックス

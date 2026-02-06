@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Dict, Optional, Union, TypeVar
+from typing import Any, Dict, List, Optional, Union, TypeVar
 
 from exceptions import ConfigurationError
 from year_utils import calculate_year_short
@@ -54,6 +54,9 @@ class ConfigLoader:
         os.makedirs(user_config_dir, exist_ok=True)
         self.user_config_path = os.path.join(user_config_dir, 'user_config.json')
 
+        # ユーザー設定を別途保持（行事名設定などで使用）
+        self.user_config: Dict[str, Any] = {}
+
         self.config: Dict[str, Any] = self._load_config()
         self.year: str = self.config['year']
         # year_shortは自動計算（設定ファイルの値は無視）
@@ -93,6 +96,8 @@ class ConfigLoader:
             try:
                 with open(self.user_config_path, 'r', encoding='utf-8') as f:
                     user_config = json.load(f)
+                # インスタンス変数に保存
+                self.user_config = user_config
                 # ディープマージ
                 self._deep_merge(config, user_config)
                 logger.info(f"ユーザー設定を読み込みました: {self.user_config_path}")
@@ -117,25 +122,6 @@ class ConfigLoader:
         Args:
             config: 設定辞書（この辞書が更新される）
         """
-        # Google Sheets機能追加時のマイグレーション
-        if 'files' in config:
-            files_config = config['files']
-
-            # reference_mode追加（デフォルト: excel）
-            if 'reference_mode' not in files_config:
-                files_config['reference_mode'] = 'excel'
-                logger.debug("マイグレーション: reference_mode を追加（デフォルト: excel）")
-
-            # google_sheets_reference_url追加
-            if 'google_sheets_reference_url' not in files_config:
-                files_config['google_sheets_reference_url'] = ''
-                logger.debug("マイグレーション: google_sheets_reference_url を追加")
-
-            # google_sheets_reference_sheet追加
-            if 'google_sheets_reference_sheet' not in files_config:
-                files_config['google_sheets_reference_sheet'] = 'メインデータ'
-                logger.debug("マイグレーション: google_sheets_reference_sheet を追加")
-
     def _deep_merge(self, base: dict, override: dict) -> None:
         """
         辞書を再帰的にマージ（overrideの値でbaseを上書き）
@@ -299,7 +285,7 @@ class ConfigLoader:
 
     def _cleanup_old_temp_files(self, temp_dir: str, max_age_hours: int) -> None:
         """
-        古い一時ファイルをクリーンアップ
+        古い一時ファイルをクリーンアップ（再帰的）
 
         Args:
             temp_dir: 一時ディレクトリのパス
@@ -309,16 +295,30 @@ class ConfigLoader:
         max_age_seconds = max_age_hours * 3600
 
         try:
-            for filename in os.listdir(temp_dir):
-                file_path = os.path.join(temp_dir, filename)
-                if os.path.isfile(file_path):
-                    file_age = current_time - os.path.getmtime(file_path)
-                    if file_age > max_age_seconds:
-                        try:
+            # os.walk()で再帰的にファイルを処理
+            for root, dirs, files in os.walk(temp_dir):
+                for filename in files:
+                    file_path = os.path.join(root, filename)
+                    try:
+                        file_age = current_time - os.path.getmtime(file_path)
+                        if file_age > max_age_seconds:
                             os.remove(file_path)
-                            logger.debug(f"古い一時ファイルを削除: {filename}")
-                        except Exception as e:
-                            logger.warning(f"一時ファイルの削除に失敗: {filename} - {e}")
+                            logger.debug(f"古い一時ファイルを削除: {file_path}")
+                    except FileNotFoundError:
+                        # 既に削除済み（TOCTOU対策）
+                        pass
+                    except Exception as e:
+                        logger.warning(f"一時ファイルの削除に失敗: {file_path} - {e}")
+
+                # 空のディレクトリを削除
+                for dirname in dirs:
+                    dir_path = os.path.join(root, dirname)
+                    try:
+                        if not os.listdir(dir_path):  # 空の場合
+                            os.rmdir(dir_path)
+                            logger.debug(f"空のディレクトリを削除: {dir_path}")
+                    except Exception as e:
+                        logger.debug(f"ディレクトリ削除スキップ: {dir_path} - {e}")
         except Exception as e:
             logger.warning(f"一時ファイルのクリーンアップに失敗: {e}")
 
@@ -374,3 +374,50 @@ class ConfigLoader:
         self.year_short = year_short if year_short is not None else calculate_year_short(year)
         self.config['year'] = year
         self.config['year_short'] = self.year_short
+
+    def get_event_names(self, category: str) -> List[str]:
+        """
+        行事名リストを取得（ユーザー設定 > デフォルト値の優先順位）
+
+        Args:
+            category: "school_events", "student_council_events", "other_activities"
+
+        Returns:
+            行事名のリスト
+        """
+        # 1. user_config から取得を試みる
+        user_event_names = self.user_config.get("excel_event_names", {}).get(category)
+        if user_event_names is not None:
+            return user_event_names
+
+        # 2. config.json のデフォルト値を使用
+        return self.config.get("excel_default_event_names", {}).get(category, [])
+
+    def save_event_names(self, category: str, event_names: List[str]) -> None:
+        """
+        行事名リストをuser_configに保存
+
+        Args:
+            category: "school_events", "student_council_events", "other_activities"
+            event_names: 行事名のリスト
+
+        Raises:
+            ConfigurationError: 保存に失敗した場合
+        """
+        if "excel_event_names" not in self.user_config:
+            self.user_config["excel_event_names"] = {}
+
+        self.user_config["excel_event_names"][category] = event_names
+
+        # user_config.json に保存
+        try:
+            with open(self.user_config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.user_config, f, ensure_ascii=False, indent=2)
+            logger.info(f"行事名設定を保存しました: {category} ({len(event_names)}件)")
+        except (OSError, PermissionError) as e:
+            logger.error(f"行事名設定の保存に失敗しました: {e}")
+            raise ConfigurationError(
+                f"行事名設定の保存に失敗しました: {self.user_config_path}",
+                config_key="save_event_names",
+                original_error=e
+            ) from e
