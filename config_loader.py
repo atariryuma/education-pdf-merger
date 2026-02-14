@@ -118,10 +118,13 @@ class ConfigLoader:
         設定スキーマのマイグレーション適用
 
         既存ユーザーの設定に新しいキーを自動追加します。
+        現時点ではマイグレーション対象なし。
 
         Args:
             config: 設定辞書（この辞書が更新される）
         """
+        pass
+
     def _deep_merge(self, base: dict, override: dict) -> None:
         """
         辞書を再帰的にマージ（overrideの値でbaseを上書き）
@@ -326,6 +329,10 @@ class ConfigLoader:
         """
         ネストされた設定値を設定
 
+        マージ済みconfig と user_config の両方を更新する。
+        save_config() はuser_configのみ保存するため、
+        デフォルト値が上書きされることを防ぐ。
+
         Args:
             *keys: 設定のキー（例: 'base_paths', 'google_drive'）
             value: 設定する値
@@ -333,6 +340,7 @@ class ConfigLoader:
         if len(keys) == 0:
             return
 
+        # マージ済みconfigを更新（実行時の参照用）
         current = self.config
         for key in keys[:-1]:
             if key not in current:
@@ -340,23 +348,23 @@ class ConfigLoader:
             current = current[key]
         current[keys[-1]] = value
 
+        # user_configも更新（永続化用）
+        current_user = self.user_config
+        for key in keys[:-1]:
+            if key not in current_user:
+                current_user[key] = {}
+            current_user = current_user[key]
+        current_user[keys[-1]] = value
+
     def save_config(self) -> None:
         """
-        設定をユーザー設定ファイルに保存
+        ユーザー変更分のみをユーザー設定ファイルに保存
 
         Raises:
             ConfigurationError: 保存に失敗した場合
         """
-        try:
-            with open(self.user_config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, ensure_ascii=False, indent=2)
-            logger.info(f"ユーザー設定を保存しました: {self.user_config_path}")
-        except (OSError, PermissionError) as e:
-            logger.error(f"ユーザー設定の保存に失敗しました: {e}")
-            raise ConfigurationError(
-                f"設定ファイルの保存に失敗しました: {self.user_config_path}",
-                config_key="save_config"
-            ) from e
+        self._save_user_config()
+        logger.info(f"ユーザー設定を保存しました: {self.user_config_path}")
 
     def update_year(self, year: str, year_short: Optional[str] = None) -> None:
         """

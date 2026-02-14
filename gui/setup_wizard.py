@@ -171,14 +171,6 @@ class SetupWizard:
         )
         self.back_button.pack(side=tk.LEFT)
 
-        self.skip_button = ttk.Button(
-            button_frame,
-            text="スキップ",
-            command=self._skip_step,
-            state=tk.DISABLED
-        )
-        self.skip_button.pack(side=tk.LEFT, padx=10)
-
         self.next_button = ttk.Button(
             button_frame,
             text="次へ →",
@@ -523,9 +515,6 @@ class SetupWizard:
         else:
             self.back_button.config(state=tk.NORMAL)
 
-        # スキップボタン（3ステップ版では常に無効）
-        self.skip_button.config(state=tk.DISABLED)
-
         # 次へ/完了ボタン
         if self.current_step == self.total_steps - 1:
             self.next_button.config(text="完了して開始 →")
@@ -554,12 +543,6 @@ class SetupWizard:
         else:
             # 完了
             self._finish()
-
-    def _skip_step(self) -> None:
-        """現在のステップをスキップ（3ステップ版では未使用）"""
-        # 3ステップウィザードではスキップ機能は使用しない
-        # この関数は後方互換性のためのみ保持
-        pass
 
     def _cancel(self) -> None:
         """セットアップをキャンセル"""

@@ -8,11 +8,11 @@ import os
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from pathlib import Path
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import create_hover_button, open_file_or_folder
+from gui.utils import create_hover_button, open_file_or_folder, thread_safe_call
 from path_validator import PathValidator
 from year_utils import calculate_year_short
 
@@ -754,19 +754,37 @@ class SettingsTab(BaseTab):
         thread = threading.Thread(target=detect_task, daemon=True)
         thread.start()
 
+    def _check_gs_path(self, gs_path: str, verified: Optional[bool] = None) -> tuple:
+        """
+        Ghostscriptパスの状態を判定
+
+        Args:
+            gs_path: Ghostscriptの実行ファイルパス
+            verified: 動作確認結果（Noneの場合はパス存在のみチェック）
+
+        Returns:
+            tuple: (表示テキスト, 色)
+        """
+        if not gs_path:
+            return ("⚠️ 未設定（PDF圧縮機能は使用できません）", "orange")
+        if gs_path.startswith('\\\\'):
+            return ("⚠️ ネットワークパスは推奨されません", "orange")
+        if not os.path.exists(gs_path):
+            return ("❌ ファイルが存在しません", "red")
+        if verified is None:
+            return ("⏳ 動作確認中...", "gray")
+        if verified:
+            return ("✅ 正常に動作しています", "green")
+        return ("❌ 動作確認に失敗しました", "red")
+
     def _update_gs_status(self) -> None:
         """Ghostscriptのステータスを更新（起動時用：subprocessを避けてUIフリーズを防止）"""
         gs_path = self.gs_var.get().strip()
+        text, color = self._check_gs_path(gs_path)
+        self.gs_status_label.config(text=text, fg=color)
 
-        if not gs_path:
-            self.gs_status_label.config(text="⚠️ 未設定（PDF圧縮機能は使用できません）", fg="orange")
-        elif gs_path.startswith('\\\\'):
-            self.gs_status_label.config(text="⚠️ ネットワークパスは推奨されません", fg="orange")
-        elif not os.path.exists(gs_path):
-            self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
-        else:
-            # 起動時はファイル存在のみ確認（verify_ghostscriptはsubprocessを使うので遅延実行）
-            self.gs_status_label.config(text="⏳ 動作確認中...", fg="gray")
+        # パスが存在する場合は動作確認をバックグラウンドで実行
+        if text == "⏳ 動作確認中...":
             self.tab.after(500, self._verify_gs_async)
 
     def _verify_gs_async(self) -> None:
@@ -775,17 +793,9 @@ class SettingsTab(BaseTab):
             from ghostscript_utils import GhostscriptManager
             gs_path = self.gs_var.get().strip()
             verified = gs_path and GhostscriptManager.verify_ghostscript(gs_path)
+            text, color = self._check_gs_path(gs_path, verified)
 
-            def update_label() -> None:
-                if verified:
-                    self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
-                else:
-                    self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
-
-            try:
-                self.tab.after(0, update_label)
-            except tk.TclError:
-                pass
+            thread_safe_call(self.tab, lambda: self.gs_status_label.config(text=text, fg=color))
 
         thread = threading.Thread(target=verify_task, daemon=True)
         thread.start()
@@ -793,19 +803,10 @@ class SettingsTab(BaseTab):
     def _update_gs_status_sync(self) -> None:
         """Ghostscriptのステータスを同期的に更新（ユーザー操作後の即時反映用）"""
         from ghostscript_utils import GhostscriptManager
-
         gs_path = self.gs_var.get().strip()
-
-        if not gs_path:
-            self.gs_status_label.config(text="⚠️ 未設定（PDF圧縮機能は使用できません）", fg="orange")
-        elif gs_path.startswith('\\\\'):
-            self.gs_status_label.config(text="⚠️ ネットワークパスは推奨されません", fg="orange")
-        elif not os.path.exists(gs_path):
-            self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
-        elif GhostscriptManager.verify_ghostscript(gs_path):
-            self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
-        else:
-            self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
+        verified = GhostscriptManager.verify_ghostscript(gs_path) if os.path.exists(gs_path) and gs_path else None
+        text, color = self._check_gs_path(gs_path, verified)
+        self.gs_status_label.config(text=text, fg=color)
 
     def _test_ichitaro_conversion(self) -> None:
         """一太郎変換をテスト"""
@@ -855,16 +856,16 @@ class SettingsTab(BaseTab):
                     result = converter._convert_ichitaro(file_path, output_path)
 
                     if result and os.path.exists(result):
-                        self.tab.after(0, lambda: self.ichitaro_status_label.config(
+                        thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(
                             text="✅ 変換成功！", fg="green"))
-                        self.tab.after(0, lambda: messagebox.showinfo(
+                        thread_safe_call(self.tab, lambda: messagebox.showinfo(
                             "テスト成功",
                             f"一太郎変換が成功しました。\n\n出力ファイル:\n{result}"
                         ))
                     else:
-                        self.tab.after(0, lambda: self.ichitaro_status_label.config(
+                        thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(
                             text="❌ 変換失敗", fg="red"))
-                        self.tab.after(0, lambda: messagebox.showwarning(
+                        thread_safe_call(self.tab, lambda: messagebox.showwarning(
                             "テスト失敗",
                             "一太郎変換に失敗しました。\n\n"
                             "リトライ回数の設定を調整してください。"
@@ -881,9 +882,9 @@ class SettingsTab(BaseTab):
             except Exception as test_error:
                 error_msg = str(test_error)
                 error_preview = error_msg[:50]
-                self.tab.after(0, lambda: self.ichitaro_status_label.config(
+                thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(
                     text=f"❌ エラー: {error_preview}", fg="red"))
-                self.tab.after(0, lambda: messagebox.showerror(
+                thread_safe_call(self.tab, lambda: messagebox.showerror(
                     "テストエラー", f"テスト中にエラーが発生しました。\n\n{error_msg}"
                 ))
 

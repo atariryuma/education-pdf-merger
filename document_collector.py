@@ -196,15 +196,9 @@ class DocumentCollector:
                 )
             else:
                 # ディレクトリ直下のファイル
-                name = self._sanitize_name(os.path.splitext(subitem)[0])
-                logger.info(f"ファイルを変換中: {subitem}")
-                converted_pdf = self.converter.convert(subitem_path)
-                if converted_pdf:
-                    page_count = self.processor.get_page_count(converted_pdf)
-                    content_pdfs.append(converted_pdf)
-                    toc_entries.append((name, PDFConstants.HEADING_LEVEL_SUB, current_page))
-                    logger.info(f"変換成功: {subitem} ({page_count}ページ)")
-                    current_page += page_count
+                current_page = self._process_root_file(
+                    subitem_path, subitem, toc_entries, content_pdfs, current_page
+                )
 
         return current_page
 
