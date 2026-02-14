@@ -163,7 +163,23 @@ class PDFMergeApp:
         return 'break'
 
     def _on_closing(self) -> None:
-        """終了時の処理"""
+        """終了時の処理（バックグラウンドスレッド確認付き）"""
+        # デーモンスレッド以外のバックグラウンドスレッドが動作中かチェック
+        active_threads = [
+            t for t in threading.enumerate()
+            if t != threading.main_thread() and t.is_alive() and not t.daemon
+        ]
+        if active_threads:
+            result = messagebox.askyesno(
+                "確認",
+                "バックグラウンド処理が実行中です。\n\n"
+                "終了すると処理が中断され、一時ファイルが残る可能性があります。\n"
+                "終了しますか？",
+                parent=self.root
+            )
+            if not result:
+                return
+
         self._save_last_settings()
         self.root.destroy()
 

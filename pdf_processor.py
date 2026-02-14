@@ -99,9 +99,18 @@ class PDFProcessor:
         """
         merger = PdfMerger()
         try:
+            skipped_count = 0
             for pdf in pdf_paths:
                 if pdf and os.path.exists(pdf):
                     merger.append(pdf)
+                else:
+                    skipped_count += 1
+                    if pdf:
+                        logger.warning(f"PDFファイルが存在しません（スキップ）: {pdf}")
+                    else:
+                        logger.warning("PDFパスがNoneです（変換失敗の可能性）。スキップします。")
+            if skipped_count > 0:
+                logger.warning(f"マージ時に{skipped_count}件のPDFをスキップしました")
             merger.write(output_file)
             logger.info(f"PDFをマージしました: {output_file}")
         finally:

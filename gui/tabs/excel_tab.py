@@ -19,7 +19,7 @@ except ImportError:
     pythoncom = None
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip
+from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip, thread_safe_call
 from path_validator import PathValidator
 from update_excel_files import ExcelTransfer
 
@@ -495,47 +495,6 @@ class ExcelTab(BaseTab):
             self.log(f"📂 Excelでファイルを開きました: {Path(file_path).name}", "info")
             self.update_status(f"✅ Excelでファイルを開きました: {Path(file_path).name}")
 
-    def _open_excel_file(self, filename: str) -> None:
-        """
-        Excelファイルを開く
-
-        Args:
-            filename: 開くファイル名（相対パスまたは絶対パス）
-        """
-        # 絶対パス（C:\, \\, /で始まる）の場合はそのまま使用
-        if os.path.isabs(filename) or filename.startswith('\\\\') or filename.startswith('//'):
-            file_path = filename
-        else:
-            # 相対パスの場合は従来通りパス構築
-            base_path = self.config.get('base_paths', 'google_drive')
-            year = self.config.year
-            year_short = self.config.year_short
-            education_base = self.config.get('directories', 'education_plan_base')
-
-            # {year_short}プレースホルダーを実際の値に置き換える
-            education_base = education_base.replace('{year_short}', year_short)
-
-            file_path = os.path.join(base_path, year, education_base, filename)
-
-        # PathValidatorでファイルパスを検証
-        is_valid, error_msg, validated_path = PathValidator.validate_file_path(
-            file_path,
-            must_exist=False  # ファイルが存在しなくてもエラーメッセージで通知
-        )
-        if not is_valid:
-            messagebox.showerror("パス検証エラー", error_msg)
-            self.log(f"❌ ファイルパスが無効です: {error_msg}", "error")
-            return
-
-        def on_error(error_msg: str) -> None:
-            messagebox.showerror("エラー", error_msg)
-            self.log(f"❌ Excelファイルを開けませんでした: {filename}", "error")
-
-        if open_file_or_folder(str(validated_path), on_error):
-            self.log(f"📂 Excelでファイルを開きました: {filename}", "info")
-            self.update_status(f"✅ Excelでファイルを開きました: {filename}")
-
-
     def _run_excel_update(self) -> None:
         """Excelデータ更新を実行"""
         # ファイルが選択されているか確認
@@ -640,16 +599,19 @@ class ExcelTab(BaseTab):
                 self.log("✅ === Excelデータ更新完了 ===", "success")
                 set_button_state(self.run_button, True, self.status_label, "")
                 self.update_status("✅ Excelデータ更新が完了しました")
-                messagebox.showinfo(
+                thread_safe_call(self.tab, lambda: messagebox.showinfo(
                     "完了",
                     "Excelデータ更新が完了しました。\n\n"
                     "内容を確認して保存してください。"
-                )
+                ))
             except Exception as e:
                 self.log(f"❌ エラー: {e}", "error")
                 set_button_state(self.run_button, True, self.status_label, "")
                 self.update_status("❌ エラーが発生しました")
-                messagebox.showerror("実行エラー", f"エラーが発生しました。\n\n詳細:\n{e}")
+                error_msg = str(e)
+                thread_safe_call(self.tab, lambda: messagebox.showerror(
+                    "実行エラー", f"エラーが発生しました。\n\n詳細:\n{error_msg}"
+                ))
 
         thread = threading.Thread(target=task, daemon=True)
         thread.start()
@@ -780,8 +742,8 @@ class ExcelTab(BaseTab):
                         f"設定タブで確認・編集できます。"
                     )
 
-                # 詳細ダイアログ
-                messagebox.showinfo(dialog_title, dialog_message)
+                # 詳細ダイアログ（メインスレッドで表示）
+                thread_safe_call(self.tab, lambda: messagebox.showinfo(dialog_title, dialog_message))
 
                 # 設定タブの行事名リストをリロード（メインスレッドで実行）
                 if self.settings_tab:
@@ -796,10 +758,11 @@ class ExcelTab(BaseTab):
                 self.log(f"❌ エラー: {e}", "error")
                 set_button_state(self.read_event_button, True, self.status_label, "")
                 self.update_status("❌ エラーが発生しました")
-                messagebox.showerror(
+                error_msg = str(e)
+                thread_safe_call(self.tab, lambda: messagebox.showerror(
                     "読み込みエラー",
-                    f"行事名の読み込みに失敗しました。\n\n詳細:\n{e}"
-                )
+                    f"行事名の読み込みに失敗しました。\n\n詳細:\n{error_msg}"
+                ))
 
         thread = threading.Thread(target=task, daemon=True)
         thread.start()

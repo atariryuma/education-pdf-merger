@@ -106,13 +106,27 @@ class IchitaroConversionDialog(tk.Toplevel):
 
     def update_message(self, message: str) -> None:
         """
-        メッセージを更新
+        メッセージを更新（スレッドセーフ）
+
+        バックグラウンドスレッドから呼ばれる場合を考慮し、
+        after_idleでメインスレッドにスケジュールする。
 
         Args:
             message: 新しいメッセージ
         """
-        self.message_label.config(text=message)
-        self.update_idletasks()
+        try:
+            self.after_idle(self._do_update_message, message)
+        except tk.TclError:
+            # ウィジェットが既に破棄されている場合は無視
+            pass
+
+    def _do_update_message(self, message: str) -> None:
+        """メインスレッドでメッセージを更新"""
+        try:
+            self.message_label.config(text=message)
+            self.update_idletasks()
+        except tk.TclError:
+            pass
 
     def _on_cancel(self) -> None:
         """キャンセルボタンクリック時の処理"""

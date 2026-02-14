@@ -80,7 +80,7 @@ class PDFConverter:
         self.office_converter = OfficeConverter(temp_dir)
         self.image_converter = ImageConverter()
         self.ichitaro_converter = IchitaroConverter(
-            ichitaro_settings=ichitaro_settings,
+            ichitaro_settings=self.ichitaro_settings,
             cancel_check=cancel_check,
             dialog_callback=dialog_callback
         )

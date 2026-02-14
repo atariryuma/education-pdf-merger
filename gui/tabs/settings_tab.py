@@ -555,25 +555,17 @@ class SettingsTab(BaseTab):
         if not result:
             return
 
-        # user_config.json から該当カテゴリを削除
-        if "excel_event_names" in self.config.user_config:
-            if category in self.config.user_config["excel_event_names"]:
-                del self.config.user_config["excel_event_names"][category]
-
-                try:
-                    # user_config.json に保存
-                    import json
-                    with open(self.config.user_config_path, 'w', encoding='utf-8') as f:
-                        json.dump(self.config.user_config, f, ensure_ascii=False, indent=2)
-
-                    self._load_event_names_to_listbox(category)
-                    self.update_status("行事名をデフォルトに戻しました")
-                    messagebox.showinfo("完了", "行事名をデフォルト値に戻しました。")
-                except Exception as e:
-                    logger.error(f"デフォルト復元エラー: {e}", exc_info=True)
-                    messagebox.showerror("エラー", f"デフォルト値への復元に失敗しました。\n\n詳細: {e}")
-        else:
-            messagebox.showinfo("完了", "既にデフォルト値です。")
+        try:
+            was_reset = self.config.reset_event_names(category)
+            if was_reset:
+                self._load_event_names_to_listbox(category)
+                self.update_status("行事名をデフォルトに戻しました")
+                messagebox.showinfo("完了", "行事名をデフォルト値に戻しました。")
+            else:
+                messagebox.showinfo("完了", "既にデフォルト値です。")
+        except Exception as e:
+            logger.error(f"デフォルト復元エラー: {e}", exc_info=True)
+            messagebox.showerror("エラー", f"デフォルト値への復元に失敗しました。\n\n詳細: {e}")
 
     def _browse_folder(self, var: tk.StringVar) -> None:
         """フォルダを参照（PathValidatorベース）"""
@@ -630,7 +622,7 @@ class SettingsTab(BaseTab):
                     return
 
                 self.gs_var.set(str(validated_path))
-                self._update_gs_status()
+                self._update_gs_status_sync()
                 self.update_status(f"Ghostscript: {validated_path.name}")
         except Exception as e:
             messagebox.showerror("参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
@@ -723,7 +715,7 @@ class SettingsTab(BaseTab):
     def reload_settings(self) -> None:
         """設定を再読み込み"""
         self.on_reload()
-        self._update_gs_status()
+        self._update_gs_status_sync()
 
     def open_config_file(self) -> None:
         """config.jsonをテキストエディタで開く"""
@@ -733,43 +725,87 @@ class SettingsTab(BaseTab):
             self.update_status("config.jsonを開きました")
 
     def _auto_detect_ghostscript(self) -> None:
-        """Ghostscriptを自動検出"""
-        from ghostscript_utils import GhostscriptManager
-
+        """Ghostscriptを自動検出（バックグラウンド実行でUIフリーズを防止）"""
         self.update_status("Ghostscriptを検索中...")
         self.gs_status_label.config(text="🔍 検索中...", fg="blue")
-        self.tab.update()
 
-        gs_path = GhostscriptManager.find_ghostscript()
+        def detect_task() -> None:
+            from ghostscript_utils import GhostscriptManager
 
-        if gs_path and GhostscriptManager.verify_ghostscript(gs_path):
-            self.gs_var.set(gs_path)
-            self._update_gs_status()
-            self.update_status(f"Ghostscriptを検出: {gs_path}")
-            messagebox.showinfo("検出成功", f"Ghostscriptを検出しました。\n\n{gs_path}")
-        else:
-            self._update_gs_status()
-            instructions = GhostscriptManager.get_install_instructions()
-            messagebox.showwarning("未検出", instructions)
+            gs_path = GhostscriptManager.find_ghostscript()
+            verified = gs_path and GhostscriptManager.verify_ghostscript(gs_path)
+
+            def update_ui() -> None:
+                if verified:
+                    self.gs_var.set(gs_path)
+                    self._update_gs_status_sync()
+                    self.update_status(f"Ghostscriptを検出: {gs_path}")
+                    messagebox.showinfo("検出成功", f"Ghostscriptを検出しました。\n\n{gs_path}")
+                else:
+                    self._update_gs_status_sync()
+                    instructions = GhostscriptManager.get_install_instructions()
+                    messagebox.showwarning("未検出", instructions)
+
+            try:
+                self.tab.after(0, update_ui)
+            except tk.TclError:
+                pass
+
+        thread = threading.Thread(target=detect_task, daemon=True)
+        thread.start()
 
     def _update_gs_status(self) -> None:
-        """Ghostscriptのステータスを更新（フリーズ防止版）"""
+        """Ghostscriptのステータスを更新（起動時用：subprocessを避けてUIフリーズを防止）"""
+        gs_path = self.gs_var.get().strip()
+
+        if not gs_path:
+            self.gs_status_label.config(text="⚠️ 未設定（PDF圧縮機能は使用できません）", fg="orange")
+        elif gs_path.startswith('\\\\'):
+            self.gs_status_label.config(text="⚠️ ネットワークパスは推奨されません", fg="orange")
+        elif not os.path.exists(gs_path):
+            self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
+        else:
+            # 起動時はファイル存在のみ確認（verify_ghostscriptはsubprocessを使うので遅延実行）
+            self.gs_status_label.config(text="⏳ 動作確認中...", fg="gray")
+            self.tab.after(500, self._verify_gs_async)
+
+    def _verify_gs_async(self) -> None:
+        """Ghostscriptの動作確認をバックグラウンドで実行"""
+        def verify_task() -> None:
+            from ghostscript_utils import GhostscriptManager
+            gs_path = self.gs_var.get().strip()
+            verified = gs_path and GhostscriptManager.verify_ghostscript(gs_path)
+
+            def update_label() -> None:
+                if verified:
+                    self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
+                else:
+                    self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
+
+            try:
+                self.tab.after(0, update_label)
+            except tk.TclError:
+                pass
+
+        thread = threading.Thread(target=verify_task, daemon=True)
+        thread.start()
+
+    def _update_gs_status_sync(self) -> None:
+        """Ghostscriptのステータスを同期的に更新（ユーザー操作後の即時反映用）"""
         from ghostscript_utils import GhostscriptManager
 
         gs_path = self.gs_var.get().strip()
 
         if not gs_path:
             self.gs_status_label.config(text="⚠️ 未設定（PDF圧縮機能は使用できません）", fg="orange")
+        elif gs_path.startswith('\\\\'):
+            self.gs_status_label.config(text="⚠️ ネットワークパスは推奨されません", fg="orange")
+        elif not os.path.exists(gs_path):
+            self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
+        elif GhostscriptManager.verify_ghostscript(gs_path):
+            self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
         else:
-            # ローカルパスのみチェック（ネットワークパスは警告）
-            if gs_path.startswith('\\\\'):
-                self.gs_status_label.config(text="⚠️ ネットワークパスは推奨されません", fg="orange")
-            elif not os.path.exists(gs_path):
-                self.gs_status_label.config(text="❌ ファイルが存在しません", fg="red")
-            elif GhostscriptManager.verify_ghostscript(gs_path):
-                self.gs_status_label.config(text="✅ 正常に動作しています", fg="green")
-            else:
-                self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
+            self.gs_status_label.config(text="❌ 動作確認に失敗しました", fg="red")
 
     def _test_ichitaro_conversion(self) -> None:
         """一太郎変換をテスト"""

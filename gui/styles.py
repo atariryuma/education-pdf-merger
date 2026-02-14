@@ -44,9 +44,9 @@ COLORS = {
     'border': '#E0E0E0',            # Material Grey 300
     'divider': '#BDBDBD',           # Material Grey 400
 
-    # Overlay
-    'overlay': 'rgba(0,0,0,0.5)',
-    'scrim': 'rgba(0,0,0,0.32)',
+    # Overlay (tkinterはrgba未対応のため、白背景での近似HEX値を使用)
+    'overlay': '#808080',           # rgba(0,0,0,0.5) 相当
+    'scrim': '#ADADAD',             # rgba(0,0,0,0.32) 相当
 }
 
 # フォント設定 - モダンなシステムフォント

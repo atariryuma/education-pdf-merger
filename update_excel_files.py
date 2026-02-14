@@ -19,7 +19,7 @@ except ImportError as e:
         "pip install pywin32"
     ) from e
 
-from exceptions import PDFMergeError
+from exceptions import PDFMergeError, CancelledError
 from constants import ExcelLookIn, ExcelLookAt, ExcelSortOrder, ExcelSortHeader, ExcelTransferConstants, PDFConversionConstants
 
 # ロガーの設定
@@ -85,11 +85,11 @@ class ExcelTransfer:
         キャンセルチェック
 
         Raises:
-            ExcelTransferError: キャンセルされた場合
+            CancelledError: キャンセルされた場合
         """
         if self.cancel_check and self.cancel_check():
             logger.info("ユーザーによって処理がキャンセルされました")
-            raise ExcelTransferError("ユーザーによって処理がキャンセルされました", operation="転記処理")
+            raise CancelledError("ユーザーによって処理がキャンセルされました")
 
     def _read_data_row(self, found_row: int, start_col: str, end_col: str) -> list:
         """
@@ -485,6 +485,88 @@ class ExcelTransfer:
         )
         logger.info("【ループ3】完了")
 
+    def _init_com_connection(self) -> None:
+        """
+        COM初期化とExcelインスタンスへの接続
+
+        Raises:
+            ExcelTransferError: 接続に失敗した場合
+        """
+        try:
+            pythoncom.CoInitialize()
+            self._com_initialized = True
+            logger.debug("COM初期化完了")
+        except Exception as e:
+            logger.debug(f"COM初期化スキップ（既に初期化済み）: {e}")
+            self._com_initialized = False
+
+        self.excel = win32com.client.Dispatch("Excel.Application")
+        logger.debug("Excelインスタンスに接続しました")
+
+    def _find_workbook(self, filename: str) -> Any:
+        """
+        開いているワークブックをファイル名で検索
+
+        Args:
+            filename: ファイル名（フルパスまたはベース名）
+
+        Returns:
+            Any: 見つかったワークブックオブジェクト
+
+        Raises:
+            ExcelTransferError: ワークブックが見つからない場合
+        """
+        basename = os.path.basename(filename)
+        for wb in self.excel.Workbooks:
+            if basename == wb.Name:
+                logger.debug(f"ワークブックを検出: {wb.Name}")
+                return wb
+        raise ExcelTransferError(
+            f"ファイルが開かれていません: {basename}\n\n"
+            "Excelで該当ファイルを開いてから実行してください。"
+        )
+
+    def _connect_worksheet(self, workbook: Any, sheet_name: str, filename: str) -> Any:
+        """
+        ワークブックからシートに接続
+
+        Args:
+            workbook: ワークブックオブジェクト
+            sheet_name: シート名
+            filename: ファイル名（エラーメッセージ用）
+
+        Returns:
+            Any: ワークシートオブジェクト
+
+        Raises:
+            ExcelTransferError: シートが見つからない場合
+        """
+        try:
+            sheet_names = [ws.Name for ws in workbook.Worksheets]
+            logger.info(f"利用可能なシート: {sheet_names}")
+            logger.info(f"検索するシート名: '{sheet_name}'")
+
+            worksheet = workbook.Worksheets(sheet_name)
+            logger.info(f"✓ シートに接続: {sheet_name}")
+            return worksheet
+        except Exception as e:
+            sheet_names = [ws.Name for ws in workbook.Worksheets]
+            raise ExcelTransferError(
+                f"シートが見つかりません: '{sheet_name}'\n\n"
+                f"ファイル: {filename}\n"
+                f"利用可能なシート: {sheet_names}",
+                operation="Excel接続",
+                original_error=e
+            ) from e
+
+    def _log_target_sample_data(self) -> None:
+        """ターゲットシートのサンプルデータをログ出力"""
+        logger.info("--- データ存在確認 ---")
+        sample_d8 = self.target_ws.Range("D8").Value
+        sample_c55 = self.target_ws.Range("C55").Value
+        sample_c67 = self.target_ws.Range("C67").Value
+        logger.info(f"サンプル値: D8='{sample_d8}', C55='{sample_c55}', C67='{sample_c67}'")
+
     def _connect_to_excel(self) -> None:
         """
         既存のExcelインスタンスに接続してワークブック/シートを取得
@@ -493,98 +575,21 @@ class ExcelTransfer:
             ExcelTransferError: 接続に失敗した場合
         """
         try:
-            # COM初期化（スレッドごとに必要）
-            try:
-                pythoncom.CoInitialize()
-                self._com_initialized = True
-                logger.debug("COM初期化完了")
-            except Exception as e:
-                logger.debug(f"COM初期化スキップ（既に初期化済み）: {e}")
-                self._com_initialized = False
+            self._init_com_connection()
 
-            # 既存のExcelインスタンスを取得
-            self.excel = win32com.client.Dispatch("Excel.Application")
-            logger.debug("Excelインスタンスに接続しました")
+            # 参照・ターゲット両方のワークブックを検索
+            self.ref_wb = self._find_workbook(self.ref_filename)
+            self.target_wb = self._find_workbook(self.target_filename)
 
-            # ワークブックを取得（ファイル名で検索）
-            self.ref_wb = None
-            self.target_wb = None
+            # シートに接続
+            self.ref_ws = self._connect_worksheet(
+                self.ref_wb, self.ref_sheet, self.ref_filename
+            )
+            self.target_ws = self._connect_worksheet(
+                self.target_wb, self.target_sheet, self.target_filename
+            )
 
-            # フルパスの場合はファイル名のみを抽出
-            ref_basename = os.path.basename(self.ref_filename)
-            target_basename = os.path.basename(self.target_filename)
-
-            for wb in self.excel.Workbooks:
-                if ref_basename == wb.Name:
-                    self.ref_wb = wb
-                    logger.debug(f"参照ファイルを検出: {wb.Name}")
-                if target_basename == wb.Name:
-                    self.target_wb = wb
-                    logger.debug(f"反映ファイルを検出: {wb.Name}")
-
-            # ワークブックが見つからない場合のエラー
-            if self.ref_wb is None:
-                raise ExcelTransferError(
-                    f"参照ファイルが開かれていません: {ref_basename}\n\n"
-                    "Excelで該当ファイルを開いてから実行してください。"
-                )
-            if self.target_wb is None:
-                raise ExcelTransferError(
-                    f"反映ファイルが開かれていません: {target_basename}\n\n"
-                    "Excelで該当ファイルを開いてから実行してください。"
-                )
-
-            # シートを取得
-            try:
-                # 参照ファイルの利用可能なシート名を取得
-                ref_sheet_names = [ws.Name for ws in self.ref_wb.Worksheets]
-                logger.info(f"参照ファイルの利用可能なシート: {ref_sheet_names}")
-                logger.info(f"検索するシート名: '{self.ref_sheet}'")
-
-                self.ref_ws = self.ref_wb.Worksheets(self.ref_sheet)
-                logger.info(f"✓ 参照シートに接続: {self.ref_sheet}")
-            except Exception as e:
-                ref_sheet_names = [ws.Name for ws in self.ref_wb.Worksheets]
-                raise ExcelTransferError(
-                    f"参照シートが見つかりません: '{self.ref_sheet}'\n\n"
-                    f"ファイル: {self.ref_filename}\n"
-                    f"利用可能なシート: {ref_sheet_names}",
-                    operation="Excel接続",
-                    original_error=e
-                ) from e
-
-            try:
-                # 対象ファイルの利用可能なシート名を取得
-                target_sheet_names = [ws.Name for ws in self.target_wb.Worksheets]
-                logger.info(f"対象ファイルの利用可能なシート: {target_sheet_names}")
-                logger.info(f"検索するシート名: '{self.target_sheet}'")
-
-                self.target_ws = self.target_wb.Worksheets(self.target_sheet)
-                logger.info(f"✓ 対象シートに接続: {self.target_sheet}")
-            except Exception as e:
-                target_sheet_names = [ws.Name for ws in self.target_wb.Worksheets]
-                raise ExcelTransferError(
-                    f"対象シートが見つかりません: '{self.target_sheet}'\n\n"
-                    f"ファイル: {self.target_filename}\n"
-                    f"利用可能なシート: {target_sheet_names}",
-                    operation="Excel接続",
-                    original_error=e
-                ) from e
-
-            # 接続状態の検証
-            if self.excel is None or self.ref_ws is None or self.target_ws is None:
-                raise ExcelTransferError(
-                    "Excelへの接続に失敗しました。\n"
-                    "ワークシートまたはアプリケーションオブジェクトが取得できませんでした。",
-                    operation="Excel接続"
-                )
-
-            # データ存在確認（サンプル値をログ出力）
-            logger.info("--- データ存在確認 ---")
-            sample_d8 = self.target_ws.Range("D8").Value
-            sample_c55 = self.target_ws.Range("C55").Value
-            sample_c67 = self.target_ws.Range("C67").Value
-            logger.info(f"対象シートのサンプル値: D8='{sample_d8}', C55='{sample_c55}', C67='{sample_c67}'")
+            self._log_target_sample_data()
 
         except ExcelTransferError:
             raise
@@ -624,68 +629,17 @@ class ExcelTransfer:
             ExcelTransferError: 接続に失敗した場合
         """
         try:
-            # COM初期化（スレッドごとに必要）
-            try:
-                pythoncom.CoInitialize()
-                self._com_initialized = True
-                logger.debug("COM初期化完了")
-            except Exception as e:
-                logger.debug(f"COM初期化スキップ（既に初期化済み）: {e}")
-                self._com_initialized = False
+            self._init_com_connection()
 
-            # 既存のExcelインスタンスを取得
-            self.excel = win32com.client.Dispatch("Excel.Application")
-            logger.debug("Excelインスタンスに接続しました")
+            # ターゲットワークブックのみ検索
+            self.target_wb = self._find_workbook(self.target_filename)
 
-            # ターゲットワークブックを取得
-            self.target_wb = None
-            target_basename = os.path.basename(self.target_filename)
+            # ターゲットシートに接続
+            self.target_ws = self._connect_worksheet(
+                self.target_wb, self.target_sheet, self.target_filename
+            )
 
-            for wb in self.excel.Workbooks:
-                if target_basename == wb.Name:
-                    self.target_wb = wb
-                    logger.debug(f"ターゲットファイルを検出: {wb.Name}")
-                    break
-
-            # ターゲットワークブックが見つからない場合のエラー
-            if self.target_wb is None:
-                raise ExcelTransferError(
-                    f"ターゲットファイルが開かれていません: {target_basename}\n\n"
-                    "Excelで該当ファイルを開いてから実行してください。"
-                )
-
-            # ターゲットシートを取得
-            try:
-                target_sheet_names = [ws.Name for ws in self.target_wb.Worksheets]
-                logger.info(f"ターゲットファイルの利用可能なシート: {target_sheet_names}")
-                logger.info(f"検索するシート名: '{self.target_sheet}'")
-
-                self.target_ws = self.target_wb.Worksheets(self.target_sheet)
-                logger.info(f"✓ ターゲットシートに接続: {self.target_sheet}")
-            except Exception as e:
-                target_sheet_names = [ws.Name for ws in self.target_wb.Worksheets]
-                raise ExcelTransferError(
-                    f"ターゲットシートが見つかりません: '{self.target_sheet}'\n\n"
-                    f"ファイル: {self.target_filename}\n"
-                    f"利用可能なシート: {target_sheet_names}",
-                    operation="Excel接続",
-                    original_error=e
-                ) from e
-
-            # 接続状態の検証
-            if self.excel is None or self.target_ws is None:
-                raise ExcelTransferError(
-                    "Excelへの接続に失敗しました。\n"
-                    "ワークシートまたはアプリケーションオブジェクトが取得できませんでした。",
-                    operation="Excel接続"
-                )
-
-            # データ存在確認（サンプル値をログ出力）
-            logger.info("--- データ存在確認 ---")
-            sample_d8 = self.target_ws.Range("D8").Value
-            sample_c55 = self.target_ws.Range("C55").Value
-            sample_c67 = self.target_ws.Range("C67").Value
-            logger.info(f"ターゲットシートのサンプル値: D8='{sample_d8}', C55='{sample_c55}', C67='{sample_c67}'")
+            self._log_target_sample_data()
 
         except ExcelTransferError:
             raise
@@ -760,7 +714,7 @@ class ExcelTransfer:
             logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
             self._report_progress("Excel転記処理が完了しました")
 
-        except ExcelTransferError:
+        except (CancelledError, ExcelTransferError):
             raise
         except (SystemExit, KeyboardInterrupt):
             logger.warning("処理が中断されました")

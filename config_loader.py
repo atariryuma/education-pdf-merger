@@ -410,14 +410,49 @@ class ConfigLoader:
         self.user_config["excel_event_names"][category] = event_names
 
         # user_config.json に保存
+        self._save_user_config()
+        logger.info(f"行事名設定を保存しました: {category} ({len(event_names)}件)")
+
+    def reset_event_names(self, category: str) -> bool:
+        """
+        指定カテゴリの行事名をデフォルトに戻す（user_configから削除）
+
+        Args:
+            category: "school_events", "student_council_events", "other_activities"
+
+        Returns:
+            bool: 削除が行われた場合True、既にデフォルトの場合False
+
+        Raises:
+            ConfigurationError: 保存に失敗した場合
+        """
+        event_names = self.user_config.get("excel_event_names", {})
+        if category not in event_names:
+            return False
+
+        del event_names[category]
+        # excel_event_namesが空になったら親キーも削除
+        if not event_names:
+            del self.user_config["excel_event_names"]
+
+        self._save_user_config()
+        logger.info(f"行事名設定をデフォルトに戻しました: {category}")
+        return True
+
+    def _save_user_config(self) -> None:
+        """
+        user_config.jsonに保存
+
+        Raises:
+            ConfigurationError: 保存に失敗した場合
+        """
         try:
             with open(self.user_config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.user_config, f, ensure_ascii=False, indent=2)
-            logger.info(f"行事名設定を保存しました: {category} ({len(event_names)}件)")
         except (OSError, PermissionError) as e:
-            logger.error(f"行事名設定の保存に失敗しました: {e}")
+            logger.error(f"ユーザー設定の保存に失敗しました: {e}")
             raise ConfigurationError(
-                f"行事名設定の保存に失敗しました: {self.user_config_path}",
-                config_key="save_event_names",
+                f"ユーザー設定の保存に失敗しました: {self.user_config_path}",
+                config_key="save_user_config",
                 original_error=e
             ) from e
