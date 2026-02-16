@@ -31,6 +31,18 @@ def orchestrator(mock_deps):
     return PDFMergeOrchestrator(config, converter, processor, collector)
 
 
+def _page_count_side_effect(temp_dir, toc_pages, default_pages):
+    """toc.pdf だけ別のページ数を返す side_effect を作る"""
+    toc_pdf = os.path.join(temp_dir, "toc.pdf")
+
+    def _side_effect(pdf_path):
+        if pdf_path == toc_pdf:
+            return toc_pages
+        return default_pages
+
+    return _side_effect
+
+
 class TestPDFMergeOrchestratorInit:
     """初期化のテスト"""
 
@@ -62,14 +74,18 @@ class TestCreateMergedPDF:
 
     def test_full_flow_calls_all_steps(self, orchestrator, mock_deps):
         """6ステップが順番に呼ばれることを確認"""
-        _, _, processor, collector = mock_deps
+        config, _, processor, collector = mock_deps
 
         # モックの戻り値を設定
         collector.collect_documents.return_value = (
             [("Section1", 1, 3)], ["/tmp/a.pdf"]
         )
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
-        processor.get_page_count.return_value = 10
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value,
+            toc_pages=1,
+            default_pages=10
+        )
 
         orchestrator.create_merged_pdf("/target", "/output.pdf")
 
@@ -85,6 +101,7 @@ class TestCreateMergedPDF:
         processor.add_page_numbers.assert_called_once()
         # Step 7: アウトライン
         processor.set_pdf_outlines.assert_called_once()
+        processor.set_pdf_outlines.assert_called_with("/output.pdf", [("Section1", 1, 3)])
 
     def test_cancel_at_step1(self, mock_deps, temp_dir):
         """Step1後のキャンセルで例外発生"""
@@ -111,22 +128,30 @@ class TestCreateMergedPDF:
 
     def test_separator_flag_passed_to_collector(self, orchestrator, mock_deps):
         """create_separator_for_subfolderフラグがcollectorに渡される"""
-        _, _, processor, collector = mock_deps
+        config, _, processor, collector = mock_deps
 
         collector.collect_documents.return_value = ([], ["/tmp/a.pdf"])
         processor.split_pdf.return_value = ("/tmp/c.pdf", "/tmp/r.pdf")
-        processor.get_page_count.return_value = 1
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value,
+            toc_pages=1,
+            default_pages=1
+        )
 
         orchestrator.create_merged_pdf("/target", "/out.pdf", create_separator_for_subfolder=False)
         collector.collect_documents.assert_called_once_with("/target", False)
 
     def test_final_merge_order(self, orchestrator, mock_deps):
         """最終マージが cover + toc + remainder の順で行われる"""
-        _, _, processor, collector = mock_deps
+        config, _, processor, collector = mock_deps
 
         collector.collect_documents.return_value = ([("A", 1, 1)], ["/tmp/a.pdf"])
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
-        processor.get_page_count.return_value = 5
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value,
+            toc_pages=1,
+            default_pages=5
+        )
 
         orchestrator.create_merged_pdf("/target", "/output.pdf")
 
@@ -135,6 +160,34 @@ class TestCreateMergedPDF:
         pdf_list = final_merge_call[0][0]
         assert pdf_list[0] == "/tmp/cover.pdf"
         assert pdf_list[2] == "/tmp/remainder.pdf"
+
+    def test_adjust_toc_entries_when_toc_is_multi_page(self, orchestrator, mock_deps):
+        """目次が複数ページの場合、目次とアウトラインのページ番号を補正する"""
+        config, _, processor, collector = mock_deps
+
+        original_toc_entries = [("Main", 1, 3), ("Sub", 2, 4)]
+        adjusted_toc_entries = [("Main", 1, 5), ("Sub", 2, 6)]
+        collector.collect_documents.return_value = (original_toc_entries, ["/tmp/a.pdf"])
+        processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value,
+            toc_pages=3,
+            default_pages=20
+        )
+
+        orchestrator.create_merged_pdf("/target", "/output.pdf")
+
+        # 1回目は元の目次、2回目は補正後の目次で再生成される
+        assert processor.create_toc_pdf.call_count == 2
+        assert processor.create_toc_pdf.call_args_list[0] == call(
+            original_toc_entries,
+            os.path.join(config.get_temp_dir.return_value, "toc.pdf")
+        )
+        assert processor.create_toc_pdf.call_args_list[1] == call(
+            adjusted_toc_entries,
+            os.path.join(config.get_temp_dir.return_value, "toc.pdf")
+        )
+        processor.set_pdf_outlines.assert_called_once_with("/output.pdf", adjusted_toc_entries)
 
 
 class TestCleanupTempFiles:

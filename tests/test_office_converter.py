@@ -179,8 +179,8 @@ class TestOfficeConverter:
         mock_app.Quit.side_effect = Exception("Quit failed")
 
         with patch.object(converter, '_kill_office_process') as mock_kill:
-            converter._cleanup_office_app(mock_doc, mock_app, "WINWORD.EXE", "Word")
-            mock_kill.assert_called_once_with("WINWORD.EXE")
+            converter._cleanup_office_app(mock_doc, mock_app, "WINWORD.EXE", "Word", process_id=1234)
+            mock_kill.assert_called_once_with("WINWORD.EXE", 1234)
 
     def test_cleanup_office_app_none_objects(self, converter: OfficeConverter):
         """None オブジェクトの処理テスト"""
@@ -207,12 +207,12 @@ class TestOfficeConverter:
         mock_word = MagicMock()
         mock_doc = MagicMock()
         mock_word.Documents.Open.return_value = mock_doc
-        mock_client.Dispatch.return_value = mock_word
+        mock_client.DispatchEx.return_value = mock_word
 
         result = converter.convert(str(mock_word_doc), str(output_path))
 
         assert result == str(output_path)
-        mock_client.Dispatch.assert_called_with("Word.Application")
+        mock_client.DispatchEx.assert_called_with("Word.Application")
         mock_word.Documents.Open.assert_called_once()
         mock_doc.SaveAs2.assert_called_once()
 
@@ -238,13 +238,13 @@ class TestOfficeConverter:
         mock_excel = MagicMock()
         mock_wb = MagicMock()
         mock_excel.Workbooks.Open.return_value = mock_wb
-        mock_client.Dispatch.return_value = mock_excel
+        mock_client.DispatchEx.return_value = mock_excel
 
         result = converter.convert(str(mock_excel_file), str(output_path))
 
         assert result == str(output_path)
         mock_copy.assert_called_once()
-        mock_client.Dispatch.assert_called_with("Excel.Application")
+        mock_client.DispatchEx.assert_called_with("Excel.Application")
         mock_excel.Workbooks.Open.assert_called_once()
         mock_wb.ExportAsFixedFormat.assert_called_once()
 
@@ -268,12 +268,12 @@ class TestOfficeConverter:
         mock_ppt = MagicMock()
         mock_pres = MagicMock()
         mock_ppt.Presentations.Open.return_value = mock_pres
-        mock_client.Dispatch.return_value = mock_ppt
+        mock_client.DispatchEx.return_value = mock_ppt
 
         result = converter.convert(str(mock_ppt_file), str(output_path))
 
         assert result == str(output_path)
-        mock_client.Dispatch.assert_called_with("PowerPoint.Application")
+        mock_client.DispatchEx.assert_called_with("PowerPoint.Application")
         mock_ppt.Presentations.Open.assert_called_once()
         mock_pres.SaveAs.assert_called_once()
 
@@ -294,7 +294,7 @@ class TestOfficeConverter:
         mock_exists.return_value = False
 
         mock_word = MagicMock()
-        mock_client.Dispatch.return_value = mock_word
+        mock_client.DispatchEx.return_value = mock_word
 
         result = converter.convert(str(mock_word_doc), str(output_path))
 
@@ -312,7 +312,7 @@ class TestOfficeConverter:
     ):
         """変換エラー時のPDFConversionError発生テスト"""
         output_path = temp_dir / "output.pdf"
-        mock_client.Dispatch.side_effect = Exception("COM error")
+        mock_client.DispatchEx.side_effect = Exception("COM error")
 
         with pytest.raises(PDFConversionError) as exc_info:
             converter.convert(str(mock_word_doc), str(output_path))
@@ -332,7 +332,7 @@ class TestOfficeConverter:
     ):
         """SystemExitの伝播テスト"""
         output_path = temp_dir / "output.pdf"
-        mock_client.Dispatch.side_effect = SystemExit(1)
+        mock_client.DispatchEx.side_effect = SystemExit(1)
 
         with pytest.raises(SystemExit):
             converter.convert(str(mock_word_doc), str(output_path))
@@ -349,7 +349,7 @@ class TestOfficeConverter:
     ):
         """KeyboardInterruptの伝播テスト"""
         output_path = temp_dir / "output.pdf"
-        mock_client.Dispatch.side_effect = KeyboardInterrupt()
+        mock_client.DispatchEx.side_effect = KeyboardInterrupt()
 
         with pytest.raises(KeyboardInterrupt):
             converter.convert(str(mock_word_doc), str(output_path))
@@ -372,7 +372,7 @@ class TestOfficeConverter:
 
         mock_exists.return_value = True
         mock_word = MagicMock()
-        mock_client.Dispatch.return_value = mock_word
+        mock_client.DispatchEx.return_value = mock_word
 
         converter.convert(str(mock_word_doc), str(output_path))
 

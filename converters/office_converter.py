@@ -12,6 +12,7 @@ from typing import Any, Optional, Generator
 
 from win32com import client
 import pythoncom
+import win32process
 
 from exceptions import PDFConversionError
 from constants import WordFormat, ExcelFormat, PowerPointFormat, PDFConversionConstants
@@ -42,20 +43,27 @@ class OfficeConverter:
             pythoncom.CoUninitialize()
 
     @staticmethod
-    def _kill_office_process(process_name: str) -> None:
-        """Officeプロセスを強制終了（フォールバック）"""
+    def _kill_office_process(process_name: str, process_id: Optional[int] = None) -> None:
+        """Officeプロセスを強制終了（可能な限りPID指定）"""
         try:
+            command = ['taskkill', '/F', '/PID', str(process_id)] if process_id is not None else ['taskkill', '/F', '/IM', process_name]
             result = subprocess.run(
-                ['taskkill', '/F', '/IM', process_name],
+                command,
                 capture_output=True,
                 timeout=5,
                 text=True
             )
             if result.returncode == 0:
-                logger.debug(f"プロセスを強制終了: {process_name}")
+                if process_id is not None:
+                    logger.debug(f"プロセスを強制終了: {process_name} (pid={process_id})")
+                else:
+                    logger.debug(f"プロセスを強制終了: {process_name}")
             elif result.returncode == 128:
                 # プロセスが見つからない（既に終了済み）
-                logger.debug(f"プロセスは既に終了済み: {process_name}")
+                if process_id is not None:
+                    logger.debug(f"プロセスは既に終了済み: {process_name} (pid={process_id})")
+                else:
+                    logger.debug(f"プロセスは既に終了済み: {process_name}")
             else:
                 logger.warning(
                     f"プロセス強制終了に失敗 ({process_name}): "
@@ -66,12 +74,27 @@ class OfficeConverter:
         except Exception as e:
             logger.warning(f"プロセス強制終了に失敗 ({process_name}): {e}")
 
+    @staticmethod
+    def _get_process_id(app: Any) -> Optional[int]:
+        """COMアプリケーションからPIDを取得する。"""
+        for hwnd_attr in ("Hwnd", "HWND"):
+            try:
+                hwnd = int(getattr(app, hwnd_attr))
+                if hwnd:
+                    _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+                    if process_id:
+                        return process_id
+            except Exception:
+                continue
+        return None
+
     def _cleanup_office_app(
         self,
         document: Any,
         app: Any,
         process_name: str,
-        app_name: str
+        app_name: str,
+        process_id: Optional[int] = None
     ) -> None:
         """
         Officeアプリケーションのクリーンアップを行う共通メソッド
@@ -103,9 +126,15 @@ class OfficeConverter:
             except Exception as e:
                 logger.warning(f"{app_name}アプリケーションの終了に失敗: {e}")
 
-            # Quit失敗時はプロセスを強制終了
+            # Quit失敗時は、PID指定でのみ強制終了（他インスタンス巻き込みを防止）
             if not quit_success:
-                self._kill_office_process(process_name)
+                if process_id is not None:
+                    self._kill_office_process(process_name, process_id)
+                else:
+                    logger.warning(
+                        f"{app_name}のPIDを取得できなかったため、"
+                        "プロセス強制終了をスキップしました"
+                    )
 
     def convert(self, file_path: str, output_path: str) -> Optional[str]:
         """
@@ -167,8 +196,10 @@ class OfficeConverter:
         with self._com_context():
             word: Any = None
             doc: Any = None
+            process_id: Optional[int] = None
             try:
-                word = client.Dispatch("Word.Application")
+                word = client.DispatchEx("Word.Application")
+                process_id = self._get_process_id(word)
                 try:
                     word.Visible = False
                 except Exception as e:
@@ -178,7 +209,9 @@ class OfficeConverter:
                 doc.SaveAs2(output_path, FileFormat=WordFormat.PDF)
                 logger.debug(f"Word変換完了: {file_path} -> {output_path}")
             finally:
-                self._cleanup_office_app(doc, word, "WINWORD.EXE", "Word")
+                self._cleanup_office_app(
+                    doc, word, "WINWORD.EXE", "Word", process_id=process_id
+                )
 
     def _convert_excel(self, file_path: str, output_path: str) -> None:
         """ExcelワークブックをPDFに変換"""
@@ -199,8 +232,10 @@ class OfficeConverter:
         with self._com_context():
             excel: Any = None
             wb: Any = None
+            process_id: Optional[int] = None
             try:
-                excel = client.Dispatch("Excel.Application")
+                excel = client.DispatchEx("Excel.Application")
+                process_id = self._get_process_id(excel)
                 try:
                     excel.Visible = False
                 except Exception as e:
@@ -210,7 +245,9 @@ class OfficeConverter:
                 wb.ExportAsFixedFormat(ExcelFormat.PDF, output_path)
                 logger.debug(f"Excel変換完了: {file_path} -> {output_path}")
             finally:
-                self._cleanup_office_app(wb, excel, "EXCEL.EXE", "Excel")
+                self._cleanup_office_app(
+                    wb, excel, "EXCEL.EXE", "Excel", process_id=process_id
+                )
                 # ローカルコピーを削除
                 if os.path.exists(local_copy):
                     try:
@@ -227,8 +264,10 @@ class OfficeConverter:
         with self._com_context():
             powerpoint: Any = None
             pres: Any = None
+            process_id: Optional[int] = None
             try:
-                powerpoint = client.Dispatch("PowerPoint.Application")
+                powerpoint = client.DispatchEx("PowerPoint.Application")
+                process_id = self._get_process_id(powerpoint)
                 # PowerPointはVisible=Falseをサポートしない環境があるため、
                 # WithWindow=Falseのみ使用してウィンドウを非表示化
                 logger.debug("PowerPointを起動 (WithWindow=False)")
@@ -236,4 +275,6 @@ class OfficeConverter:
                 pres.SaveAs(output_path, PowerPointFormat.PDF)
                 logger.debug(f"PowerPoint変換完了: {file_path} -> {output_path}")
             finally:
-                self._cleanup_office_app(pres, powerpoint, "POWERPNT.EXE", "PowerPoint")
+                self._cleanup_office_app(
+                    pres, powerpoint, "POWERPNT.EXE", "PowerPoint", process_id=process_id
+                )

@@ -29,13 +29,20 @@ class ConfigLoader:
     # デフォルトの設定ファイル名
     DEFAULT_CONFIG_FILENAME = 'config.json'
 
-    def __init__(self, config_path: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        use_user_config: Optional[bool] = None
+    ) -> None:
         """
         設定ファイルを読み込む
 
         Args:
             config_path: 設定ファイルのパス（省略時はこのモジュールと同じディレクトリのconfig.json）
+            use_user_config: TrueならAppDataのuser_configをマージ（省略時は自動判定）
         """
+        explicit_config_path = config_path is not None
+
         if config_path is None:
             # PyInstallerでビルドされた場合は実行ファイルと同じディレクトリを使用
             if getattr(sys, 'frozen', False):
@@ -46,12 +53,14 @@ class ConfigLoader:
                 module_dir = os.path.dirname(os.path.abspath(__file__))
             config_path = os.path.join(module_dir, self.DEFAULT_CONFIG_FILENAME)
 
+        self.use_user_config: bool = (not explicit_config_path) if use_user_config is None else use_user_config
         self.config_path: str = config_path  # デフォルト設定（読み取り専用）
 
         # ユーザー設定ファイルのパス（AppData内、読み書き可能）
         appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
         user_config_dir = os.path.join(appdata, 'PDFMergeSystem')
-        os.makedirs(user_config_dir, exist_ok=True)
+        if self.use_user_config:
+            os.makedirs(user_config_dir, exist_ok=True)
         self.user_config_path = os.path.join(user_config_dir, 'user_config.json')
 
         # ユーザー設定を別途保持（行事名設定などで使用）
@@ -92,7 +101,7 @@ class ConfigLoader:
             ) from e
 
         # ユーザー設定を読み込んでマージ
-        if os.path.exists(self.user_config_path):
+        if self.use_user_config and os.path.exists(self.user_config_path):
             try:
                 with open(self.user_config_path, 'r', encoding='utf-8') as f:
                     user_config = json.load(f)
@@ -349,22 +358,24 @@ class ConfigLoader:
         current[keys[-1]] = value
 
         # user_configも更新（永続化用）
-        current_user = self.user_config
-        for key in keys[:-1]:
-            if key not in current_user:
-                current_user[key] = {}
-            current_user = current_user[key]
-        current_user[keys[-1]] = value
+        if self.use_user_config:
+            current_user = self.user_config
+            for key in keys[:-1]:
+                if key not in current_user:
+                    current_user[key] = {}
+                current_user = current_user[key]
+            current_user[keys[-1]] = value
 
     def save_config(self) -> None:
         """
-        ユーザー変更分のみをユーザー設定ファイルに保存
+        現在の保存モードに応じて設定を保存
 
         Raises:
             ConfigurationError: 保存に失敗した場合
         """
-        self._save_user_config()
-        logger.info(f"ユーザー設定を保存しました: {self.user_config_path}")
+        self._persist_config()
+        save_target = self.user_config_path if self.use_user_config else self.config_path
+        logger.info(f"設定を保存しました: {save_target}")
 
     def update_year(self, year: str, year_short: Optional[str] = None) -> None:
         """
@@ -385,7 +396,7 @@ class ConfigLoader:
 
     def get_event_names(self, category: str) -> List[str]:
         """
-        行事名リストを取得（ユーザー設定 > デフォルト値の優先順位）
+        行事名リストを取得（ユーザー設定 > 設定値 > デフォルト値の優先順位）
 
         Args:
             category: "school_events", "student_council_events", "other_activities"
@@ -398,12 +409,17 @@ class ConfigLoader:
         if user_event_names is not None:
             return user_event_names
 
-        # 2. config.json のデフォルト値を使用
+        # 2. 現在の設定値（use_user_config=False時の保存先）
+        config_event_names = self.config.get("excel_event_names", {}).get(category)
+        if config_event_names is not None:
+            return config_event_names
+
+        # 3. config.json のデフォルト値を使用
         return self.config.get("excel_default_event_names", {}).get(category, [])
 
     def save_event_names(self, category: str, event_names: List[str]) -> None:
         """
-        行事名リストをuser_configに保存
+        行事名リストを保存
 
         Args:
             category: "school_events", "student_council_events", "other_activities"
@@ -412,18 +428,21 @@ class ConfigLoader:
         Raises:
             ConfigurationError: 保存に失敗した場合
         """
-        if "excel_event_names" not in self.user_config:
-            self.user_config["excel_event_names"] = {}
+        if self.use_user_config:
+            if "excel_event_names" not in self.user_config:
+                self.user_config["excel_event_names"] = {}
+            self.user_config["excel_event_names"][category] = event_names
 
-        self.user_config["excel_event_names"][category] = event_names
+        if "excel_event_names" not in self.config:
+            self.config["excel_event_names"] = {}
+        self.config["excel_event_names"][category] = event_names
 
-        # user_config.json に保存
-        self._save_user_config()
+        self._persist_config()
         logger.info(f"行事名設定を保存しました: {category} ({len(event_names)}件)")
 
     def reset_event_names(self, category: str) -> bool:
         """
-        指定カテゴリの行事名をデフォルトに戻す（user_configから削除）
+        指定カテゴリの行事名をデフォルトに戻す
 
         Args:
             category: "school_events", "student_council_events", "other_activities"
@@ -434,18 +453,49 @@ class ConfigLoader:
         Raises:
             ConfigurationError: 保存に失敗した場合
         """
+        removed = False
+
         event_names = self.user_config.get("excel_event_names", {})
-        if category not in event_names:
+        if category in event_names:
+            del event_names[category]
+            removed = True
+            # excel_event_namesが空になったら親キーも削除
+            if not event_names and "excel_event_names" in self.user_config:
+                del self.user_config["excel_event_names"]
+
+        config_event_names = self.config.get("excel_event_names", {})
+        if category in config_event_names:
+            del config_event_names[category]
+            removed = True
+            if not config_event_names and "excel_event_names" in self.config:
+                del self.config["excel_event_names"]
+
+        if not removed:
             return False
 
-        del event_names[category]
-        # excel_event_namesが空になったら親キーも削除
-        if not event_names:
-            del self.user_config["excel_event_names"]
-
-        self._save_user_config()
+        self._persist_config()
         logger.info(f"行事名設定をデフォルトに戻しました: {category}")
         return True
+
+    def _persist_config(self) -> None:
+        """現在の保存モードに合わせて設定を永続化する。"""
+        if self.use_user_config:
+            self._save_user_config()
+        else:
+            self._save_base_config()
+
+    def _save_base_config(self) -> None:
+        """設定をconfig_pathに直接保存する。"""
+        try:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, ensure_ascii=False, indent=2)
+        except (OSError, PermissionError) as e:
+            logger.error(f"設定の保存に失敗しました: {e}")
+            raise ConfigurationError(
+                f"設定の保存に失敗しました: {self.config_path}",
+                config_key="save_config",
+                original_error=e
+            ) from e
 
     def _save_user_config(self) -> None:
         """

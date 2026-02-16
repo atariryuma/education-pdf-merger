@@ -5,7 +5,7 @@ PDF結合オーケストレーター
 """
 import logging
 import os
-from typing import Callable, Optional
+from typing import Callable, List, Optional, Tuple
 
 from config_loader import ConfigLoader
 from pdf_converter import PDFConverter
@@ -67,6 +67,75 @@ class PDFMergeOrchestrator:
             except OSError as e:
                 logger.warning(f"一時ファイル削除失敗: {file_path} - {e}")
 
+    @staticmethod
+    def _offset_toc_entries(
+        toc_entries: List[Tuple[str, int, int]],
+        page_offset: int
+    ) -> List[Tuple[str, int, int]]:
+        """
+        目次エントリのページ番号にオフセットを加算する
+
+        Args:
+            toc_entries: 目次エントリ [(title, level, page), ...]
+            page_offset: 加算するページ数
+
+        Returns:
+            補正後の目次エントリ
+        """
+        if page_offset == 0:
+            return list(toc_entries)
+
+        adjusted_entries: List[Tuple[str, int, int]] = []
+        for title, level, page in toc_entries:
+            adjusted_entries.append((title, level, max(1, page + page_offset)))
+        return adjusted_entries
+
+    def _create_stable_toc_pdf(
+        self,
+        base_toc_entries: List[Tuple[str, int, int]],
+        toc_pdf: str
+    ) -> List[Tuple[str, int, int]]:
+        """
+        実際の目次ページ数に合わせて、目次エントリを補正しながら目次PDFを作成する
+
+        Note:
+            DocumentCollector は「表紙1 + 目次1」前提でページ番号を採番するため、
+            目次が複数ページにわたる場合は補正が必要。
+        """
+        assumed_toc_pages = PDFConstants.TOC_PAGE_COUNT
+        current_toc_pages = assumed_toc_pages
+        adjusted_toc_entries = list(base_toc_entries)
+
+        # 目次ページ数が変化しなくなるまで再計算
+        for _ in range(3):
+            page_offset = current_toc_pages - assumed_toc_pages
+            adjusted_toc_entries = self._offset_toc_entries(base_toc_entries, page_offset)
+
+            self.processor.create_toc_pdf(adjusted_toc_entries, toc_pdf)
+            measured_toc_pages = self.processor.get_page_count(toc_pdf)
+
+            if measured_toc_pages == current_toc_pages:
+                if page_offset != 0:
+                    logger.info(
+                        "目次ページ数補正: assumed=%s, actual=%s, offset=%s",
+                        assumed_toc_pages,
+                        measured_toc_pages,
+                        page_offset
+                    )
+                return adjusted_toc_entries
+
+            current_toc_pages = measured_toc_pages
+
+        # 念のため最終値で再生成して返す
+        page_offset = current_toc_pages - assumed_toc_pages
+        adjusted_toc_entries = self._offset_toc_entries(base_toc_entries, page_offset)
+        self.processor.create_toc_pdf(adjusted_toc_entries, toc_pdf)
+        logger.warning(
+            "目次ページ数補正が収束しませんでした。最後の計算結果を採用します: actual=%s",
+            current_toc_pages
+        )
+        return adjusted_toc_entries
+
     def create_merged_pdf(
         self,
         target_dir: str,
@@ -110,7 +179,7 @@ class PDFMergeOrchestrator:
 
             # 3. 目次PDFを生成
             logger.info("[Step 3/6] 目次を作成中...")
-            self.processor.create_toc_pdf(toc_entries, toc_pdf)
+            adjusted_toc_entries = self._create_stable_toc_pdf(toc_entries, toc_pdf)
             self._check_cancel()
 
             # 4. 表紙と残りのページに分割
@@ -130,11 +199,11 @@ class PDFMergeOrchestrator:
             self._check_cancel()
 
             # 7. PDFアウトライン（しおり）を設定
-            self.processor.set_pdf_outlines(output_pdf, toc_entries)
+            self.processor.set_pdf_outlines(output_pdf, adjusted_toc_entries)
 
             total_pages = self.processor.get_page_count(output_pdf)
             logger.info(f"PDFの作成が完了しました: {output_pdf}")
-            logger.info(f"  目次エントリ数: {len(toc_entries)}")
+            logger.info(f"  目次エントリ数: {len(adjusted_toc_entries)}")
             logger.info(f"  総ページ数: {total_pages}")
         finally:
             # 一時ファイルをクリーンアップ
