@@ -271,139 +271,114 @@ class ExcelTab(BaseTab):
             )
             return
 
-        excel = None
-        com_initialized = False
-        try:
-            # COM初期化
+        import threading
+
+        # config.jsonから自動検出キーワードを取得
+        ref_keywords = self.config.get('excel_auto_detect', 'reference_keywords')
+        target_keywords = self.config.get('excel_auto_detect', 'target_keywords')
+
+        # キーワードが取得できない場合はデフォルト値を使用
+        if not ref_keywords:
+            ref_keywords = ["編集用", "年間行事"]
+        if not target_keywords:
+            target_keywords = ["様式4", "様式４"]
+
+        # COM操作を別スレッド(MTA)で実行（メインスレッドはSTA固定のため）
+        result: Dict[str, list] = {"ref": [], "target": [], "error": []}
+
+        def _detect_in_thread() -> None:
             try:
-                pythoncom.CoInitialize()
-                com_initialized = True
-            except Exception as e:
-                logger.error(f"COM初期化エラー: {e}")
-                messagebox.showerror(
-                    "COM初期化エラー",
-                    f"COM初期化に失敗しました。\n\n"
-                    f"詳細: {e}\n\n"
-                    f"アプリケーションを再起動してください。"
-                )
-                return
-
-            # Excelアプリケーションに接続
-            try:
-                excel = win32com.client.Dispatch("Excel.Application")
-            except Exception as e:
-                logger.error(f"Excelアプリケーションへの接続エラー: {e}")
-                messagebox.showerror(
-                    "Excel接続エラー",
-                    "Excelが起動していないか、接続できません。\n\n"
-                    "以下を確認してください:\n"
-                    "• Microsoft Excelが起動しているか\n"
-                    "• 対象ファイルが開いているか"
-                )
-                return
-
-            # config.jsonから自動検出キーワードを取得
-            ref_keywords = self.config.get('excel_auto_detect', 'reference_keywords')
-            target_keywords = self.config.get('excel_auto_detect', 'target_keywords')
-
-            # キーワードが取得できない場合はデフォルト値を使用
-            if not ref_keywords:
-                ref_keywords = ["編集用", "年間行事"]
-                logger.warning("参照元キーワードが設定されていないため、デフォルト値を使用します")
-            if not target_keywords:
-                target_keywords = ["様式4", "様式４"]
-                logger.warning("対象キーワードが設定されていないため、デフォルト値を使用します")
-
-            # 開いているワークブックを検索
-            ref_candidates = []
-            target_candidates = []
-
-            for wb in excel.Workbooks:
-                full_path = wb.FullName
-                filename = wb.Name
-
-                # 参照元の候補: キーワードリストに含まれるファイル
-                if any(keyword in filename for keyword in ref_keywords):
-                    ref_candidates.append((filename, full_path))
-
-                # 対象の候補: キーワードリストに含まれるファイル
-                if any(keyword in filename for keyword in target_keywords):
-                    target_candidates.append((filename, full_path))
-
-            # 自動検出結果をログ出力
-            self.log("=== 自動検出開始 ===", "info")
-
-            if ref_candidates:
-                # 最初の候補を選択
-                selected_ref = ref_candidates[0]
-                self.ref_file_path = selected_ref[1]
-                self._update_file_label("reference", selected_ref[0], selected_ref[1])
-                self.log(f"✅ 参照元を検出: {selected_ref[0]}", "success")
-
-                if len(ref_candidates) > 1:
-                    self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in ref_candidates[1:]])}", "info")
-            else:
-                keywords_str = "」「".join(ref_keywords)
-                self.log(f"❌ 参照元ファイルが見つかりません（「{keywords_str}」を含むファイルを開いてください）", "warning")
-
-            if target_candidates:
-                # 最初の候補を選択
-                selected_target = target_candidates[0]
-                self.target_file_path = selected_target[1]
-                self._update_file_label("target", selected_target[0], selected_target[1])
-                self.log(f"✅ 対象を検出: {selected_target[0]}", "success")
-
-                if len(target_candidates) > 1:
-                    self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in target_candidates[1:]])}", "info")
-            else:
-                keywords_str = "」「".join(target_keywords)
-                self.log(f"❌ 対象ファイルが見つかりません（「{keywords_str}」を含むファイルを開いてください）", "warning")
-
-            # 両方検出できた場合
-            if ref_candidates and target_candidates:
-                self.update_status("✅ 両方のファイルを自動検出しました")
-                messagebox.showinfo(
-                    "検出成功",
-                    f"参照元: {ref_candidates[0][0]}\n対象: {target_candidates[0][0]}\n\n"
-                    "ファイルが正しいか確認してください。"
-                )
-            elif ref_candidates or target_candidates:
-                self.update_status("⚠️ 一部のファイルのみ検出されました")
-                messagebox.showwarning(
-                    "一部検出",
-                    "一部のファイルのみ検出されました。\n手動で残りのファイルを選択してください。"
-                )
-            else:
-                self.update_status("❌ ファイルが検出されませんでした")
-                ref_keywords_str = "」「".join(ref_keywords)
-                target_keywords_str = "」「".join(target_keywords)
-                messagebox.showwarning(
-                    "未検出",
-                    "対象ファイルが見つかりませんでした。\n\n"
-                    f"参照元: 「{ref_keywords_str}」を含むファイル\n"
-                    f"対象: 「{target_keywords_str}」を含むファイル\n\n"
-                    "上記ファイルをExcelで開いてから再実行してください。"
-                )
-
-        except Exception as e:
-            logger.error(f"自動検出エラー: {e}", exc_info=True)
-            messagebox.showerror("検出エラー", f"ファイルの自動検出中にエラーが発生しました。\n\n{e}")
-
-        finally:
-            # COMオブジェクトを完全に解放
-            if excel is not None:
+                pythoncom.CoInitializeEx(pythoncom.COINIT_MULTITHREADED)
                 try:
+                    excel = win32com.client.Dispatch("Excel.Application")
+                    for wb in excel.Workbooks:
+                        full_path = wb.FullName
+                        filename = wb.Name
+                        sheet_names = []
+                        try:
+                            for ws in wb.Worksheets:
+                                sheet_names.append(ws.Name)
+                        except Exception:
+                            pass
+                        search_targets = [filename] + sheet_names
+                        if any(kw in t for kw in ref_keywords for t in search_targets):
+                            result["ref"].append((filename, full_path))
+                        if any(kw in t for kw in target_keywords for t in search_targets):
+                            result["target"].append((filename, full_path))
                     del excel
-                except Exception as e:
-                    logger.warning(f"COMオブジェクト削除エラー: {e}")
-                excel = None
-
-            # COM終了処理
-            if com_initialized:
-                try:
+                finally:
                     pythoncom.CoUninitialize()
-                except Exception as cleanup_error:
-                    logger.warning(f"COM終了処理エラー: {cleanup_error}")
+            except Exception as e:
+                result["error"].append(str(e))
+
+        thread = threading.Thread(target=_detect_in_thread, daemon=True)
+        thread.start()
+        thread.join(timeout=10)
+
+        if result["error"]:
+            error_msg = result["error"][0]
+            logger.error(f"Excelアプリケーションへの接続エラー: {error_msg}")
+            messagebox.showerror(
+                "Excel接続エラー",
+                "Excelが起動していないか、接続できません。\n\n"
+                "以下を確認してください:\n"
+                "• Microsoft Excelが起動しているか\n"
+                "• 対象ファイルが開いているか"
+            )
+            return
+
+        ref_candidates = result["ref"]
+        target_candidates = result["target"]
+
+        # 自動検出結果をログ出力
+        self.log("=== 自動検出開始 ===", "info")
+
+        if ref_candidates:
+            selected_ref = ref_candidates[0]
+            self.ref_file_path = selected_ref[1]
+            self._update_file_label("reference", selected_ref[0], selected_ref[1])
+            self.log(f"✅ 参照元を検出: {selected_ref[0]}", "success")
+            if len(ref_candidates) > 1:
+                self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in ref_candidates[1:]])}", "info")
+        else:
+            keywords_str = "」「".join(ref_keywords)
+            self.log(f"❌ 参照元ファイルが見つかりません（ファイル名またはシート名に「{keywords_str}」を含むファイルを開いてください）", "warning")
+
+        if target_candidates:
+            selected_target = target_candidates[0]
+            self.target_file_path = selected_target[1]
+            self._update_file_label("target", selected_target[0], selected_target[1])
+            self.log(f"✅ 対象を検出: {selected_target[0]}", "success")
+            if len(target_candidates) > 1:
+                self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in target_candidates[1:]])}", "info")
+        else:
+            keywords_str = "」「".join(target_keywords)
+            self.log(f"❌ 対象ファイルが見つかりません（ファイル名またはシート名に「{keywords_str}」を含むファイルを開いてください）", "warning")
+
+        if ref_candidates and target_candidates:
+            self.update_status("✅ 両方のファイルを自動検出しました")
+            messagebox.showinfo(
+                "検出成功",
+                f"参照元: {ref_candidates[0][0]}\n対象: {target_candidates[0][0]}\n\n"
+                "ファイルが正しいか確認してください。"
+            )
+        elif ref_candidates or target_candidates:
+            self.update_status("⚠️ 一部のファイルのみ検出されました")
+            messagebox.showwarning(
+                "一部検出",
+                "一部のファイルのみ検出されました。\n手動で残りのファイルを選択してください。"
+            )
+        else:
+            self.update_status("❌ ファイルが検出されませんでした")
+            ref_keywords_str = "」「".join(ref_keywords)
+            target_keywords_str = "」「".join(target_keywords)
+            messagebox.showwarning(
+                "未検出",
+                "対象ファイルが見つかりませんでした。\n\n"
+                f"参照元: 「{ref_keywords_str}」を含むファイル\n"
+                f"対象: 「{target_keywords_str}」を含むファイル\n\n"
+                "上記ファイルをExcelで開いてから再実行してください。"
+            )
 
     def _select_file(self, file_type: str) -> None:
         """

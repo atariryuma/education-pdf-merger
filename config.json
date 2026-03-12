@@ -33,7 +33,7 @@
   },
   "excel_auto_detect": {
     "reference_keywords": ["編集用", "年間行事", "行事計画", "メインデータ"],
-    "target_keywords": ["様式4", "様式４", "様式4の3", "様式４の３"]
+    "target_keywords": ["様式4", "様式４", "様式4の3", "様式４の３", "予定時数"]
   },
   "excel_transfer": {
     "loop1": {
@@ -52,10 +52,10 @@
     },
     "loop3": {
       "start_row": 67,
-      "end_row": 96,
+      "end_row": 95,
       "search_col": "C",
-      "sort_range": "A67:P96",
-      "sort_key": "B67"
+      "sort_range": "A67:P95",
+      "sort_key": "A67"
     },
     "reference_data": {
       "start_col": "E",

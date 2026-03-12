@@ -53,6 +53,8 @@ class ExcelTransferConstants:
     """
 
     # 行事キーワード（イベント判定用）
+    # 学校行事: 儀式, 文化, 保健, 遠足, 勤労, その
+    # 児童会活動: 児童
     EVENT_KEYWORDS = ["儀式", "文化", "保健", "遠足", "勤労", "その", "児童"]
 
     # 欠時キーワード
@@ -63,21 +65,21 @@ class ExcelTransferConstants:
     LOOP1_END_ROW = 51  # Python range用（50まで処理）
     LOOP1_SEARCH_COL = "D"
     LOOP1_SORT_RANGE = "A8:P50"
-    LOOP1_SORT_KEY = "B8"
+    LOOP1_SORT_KEY = "C8"  # 第1キー=内容、第2キー=日付(A列)はコード側で指定
 
     # 処理範囲（ループ2：C55～C62）
     LOOP2_START_ROW = 55
     LOOP2_END_ROW = 63  # Python range用（62まで処理）
     LOOP2_SEARCH_COL = "C"
     LOOP2_SORT_RANGE = "A55:P62"
-    LOOP2_SORT_KEY = "B55"
+    LOOP2_SORT_KEY = "A55"
 
-    # 処理範囲（ループ3：C67～C96）
+    # 処理範囲（ループ3：C67～C95）※96行目は小計行のため除外
     LOOP3_START_ROW = 67
-    LOOP3_END_ROW = 97  # Python range用（96まで処理）
+    LOOP3_END_ROW = 96  # Python range用（95まで処理）
     LOOP3_SEARCH_COL = "C"
-    LOOP3_SORT_RANGE = "A67:P96"
-    LOOP3_SORT_KEY = "B67"
+    LOOP3_SORT_RANGE = "A67:P95"
+    LOOP3_SORT_KEY = "A67"
 
     # 参照ファイルの列範囲
     REF_DATA_START_COL = "E"  # E列から開始
