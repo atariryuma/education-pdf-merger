@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Generator
 import pytest
 
-from config_loader import ConfigLoader
-from pdf_converter import PDFConverter
-from pdf_processor import PDFProcessor
-from document_collector import DocumentCollector
-from pdf_merge_orchestrator import PDFMergeOrchestrator
+from infrastructure.config_loader import ConfigLoader
+from core.pdf_converter import PDFConverter
+from core.pdf_processor import PDFProcessor
+from core.document_collector import DocumentCollector
+from core.pdf_merge_orchestrator import PDFMergeOrchestrator
 
 
 @pytest.fixture
@@ -193,7 +193,7 @@ class TestPathValidator:
 
     def test_validate_existing_directory(self, temp_workspace: Path):
         """存在するディレクトリの検証"""
-        from path_validator import PathValidator
+        from infrastructure.path_validator import PathValidator
         import os
 
         is_valid, error_msg, validated_path = PathValidator.validate_directory(
@@ -209,7 +209,7 @@ class TestPathValidator:
 
     def test_validate_nonexistent_directory(self, temp_workspace: Path):
         """存在しないディレクトリの検証"""
-        from path_validator import PathValidator
+        from infrastructure.path_validator import PathValidator
 
         nonexistent = temp_workspace / "nonexistent"
         is_valid, error_msg, validated_path = PathValidator.validate_directory(
@@ -223,7 +223,7 @@ class TestPathValidator:
 
     def test_sanitize_filename(self):
         """ファイル名のサニタイズ"""
-        from path_validator import PathValidator
+        from infrastructure.path_validator import PathValidator
 
         # 特殊文字を含むファイル名
         unsafe_name = "test<>file:name?.txt"
@@ -236,7 +236,7 @@ class TestPathValidator:
 
     def test_sanitize_windows_reserved_name(self):
         """Windows予約名のサニタイズ"""
-        from path_validator import PathValidator
+        from infrastructure.path_validator import PathValidator
 
         reserved_name = "CON.txt"
         safe_name = PathValidator.sanitize_filename(reserved_name)
@@ -250,8 +250,8 @@ class TestExceptionHandling:
 
     def test_configuration_error_chain(self, temp_workspace: Path):
         """ConfigurationErrorの例外チェーン"""
-        from config_loader import ConfigLoader
-        from exceptions import ConfigurationError
+        from infrastructure.config_loader import ConfigLoader
+        from shared.exceptions import ConfigurationError
 
         nonexistent_config = temp_workspace / "nonexistent_config.json"
 
@@ -264,7 +264,7 @@ class TestExceptionHandling:
 
     def test_cancelled_error(self):
         """CancelledErrorの動作確認"""
-        from exceptions import CancelledError
+        from shared.exceptions import CancelledError
 
         cancel_flag = False
 

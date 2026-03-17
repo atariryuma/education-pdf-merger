@@ -13,8 +13,8 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Union, TypeVar
 
-from exceptions import ConfigurationError
-from year_utils import calculate_year_short
+from shared.exceptions import ConfigurationError
+from infrastructure.year_utils import calculate_year_short
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -50,7 +50,8 @@ class ConfigLoader:
                 module_dir = os.path.dirname(sys.executable)
             else:
                 # 通常のPythonスクリプトとして実行されている場合
-                module_dir = os.path.dirname(os.path.abspath(__file__))
+                # infrastructure/ の親ディレクトリ（プロジェクトルート）を使用
+                module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             config_path = os.path.join(module_dir, self.DEFAULT_CONFIG_FILENAME)
 
         self.use_user_config: bool = (not explicit_config_path) if use_user_config is None else use_user_config

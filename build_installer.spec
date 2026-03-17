@@ -29,25 +29,34 @@ hiddenimports = [
     'encodings.utf_8',
     'encodings.cp932',
 
-    # プロジェクトモジュール
-    'pdf_converter',
+    # shared modules
+    'shared',
+    'shared.constants',
+    'shared.exceptions',
+
+    # core modules
+    'core',
+    'core.pdf_converter',
+    'core.pdf_processor',
+    'core.document_collector',
+    'core.pdf_merge_orchestrator',
+    'core.folder_structure_detector',
+    'core.update_excel_files',
+
+    # infrastructure modules
+    'infrastructure',
+    'infrastructure.config_loader',
+    'infrastructure.config_validator',
+    'infrastructure.ghostscript',
+    'infrastructure.year_utils',
+    'infrastructure.path_validator',
+    'infrastructure.logging_config',
+
+    # converters
     'converters',
     'converters.office_converter',
     'converters.image_converter',
     'converters.ichitaro_converter',
-    'pdf_processor',
-    'document_collector',
-    'pdf_merge_orchestrator',  # v3.3.1で追加
-    'config_loader',
-    'config_validator',  # v3.4.0で追加
-    'ghostscript_detector',  # v3.4.0で追加
-    'year_utils',  # v3.4.0で追加
-    'constants',
-    'exceptions',
-    'path_validator',
-    'folder_structure_detector',
-    'logging_config',
-    'update_excel_files',  # v3.5.0で追加
 
     # GUI関連
     'gui',
@@ -57,16 +66,13 @@ hiddenimports = [
     'gui.tabs.pdf_tab',
     'gui.tabs.excel_tab',
     'gui.tabs.settings_tab',
-    'gui.tabs.file_tab',
     'gui.utils',
     'gui.styles',
-    'gui.ui_constants',
     'gui.ichitaro_dialog',
     'gui.plan_type_selection_dialog',
-    'gui.setup_wizard',  # v3.4.0で追加
+    'gui.setup_wizard',
 
     # 外部ライブラリ
-    'customtkinter',
     'PIL._tkinter_finder',
     'win32com',
     'win32com.client',
@@ -90,10 +96,6 @@ hiddenimports = [
     'reportlab.pdfbase.ttfonts',
     'openpyxl',
 ]
-
-# customtkinter のデータファイルを収集
-customtkinter_datas = collect_data_files('customtkinter')
-datas.extend(customtkinter_datas)
 
 # Analysis オブジェクト
 a = Analysis(

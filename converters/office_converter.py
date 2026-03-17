@@ -14,8 +14,8 @@ from win32com import client
 import pythoncom
 import win32process
 
-from exceptions import PDFConversionError
-from constants import WordFormat, ExcelFormat, PowerPointFormat, PDFConversionConstants
+from shared.exceptions import PDFConversionError
+from shared.constants import WordFormat, ExcelFormat, PowerPointFormat, PDFConversionConstants
 
 logger = logging.getLogger(__name__)
 

@@ -5,11 +5,11 @@ DocumentCollector のユニットテスト
 """
 import os
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from document_collector import DocumentCollector
-from exceptions import CancelledError, PDFProcessingError
-from constants import PDFConstants
+from core.document_collector import DocumentCollector
+from shared.exceptions import CancelledError, PDFProcessingError
+from shared.constants import PDFConstants
 
 
 @pytest.fixture

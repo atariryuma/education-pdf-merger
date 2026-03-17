@@ -7,10 +7,10 @@ import logging
 import os
 from typing import List, Tuple, Callable, Optional
 
-from pdf_converter import PDFConverter
-from pdf_processor import PDFProcessor
-from exceptions import CancelledError
-from constants import PDFConstants
+from core.pdf_converter import PDFConverter
+from core.pdf_processor import PDFProcessor
+from shared.exceptions import CancelledError
+from shared.constants import PDFConstants
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -284,7 +284,7 @@ class DocumentCollector:
 
         # 空ディレクトリチェック
         if not content_pdfs:
-            from exceptions import PDFProcessingError
+            from shared.exceptions import PDFProcessingError
             raise PDFProcessingError(
                 f"処理可能なドキュメントが見つかりませんでした。\n\n"
                 f"ディレクトリ: {target_dir}\n"

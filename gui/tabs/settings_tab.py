@@ -12,9 +12,11 @@ from typing import Any, Callable, Optional
 from pathlib import Path
 
 from gui.tabs.base_tab import BaseTab
+from gui.event_names_editor import EventNamesEditor
+from gui.styles import COLORS, FONTS
 from gui.utils import create_hover_button, open_file_or_folder, thread_safe_call
-from path_validator import PathValidator
-from year_utils import calculate_year_short
+from infrastructure.path_validator import PathValidator
+from infrastructure.year_utils import calculate_year_short
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,7 @@ class SettingsTab(BaseTab):
         self.year_var.trace_add('write', self._on_year_changed)
 
         self._create_ui()
-        self.add_to_notebook("⚙️ 設定")
+        self.add_to_notebook("設定")
 
     def _on_year_changed(self, *args) -> None:
         """年度が変更されたときに和暦を自動更新"""
@@ -66,49 +68,29 @@ class SettingsTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
-        # スクロール可能なメインコンテナ（BaseTabの共通メソッドを使用）
-        self.canvas, _scrollbar, self.scrollable_frame = self.create_scrollable_container()
+        # ボタンを先に下部に固定（行事名展開時も常に見える）
+        self._create_bottom_buttons()
 
-        # メインコンテナ（スクロール可能フレーム内）
-        main_container = self.scrollable_frame
-
-        # 説明フレーム（初心者向け）
-        help_frame = tk.LabelFrame(main_container, text="💡 設定について", font=("メイリオ", 10, "bold"))
-        help_frame.pack(fill="x", pady=(0, 10))
-
-        help_text = (
-            "このタブでは、アプリケーションの基本設定を行います。\n\n"
-            "📁 = フォルダを選択　│　📂 = フォルダを開く\n"
-            "📄 = ファイルを選択　│　🔍 = 自動検索\n\n"
-            "⚠️ 設定を変更したら、必ず「💾 保存」ボタンをクリックしてください。"
-        )
-        tk.Label(
-            help_frame,
-            text=help_text,
-            justify="left",
-            font=("メイリオ", 9),
-            fg="#333",
-            padx=15,
-            pady=10
-        ).pack(anchor="w")
+        main_container = tk.Frame(self.tab)
+        main_container.pack(fill="both", expand=True)
 
         # 共通のラベル幅とパディング
         LABEL_WIDTH = 16
-        PAD_Y = 5
+        PAD_Y = 3
 
         # --- 年度情報 ---
-        year_frame = tk.LabelFrame(main_container, text="📅 年度情報", font=("メイリオ", 10, "bold"))
-        year_frame.pack(fill="x", pady=(0, 8))
+        year_frame = tk.LabelFrame(main_container, text="年度情報", font=FONTS['default_bold'])
+        year_frame.pack(fill="x", pady=(0, 4))
 
         tk.Label(year_frame, text="年度（西暦）:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(year_frame, textvariable=self.year_var, width=15).grid(row=0, column=1, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, text="→", font=("メイリオ", 10)).grid(row=0, column=2, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, textvariable=self.year_short_var, font=("メイリオ", 10, "bold"), fg="#1976D2").grid(row=0, column=3, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, text="💡 和暦は自動計算", font=("メイリオ", 8), fg="gray").grid(row=1, column=1, columnspan=3, sticky="w", padx=3, pady=(0, 5))
+        tk.Label(year_frame, text="→", font=FONTS['default']).grid(row=0, column=2, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, textvariable=self.year_short_var, font=FONTS['default_bold'], fg=COLORS['primary']).grid(row=0, column=3, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, text="(自動計算)", font=FONTS['tiny'], fg="gray").grid(row=0, column=4, sticky="w", padx=3, pady=PAD_Y)
 
         # --- パス設定 ---
-        path_frame = tk.LabelFrame(main_container, text="📂 パス設定", font=("メイリオ", 10, "bold"))
-        path_frame.pack(fill="x", pady=8)
+        path_frame = tk.LabelFrame(main_container, text="パス設定", font=FONTS['default_bold'])
+        path_frame.pack(fill="x", pady=4)
 
         tk.Label(path_frame, text="Google Drive:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(path_frame, textvariable=self.gdrive_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
@@ -129,8 +111,8 @@ class SettingsTab(BaseTab):
         path_frame.columnconfigure(1, weight=1)
 
         # --- ツール設定 ---
-        tool_frame = tk.LabelFrame(main_container, text="🔧 ツール設定", font=("メイリオ", 10, "bold"))
-        tool_frame.pack(fill="x", pady=8)
+        tool_frame = tk.LabelFrame(main_container, text="ツール設定", font=FONTS['default_bold'])
+        tool_frame.pack(fill="x", pady=4)
 
         tk.Label(tool_frame, text="Ghostscript:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(tool_frame, textvariable=self.gs_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
@@ -138,434 +120,69 @@ class SettingsTab(BaseTab):
         gs_btn_frame = tk.Frame(tool_frame)
         gs_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
         tk.Button(gs_btn_frame, text="📄", command=self._browse_gs_file, width=3).pack(side="left", padx=1)
-        tk.Button(gs_btn_frame, text="🔍 自動検出", command=self._auto_detect_ghostscript, font=("メイリオ", 8)).pack(side="left", padx=1)
+        tk.Button(gs_btn_frame, text="🔍 自動検出", command=self._auto_detect_ghostscript, font=FONTS['tiny']).pack(side="left", padx=1)
 
         # Ghostscriptステータス表示
-        self.gs_status_label = tk.Label(tool_frame, text="", fg="gray", font=("メイリオ", 8))
+        self.gs_status_label = tk.Label(tool_frame, text="", fg="gray", font=FONTS['tiny'])
         self.gs_status_label.grid(row=1, column=1, columnspan=2, sticky="w", padx=3, pady=(0, 3))
         self._update_gs_status()
 
         tool_frame.columnconfigure(1, weight=1)
 
         # --- 一太郎設定 ---
-        ichitaro_frame = tk.LabelFrame(main_container, text="📝 一太郎変換設定", font=("メイリオ", 10, "bold"))
-        ichitaro_frame.pack(fill="x", pady=8)
+        ichitaro_frame = tk.LabelFrame(main_container, text="一太郎変換設定", font=FONTS['default_bold'])
+        ichitaro_frame.pack(fill="x", pady=(0, 4))
 
-        # 設定値の読み込み
         self.max_retries_var = tk.StringVar(value=str(self.config.get('ichitaro', 'max_retries') or 3))
         self.save_wait_var = tk.StringVar(value=str(self.config.get('ichitaro', 'save_wait_seconds') or 20))
 
-        # 設定行: リトライ回数、保存待機時間、テストボタン
-        settings_row1 = tk.Frame(ichitaro_frame)
-        settings_row1.pack(fill="x", padx=10, pady=PAD_Y)
-        tk.Label(settings_row1, text="リトライ:").pack(side="left")
-        tk.Entry(settings_row1, textvariable=self.max_retries_var, width=3).pack(side="left", padx=(3, 0))
-        tk.Label(settings_row1, text="回").pack(side="left", padx=(2, 15))
-        tk.Label(settings_row1, text="保存待機:").pack(side="left")
-        tk.Entry(settings_row1, textvariable=self.save_wait_var, width=3).pack(side="left", padx=(3, 0))
-        tk.Label(settings_row1, text="秒").pack(side="left", padx=(2, 15))
-        tk.Button(settings_row1, text="🧪 テスト", command=self._test_ichitaro_conversion, font=("メイリオ", 8)).pack(side="left", padx=5)
+        settings_row = tk.Frame(ichitaro_frame)
+        settings_row.pack(fill="x", padx=10, pady=4)
+        tk.Label(settings_row, text="リトライ:").pack(side="left")
+        tk.Entry(settings_row, textvariable=self.max_retries_var, width=3).pack(side="left", padx=(3, 0))
+        tk.Label(settings_row, text="回").pack(side="left", padx=(2, 15))
+        tk.Label(settings_row, text="保存待機:").pack(side="left")
+        tk.Entry(settings_row, textvariable=self.save_wait_var, width=3).pack(side="left", padx=(3, 0))
+        tk.Label(settings_row, text="秒").pack(side="left", padx=(2, 15))
+        tk.Button(settings_row, text="テスト", command=self._test_ichitaro_conversion, font=FONTS['tiny']).pack(side="left", padx=5)
+        self.ichitaro_status_label = tk.Label(settings_row, text="", fg="gray", font=FONTS['tiny'])
+        self.ichitaro_status_label.pack(side="left", padx=5)
 
-        # 説明ラベル
-        help_label = tk.Label(
-            ichitaro_frame,
-            text="💡 Microsoft Print to PDFを自動選択します（環境非依存）",
-            fg="#0066cc",
-            font=("メイリオ", 8)
+        # --- 行事名設定 ---
+        event_frame = tk.LabelFrame(main_container, text="行事名設定（Excel転記用）", font=FONTS['default_bold'])
+        event_frame.pack(fill="both", expand=True, pady=4)
+
+        self.event_names_editor = EventNamesEditor(
+            event_frame, self.config, status_callback=self.update_status
         )
-        help_label.pack(anchor="w", padx=10, pady=(0, 3))
 
-        # ステータス表示
-        self.ichitaro_status_label = tk.Label(
-            ichitaro_frame,
-            text="処理手順: Ctrl+P → プリンター自動選択 → Enter → ファイル名 → Enter",
-            fg="#666",
-            font=("メイリオ", 8)
-        )
-        self.ichitaro_status_label.pack(anchor="w", padx=10, pady=(0, 3))
+    def _create_bottom_buttons(self) -> None:
+        """ボタン行を作成（タブ下部に固定）"""
+        button_frame = tk.Frame(self.tab)
+        button_frame.pack(side="bottom", fill="x", pady=10)
 
-        # ログファイルボタン
-        log_button_frame = tk.Frame(ichitaro_frame)
-        log_button_frame.pack(anchor="w", padx=10, pady=(5, 3))
-        tk.Button(log_button_frame, text="📄 ログファイルを開く", command=self._open_log_file, font=("メイリオ", 8)).pack(side="left")
+        # 中央寄せ用の内部フレーム
+        inner = tk.Frame(button_frame)
+        inner.pack()
 
-        # --- 行事名設定（折りたたみ式） ---
-        event_names_container = tk.Frame(main_container)
-        event_names_container.pack(fill="x", pady=8)
-
-        # トグルボタン付きヘッダー
-        event_header_frame = tk.Frame(event_names_container)
-        event_header_frame.pack(fill="x")
-
-        self.event_names_expanded = tk.BooleanVar(value=False)  # デフォルトで折りたたみ
-
-        self.event_toggle_button = tk.Button(
-            event_header_frame,
-            text="▶ 行事名設定（Excel転記用）を展開",
-            command=self._toggle_event_names_section,
-            font=("メイリオ", 10, "bold"),
-            relief="flat",
-            anchor="w",
-            cursor="hand2",
-            bg="#f0f0f0"
-        )
-        self.event_toggle_button.pack(fill="x", padx=5, pady=2)
-
-        # 折りたたみ可能なコンテンツフレーム
-        self.event_names_content = tk.Frame(event_names_container)
-        # デフォルトでは非表示（pack_forget状態）
-
-        # タブビュー作成
-        self.event_tabs = ttk.Notebook(self.event_names_content)
-        self.event_tabs.pack(fill="both", expand=True, padx=10, pady=5)
-
-        # 各カテゴリのタブを作成
-        self.event_listboxes = {}
-        self.event_categories = {
-            "school_events": "学校行事名 (D列)",
-            "student_council_events": "児童会行事名 (C列)",
-            "other_activities": "その他の活動 (C列)"
-        }
-
-        for category, tab_name in self.event_categories.items():
-            tab_frame = tk.Frame(self.event_tabs)
-            self.event_tabs.add(tab_frame, text=tab_name)
-            self._create_event_listbox_panel(tab_frame, category)
-
-        # 説明ラベル（折りたたみ時も表示）
-        tk.Label(
-            event_names_container,
-            text="💡 Excelタブから行事名を読み込めます。カスタマイズする場合は上記を展開してください。",
-            font=("メイリオ", 8),
-            fg="#666"
-        ).pack(anchor="w", padx=15, pady=(3, 0))
-
-        # --- ボタン行 ---
-        button_frame = tk.Frame(main_container)
-        button_frame.pack(pady=15)
-
-        save_btn = create_hover_button(
-            button_frame,
-            text="💾 保存 (Ctrl+S)",
-            command=self.save_settings,
-            color="primary",
-            font=("メイリオ", 9, "bold"),
-            width=14,
-            height=1
-        )
-        save_btn.pack(side="left", padx=5)
-
-        reload_btn = tk.Button(
-            button_frame,
-            text="🔄 再読み込み (Ctrl+R)",
-            command=self.reload_settings,
-            font=("メイリオ", 9),
-            width=18,
-            height=1,
-            cursor="hand2"
-        )
-        reload_btn.pack(side="left", padx=5)
-
-        edit_btn = tk.Button(
-            button_frame,
-            text="📝 config.json編集",
-            command=self.open_config_file,
-            font=("メイリオ", 9),
-            width=16,
-            height=1,
-            cursor="hand2"
-        )
-        edit_btn.pack(side="left", padx=5)
-
-    def _toggle_event_names_section(self) -> None:
-        """行事名設定セクションを展開/折りたたみ"""
-        if self.event_names_expanded.get():
-            # 折りたたむ
-            self.event_names_content.pack_forget()
-            self.event_toggle_button.config(text="▶ 行事名設定（Excel転記用）を展開")
-            self.event_names_expanded.set(False)
-        else:
-            # 展開
-            self.event_names_content.pack(fill="both", expand=True, padx=5, pady=5)
-            self.event_toggle_button.config(text="▼ 行事名設定（Excel転記用）を折りたたむ")
-            self.event_names_expanded.set(True)
-
-    def _create_event_listbox_panel(self, parent: tk.Frame, category: str) -> None:
-        """リストボックスパネルを作成"""
-        # メインコンテナ（左右分割）
-        container = tk.Frame(parent)
-        container.pack(fill="both", expand=True, padx=5, pady=5)
-
-        # 左側: リストボックス
-        list_frame = tk.Frame(container)
-        list_frame.pack(side="left", fill="both", expand=True)
-
-        # スクロールバー付きリストボックス
-        scrollbar = tk.Scrollbar(list_frame)
-        scrollbar.pack(side="right", fill="y")
-
-        listbox = tk.Listbox(
-            list_frame,
-            yscrollcommand=scrollbar.set,
-            font=("メイリオ", 9),
-            height=12,
-            selectmode="single"
-        )
-        listbox.pack(side="left", fill="both", expand=True)
-        scrollbar.config(command=listbox.yview)
-
-        # リストボックスを保存
-        self.event_listboxes[category] = listbox
-
-        # 行事名をロード
-        self._load_event_names_to_listbox(category)
-
-        # 右側: ボタンパネル
-        button_panel = tk.Frame(container)
-        button_panel.pack(side="right", fill="y", padx=(10, 0))
-
-        # ボタン作成
-        tk.Button(
-            button_panel,
-            text="➕ 追加",
-            command=lambda: self._on_add_event_name(category),
-            font=("メイリオ", 9),
-            width=12,
-            cursor="hand2"
-        ).pack(pady=3)
+        create_hover_button(
+            inner, text="💾 保存 (Ctrl+S)", command=self.save_settings,
+            color="primary", font=FONTS['small_bold'], width=14, height=1
+        ).pack(side="left", padx=5)
 
         tk.Button(
-            button_panel,
-            text="✏️ 編集",
-            command=lambda: self._on_edit_event_name(category),
-            font=("メイリオ", 9),
-            width=12,
-            cursor="hand2"
-        ).pack(pady=3)
+            inner, text="🔄 再読み込み (Ctrl+R)", command=self.reload_settings,
+            font=FONTS['small'], width=18, height=1, cursor="hand2"
+        ).pack(side="left", padx=5)
 
         tk.Button(
-            button_panel,
-            text="🗑️ 削除",
-            command=lambda: self._on_delete_event_name(category),
-            font=("メイリオ", 9),
-            width=12,
-            cursor="hand2"
-        ).pack(pady=3)
-
-        tk.Label(button_panel, text="").pack(pady=3)  # スペーサー
-
-        tk.Button(
-            button_panel,
-            text="⬆️ 上へ",
-            command=lambda: self._on_move_up(category),
-            font=("メイリオ", 9),
-            width=12,
-            cursor="hand2"
-        ).pack(pady=3)
-
-        tk.Button(
-            button_panel,
-            text="⬇️ 下へ",
-            command=lambda: self._on_move_down(category),
-            font=("メイリオ", 9),
-            width=12,
-            cursor="hand2"
-        ).pack(pady=3)
-
-        tk.Label(button_panel, text="").pack(pady=8)  # スペーサー
-
-        tk.Button(
-            button_panel,
-            text="🔄 デフォルトに戻す",
-            command=lambda: self._on_reset_to_default(category),
-            font=("メイリオ", 8),
-            width=12,
-            cursor="hand2",
-            fg="blue"
-        ).pack(pady=3)
-
-    def _load_event_names_to_listbox(self, category: str) -> None:
-        """行事名をリストボックスに読み込み"""
-        listbox = self.event_listboxes[category]
-        listbox.delete(0, tk.END)
-
-        event_names = self.config.get_event_names(category)
-        for name in event_names:
-            listbox.insert(tk.END, name)
+            inner, text="📝 config.json編集", command=self.open_config_file,
+            font=FONTS['small'], width=16, height=1, cursor="hand2"
+        ).pack(side="left", padx=5)
 
     def reload_event_names(self) -> None:
-        """すべてのカテゴリの行事名をリロード（外部から呼び出し可能）"""
-        logger.info("設定タブの行事名をリロードしています...")
-        for category in self.event_categories.keys():
-            self._load_event_names_to_listbox(category)
-        logger.info("設定タブの行事名をリロードしました")
-
-    def _on_add_event_name(self, category: str) -> None:
-        """行事名を追加"""
-        from tkinter import simpledialog
-
-        new_name = simpledialog.askstring(
-            "行事名を追加",
-            "新しい行事名を入力してください:",
-            parent=self.tab
-        )
-
-        if new_name and new_name.strip():
-            new_name = new_name.strip()
-            event_names = self.config.get_event_names(category)
-            event_names.append(new_name)
-
-            try:
-                self.config.save_event_names(category, event_names)
-                self._load_event_names_to_listbox(category)
-                self.update_status(f"行事名を追加: {new_name}")
-            except Exception as e:
-                logger.error(f"行事名追加エラー: {e}", exc_info=True)
-                messagebox.showerror("追加エラー", f"行事名の追加に失敗しました。\n\n詳細: {e}")
-
-    def _on_edit_event_name(self, category: str) -> None:
-        """行事名を編集"""
-        from tkinter import simpledialog
-
-        listbox = self.event_listboxes[category]
-        selection = listbox.curselection()
-
-        if not selection:
-            messagebox.showwarning("未選択", "編集する行事名を選択してください。")
-            return
-
-        index = selection[0]
-        event_names = self.config.get_event_names(category)
-        old_name = event_names[index]
-
-        new_name = simpledialog.askstring(
-            "行事名を編集",
-            "行事名を編集してください:",
-            initialvalue=old_name,
-            parent=self.tab
-        )
-
-        if new_name and new_name.strip() and new_name.strip() != old_name:
-            new_name = new_name.strip()
-            event_names[index] = new_name
-
-            try:
-                self.config.save_event_names(category, event_names)
-                self._load_event_names_to_listbox(category)
-                listbox.selection_set(index)  # 編集後も同じ位置を選択
-                self.update_status(f"行事名を編集: {old_name} → {new_name}")
-            except Exception as e:
-                logger.error(f"行事名編集エラー: {e}", exc_info=True)
-                messagebox.showerror("編集エラー", f"行事名の編集に失敗しました。\n\n詳細: {e}")
-
-    def _on_delete_event_name(self, category: str) -> None:
-        """行事名を削除"""
-        listbox = self.event_listboxes[category]
-        selection = listbox.curselection()
-
-        if not selection:
-            messagebox.showwarning("未選択", "削除する行事名を選択してください。")
-            return
-
-        index = selection[0]
-        event_names = self.config.get_event_names(category)
-        name = event_names[index]
-
-        # 確認ダイアログ
-        result = messagebox.askyesno(
-            "削除確認",
-            f"「{name}」を削除しますか？",
-            parent=self.tab
-        )
-
-        if result:
-            event_names.pop(index)
-
-            try:
-                self.config.save_event_names(category, event_names)
-                self._load_event_names_to_listbox(category)
-                self.update_status(f"行事名を削除: {name}")
-            except Exception as e:
-                logger.error(f"行事名削除エラー: {e}", exc_info=True)
-                messagebox.showerror("削除エラー", f"行事名の削除に失敗しました。\n\n詳細: {e}")
-
-    def _on_move_up(self, category: str) -> None:
-        """行事名を上へ移動"""
-        listbox = self.event_listboxes[category]
-        selection = listbox.curselection()
-
-        if not selection:
-            messagebox.showwarning("未選択", "移動する行事名を選択してください。")
-            return
-
-        index = selection[0]
-
-        if index == 0:
-            messagebox.showinfo("移動不可", "既に最上位です。")
-            return
-
-        event_names = self.config.get_event_names(category)
-        event_names[index], event_names[index - 1] = event_names[index - 1], event_names[index]
-
-        try:
-            self.config.save_event_names(category, event_names)
-            self._load_event_names_to_listbox(category)
-            listbox.selection_set(index - 1)  # 移動後の位置を選択
-            self.update_status(f"行事名を上へ移動: {event_names[index - 1]}")
-        except Exception as e:
-            logger.error(f"行事名移動エラー: {e}", exc_info=True)
-            messagebox.showerror("移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}")
-
-    def _on_move_down(self, category: str) -> None:
-        """行事名を下へ移動"""
-        listbox = self.event_listboxes[category]
-        selection = listbox.curselection()
-
-        if not selection:
-            messagebox.showwarning("未選択", "移動する行事名を選択してください。")
-            return
-
-        index = selection[0]
-        event_names = self.config.get_event_names(category)
-
-        if index == len(event_names) - 1:
-            messagebox.showinfo("移動不可", "既に最下位です。")
-            return
-
-        event_names[index], event_names[index + 1] = event_names[index + 1], event_names[index]
-
-        try:
-            self.config.save_event_names(category, event_names)
-            self._load_event_names_to_listbox(category)
-            listbox.selection_set(index + 1)  # 移動後の位置を選択
-            self.update_status(f"行事名を下へ移動: {event_names[index + 1]}")
-        except Exception as e:
-            logger.error(f"行事名移動エラー: {e}", exc_info=True)
-            messagebox.showerror("移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}")
-
-    def _on_reset_to_default(self, category: str) -> None:
-        """行事名をデフォルトに戻す"""
-        # 確認ダイアログ
-        result = messagebox.askyesno(
-            "デフォルトに戻す",
-            "行事名をデフォルト値に戻しますか？\n\n現在の設定は失われます。",
-            parent=self.tab
-        )
-
-        if not result:
-            return
-
-        try:
-            was_reset = self.config.reset_event_names(category)
-            if was_reset:
-                self._load_event_names_to_listbox(category)
-                self.update_status("行事名をデフォルトに戻しました")
-                messagebox.showinfo("完了", "行事名をデフォルト値に戻しました。")
-            else:
-                messagebox.showinfo("完了", "既にデフォルト値です。")
-        except Exception as e:
-            logger.error(f"デフォルト復元エラー: {e}", exc_info=True)
-            messagebox.showerror("エラー", f"デフォルト値への復元に失敗しました。\n\n詳細: {e}")
+        """すべてのカテゴリの行事名をリロード（後方互換性のための委譲メソッド）"""
+        self.event_names_editor.reload_event_names()
 
     def _browse_folder(self, var: tk.StringVar) -> None:
         """フォルダを参照（PathValidatorベース）"""
@@ -707,7 +324,6 @@ class SettingsTab(BaseTab):
         try:
             self.config.save_config()
             self.update_status("設定を保存しました")
-            messagebox.showinfo("保存完了", "設定を保存しました！")
         except Exception as e:
             logger.error(f"設定保存エラー: {e}", exc_info=True)
             messagebox.showerror("保存エラー", f"設定の保存に失敗しました。\n\n詳細: {e}")
@@ -730,20 +346,19 @@ class SettingsTab(BaseTab):
         self.gs_status_label.config(text="🔍 検索中...", fg="blue")
 
         def detect_task() -> None:
-            from ghostscript_utils import GhostscriptManager
+            from infrastructure.ghostscript import GhostscriptDetector
 
-            gs_path = GhostscriptManager.find_ghostscript()
-            verified = gs_path and GhostscriptManager.verify_ghostscript(gs_path)
+            gs_path = GhostscriptDetector.detect()
+            verified = gs_path and GhostscriptDetector.verify(gs_path)
 
             def update_ui() -> None:
                 if verified:
                     self.gs_var.set(gs_path)
                     self._update_gs_status_sync()
                     self.update_status(f"Ghostscriptを検出: {gs_path}")
-                    messagebox.showinfo("検出成功", f"Ghostscriptを検出しました。\n\n{gs_path}")
                 else:
                     self._update_gs_status_sync()
-                    instructions = GhostscriptManager.get_install_instructions()
+                    instructions = GhostscriptDetector.get_install_instructions()
                     messagebox.showwarning("未検出", instructions)
 
             try:
@@ -790,9 +405,9 @@ class SettingsTab(BaseTab):
     def _verify_gs_async(self) -> None:
         """Ghostscriptの動作確認をバックグラウンドで実行"""
         def verify_task() -> None:
-            from ghostscript_utils import GhostscriptManager
+            from infrastructure.ghostscript import GhostscriptDetector
             gs_path = self.gs_var.get().strip()
-            verified = gs_path and GhostscriptManager.verify_ghostscript(gs_path)
+            verified = gs_path and GhostscriptDetector.verify(gs_path)
             text, color = self._check_gs_path(gs_path, verified)
 
             thread_safe_call(self.tab, lambda: self.gs_status_label.config(text=text, fg=color))
@@ -802,9 +417,9 @@ class SettingsTab(BaseTab):
 
     def _update_gs_status_sync(self) -> None:
         """Ghostscriptのステータスを同期的に更新（ユーザー操作後の即時反映用）"""
-        from ghostscript_utils import GhostscriptManager
+        from infrastructure.ghostscript import GhostscriptDetector
         gs_path = self.gs_var.get().strip()
-        verified = GhostscriptManager.verify_ghostscript(gs_path) if os.path.exists(gs_path) and gs_path else None
+        verified = GhostscriptDetector.verify(gs_path) if os.path.exists(gs_path) and gs_path else None
         text, color = self._check_gs_path(gs_path, verified)
         self.gs_status_label.config(text=text, fg=color)
 
@@ -824,7 +439,7 @@ class SettingsTab(BaseTab):
 
         def run_test():
             try:
-                from pdf_converter import PDFConverter
+                from core.pdf_converter import PDFConverter
                 import tempfile
 
                 # 現在の設定を使用
@@ -891,28 +506,3 @@ class SettingsTab(BaseTab):
         thread = threading.Thread(target=run_test, daemon=True)
         thread.start()
 
-    def _open_log_file(self) -> None:
-        """ログファイルを開く"""
-        from datetime import datetime
-
-        # ログディレクトリのパス
-        appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-        log_dir = os.path.join(appdata, 'PDFMergeSystem', 'logs')
-
-        # 今日のログファイル
-        log_file = os.path.join(log_dir, f"pdf_merge_{datetime.now():%Y%m%d}.log")
-
-        if os.path.exists(log_file):
-            # ログファイルをデフォルトのテキストエディタで開く
-            if open_file_or_folder(log_file, self._show_file_open_error):
-                self.update_status("ログファイルを開きました")
-        else:
-            # ログファイルが存在しない場合はログディレクトリを開く
-            if os.path.exists(log_dir):
-                if open_file_or_folder(log_dir, self._show_file_open_error):
-                    self.update_status("ログディレクトリを開きました")
-            else:
-                messagebox.showwarning(
-                    "ログファイルなし",
-                    "ログファイルが見つかりません。\n\nまだ処理が実行されていない可能性があります。"
-                )

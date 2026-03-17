@@ -8,7 +8,7 @@ from typing import Optional
 
 from PIL import Image
 
-from exceptions import PDFConversionError
+from shared.exceptions import PDFConversionError
 
 logger = logging.getLogger(__name__)
 

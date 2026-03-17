@@ -8,6 +8,9 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
 
+from gui.styles import COLORS, FONTS
+from gui.utils import center_window
+
 
 class IchitaroConversionDialog(tk.Toplevel):
     """一太郎PDF変換中の警告ダイアログ（非モーダル、常に最前面）"""
@@ -35,17 +38,10 @@ class IchitaroConversionDialog(tk.Toplevel):
         self.transient(parent)
 
         # 中央配置
-        self._center_window()
+        center_window(self)
 
         # UI構築
         self._create_widgets()
-
-    def _center_window(self) -> None:
-        """ウィンドウを画面中央に配置"""
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (500 // 2)
-        y = (self.winfo_screenheight() // 2) - (200 // 2)
-        self.geometry(f"+{x}+{y}")
 
     def _create_widgets(self) -> None:
         """ウィジェット作成"""
@@ -57,8 +53,8 @@ class IchitaroConversionDialog(tk.Toplevel):
         title_label = tk.Label(
             main_frame,
             text="⚠️ 一太郎PDF変換中",
-            font=("Yu Gothic UI", 16, "bold"),
-            fg="#ff6b00"
+            font=FONTS['dialog_title'],
+            fg=COLORS['warning_mild']
         )
         title_label.pack(pady=(0, 20))
 
@@ -66,7 +62,7 @@ class IchitaroConversionDialog(tk.Toplevel):
         self.message_label = tk.Label(
             main_frame,
             text="一太郎ファイルをPDFに変換しています。\nしばらくお待ちください...",
-            font=("Yu Gothic UI", 11),
+            font=FONTS['default'],
             justify=tk.CENTER
         )
         self.message_label.pack(pady=(0, 20))
@@ -84,8 +80,8 @@ class IchitaroConversionDialog(tk.Toplevel):
         note_label = tk.Label(
             main_frame,
             text="※ 変換中はキーボード操作を避けてください",
-            font=("Yu Gothic UI", 9),
-            fg="#666666"
+            font=FONTS['small'],
+            fg=COLORS['text_secondary']
         )
         note_label.pack()
 
@@ -95,9 +91,9 @@ class IchitaroConversionDialog(tk.Toplevel):
                 main_frame,
                 text="キャンセル",
                 command=self._on_cancel,
-                bg="#dc3545",
+                bg=COLORS['error'],
                 fg="white",
-                font=("Yu Gothic UI", 10),
+                font=FONTS['default'],
                 cursor="hand2",
                 padx=20,
                 pady=5

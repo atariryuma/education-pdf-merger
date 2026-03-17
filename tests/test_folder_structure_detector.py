@@ -6,7 +6,7 @@ FolderStructureDetector のユニットテスト
 import os
 import pytest
 
-from folder_structure_detector import FolderStructureDetector, PlanType, DetectionResult
+from core.folder_structure_detector import FolderStructureDetector, PlanType, DetectionResult
 
 
 @pytest.fixture

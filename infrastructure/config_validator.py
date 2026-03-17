@@ -9,8 +9,8 @@ from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
 
-from config_loader import ConfigLoader
-from ghostscript_detector import GhostscriptDetector
+from infrastructure.config_loader import ConfigLoader
+from infrastructure.ghostscript import GhostscriptDetector
 
 logger = logging.getLogger(__name__)
 

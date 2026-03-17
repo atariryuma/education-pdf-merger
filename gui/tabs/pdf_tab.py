@@ -14,23 +14,23 @@ from typing import Optional, TYPE_CHECKING
 from gui.tabs.base_tab import BaseTab
 from gui.utils import set_button_state, create_hover_button, thread_safe_call, open_file_or_folder, create_tooltip
 from gui.ichitaro_dialog import IchitaroConversionDialog
-from gui.styles import PADDING
-from gui.ui_constants import (
-    UIMessages, UILabels, UITooltips,
-    UIWidgetSizes, UIIcons, UIColors
-)
-from pdf_converter import PDFConverter
-from pdf_processor import PDFProcessor
-from document_collector import DocumentCollector
-from pdf_merge_orchestrator import PDFMergeOrchestrator
-from exceptions import CancelledError
-from path_validator import PathValidator
+from gui.styles import COLORS, FONTS
+from core.pdf_converter import PDFConverter
+from core.pdf_processor import PDFProcessor
+from core.document_collector import DocumentCollector
+from core.pdf_merge_orchestrator import PDFMergeOrchestrator
+from shared.exceptions import CancelledError
+from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
-    from config_loader import ConfigLoader
+    from infrastructure.config_loader import ConfigLoader
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
+
+
+_PLACEHOLDER_DIR = "フォルダを選択してください..."
+_PLACEHOLDER_FILE = "ファイルを選択してください..."
 
 
 class PDFTab(BaseTab):
@@ -57,7 +57,7 @@ class PDFTab(BaseTab):
         self.output_validation_label: Optional[tk.Label] = None
 
         self._create_ui()
-        self.add_to_notebook("📄 PDF統合")
+        self.add_to_notebook("PDF統合")
 
         # 検証のデバウンス用タイマー
         self._validation_timer = None
@@ -71,32 +71,8 @@ class PDFTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
-        # スクロール可能なメインコンテナ（BaseTabの共通メソッドを使用）
-        self.canvas, _scrollbar, self.scrollable_frame = self.create_scrollable_container()
-
-        # メインコンテナをスクロール可能フレーム内に配置
-        main_container = self.scrollable_frame
-
-        # 使い方ガイド（初心者向け）
-        guide_frame = tk.LabelFrame(main_container, text="📖 使い方", font=("メイリオ", 10, "bold"))
-        guide_frame.pack(fill="x", padx=PADDING['xlarge'], pady=(PADDING['large'], PADDING['medium']))
-
-        guide_text = (
-            "① PDFにしたいファイルが入っているフォルダを選択\n"
-            "② 作成するPDFファイルの保存先と名前を決める\n"
-            "③ 教育計画か行事計画を選ぶ\n"
-            "④ 「PDF統合を実行」ボタンをクリック"
-        )
-        guide_label = tk.Label(
-            guide_frame,
-            text=guide_text,
-            justify="left",
-            font=("メイリオ", 9),
-            fg="#333",
-            padx=15,
-            pady=10
-        )
-        guide_label.pack(anchor="w")
+        main_container = tk.Frame(self.tab)
+        main_container.pack(fill="x")
 
         # 入力フォームのフレーム
         form_frame = tk.Frame(main_container)
@@ -107,15 +83,15 @@ class PDFTab(BaseTab):
         # 入力ディレクトリ選択
         tk.Label(form_frame, text="入力ディレクトリ:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(15, 5), pady=6)
 
-        input_entry = tk.Entry(form_frame, textvariable=self.input_dir_var, width=UIWidgetSizes.ENTRY_LARGE_WIDTH)
+        input_entry = tk.Entry(form_frame, textvariable=self.input_dir_var, width=50)
         input_entry.grid(row=0, column=1, padx=5, pady=6, sticky="ew")
 
         # プレースホルダー効果
         if not self.input_dir_var.get():
             input_entry.config(fg='gray')
-            input_entry.insert(0, UILabels.PLACEHOLDER_DIR)
-            input_entry.bind('<FocusIn>', lambda e: self._clear_placeholder(input_entry, UILabels.PLACEHOLDER_DIR))
-            input_entry.bind('<FocusOut>', lambda e: self._restore_placeholder(input_entry, self.input_dir_var, UILabels.PLACEHOLDER_DIR))
+            input_entry.insert(0, _PLACEHOLDER_DIR)
+            input_entry.bind('<FocusIn>', lambda e: self._clear_placeholder(input_entry, _PLACEHOLDER_DIR))
+            input_entry.bind('<FocusOut>', lambda e: self._restore_placeholder(input_entry, self.input_dir_var, _PLACEHOLDER_DIR))
 
         input_btn_frame = tk.Frame(form_frame)
         input_btn_frame.grid(row=0, column=2, padx=(5, 0), pady=6)
@@ -126,20 +102,20 @@ class PDFTab(BaseTab):
 
         input_select_btn = tk.Button(input_btn_frame, text="📁", command=on_input_select_click, width=3)
         input_select_btn.pack(side="left", padx=1)
-        create_tooltip(input_select_btn, UITooltips.TIP_FOLDER_BROWSE)
+        create_tooltip(input_select_btn, "フォルダ選択ダイアログを開きます")
 
         input_open_btn = tk.Button(input_btn_frame, text="📂", command=self._open_input_dir, width=3)
         input_open_btn.pack(side="left", padx=1)
-        create_tooltip(input_open_btn, UITooltips.TIP_FOLDER_OPEN)
+        create_tooltip(input_open_btn, "エクスプローラーで開きます")
 
         # 検証インジケーター
-        self.input_validation_label = tk.Label(form_frame, text="", font=("メイリオ", 10), width=2)
+        self.input_validation_label = tk.Label(form_frame, text="", font=FONTS['default'], width=2)
         self.input_validation_label.grid(row=0, column=3, padx=(5, 15), pady=6)
 
         # 出力ファイル選択
         tk.Label(form_frame, text="出力ファイル:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(15, 5), pady=6)
 
-        output_entry = tk.Entry(form_frame, textvariable=self.output_file_var, width=UIWidgetSizes.ENTRY_LARGE_WIDTH)
+        output_entry = tk.Entry(form_frame, textvariable=self.output_file_var, width=50)
         output_entry.grid(row=1, column=1, padx=5, pady=6, sticky="ew")
 
         output_btn_frame = tk.Frame(form_frame)
@@ -147,14 +123,14 @@ class PDFTab(BaseTab):
 
         output_select_btn = tk.Button(output_btn_frame, text="💾", command=self._select_output_file, width=3)
         output_select_btn.pack(side="left", padx=1)
-        create_tooltip(output_select_btn, UITooltips.TIP_FILE_BROWSE)
+        create_tooltip(output_select_btn, "ファイル選択ダイアログを開きます")
 
         output_open_btn = tk.Button(output_btn_frame, text="📂", command=self._open_output_dir, width=3)
         output_open_btn.pack(side="left", padx=1)
-        create_tooltip(output_open_btn, UITooltips.TIP_FOLDER_OPEN)
+        create_tooltip(output_open_btn, "エクスプローラーで開きます")
 
         # 検証インジケーター
-        self.output_validation_label = tk.Label(form_frame, text="", font=("メイリオ", 10), width=2)
+        self.output_validation_label = tk.Label(form_frame, text="", font=FONTS['default'], width=2)
         self.output_validation_label.grid(row=1, column=3, padx=(5, 15), pady=6)
 
         # 計画種別（自動判定結果の表示のみ）
@@ -162,8 +138,8 @@ class PDFTab(BaseTab):
         self.plan_type_label = tk.Label(
             form_frame,
             text="自動判定中...",
-            font=("メイリオ", 10),
-            fg="#666",
+            font=FONTS['default'],
+            fg=COLORS['text_secondary'],
             anchor="w"
         )
         self.plan_type_label.grid(row=2, column=1, sticky="w", padx=5, pady=6)
@@ -180,7 +156,7 @@ class PDFTab(BaseTab):
             text="▶ PDF統合を実行",
             command=self._run_pdf_merge,
             color="primary",
-            font=("メイリオ", 11, "bold"),
+            font=FONTS['subheading'],
             width=28,
             height=2
         )
@@ -190,8 +166,8 @@ class PDFTab(BaseTab):
             button_frame,
             text="✕ キャンセル",
             command=self._cancel_operation,
-            font=("メイリオ", 10),
-            bg="#f44336",
+            font=FONTS['default'],
+            bg=COLORS['error'],
             fg="white",
             width=12,
             height=2,
@@ -200,15 +176,15 @@ class PDFTab(BaseTab):
         self.cancel_button.pack(side="left", padx=5)
 
         # ステータスラベル
-        self.status_label = tk.Label(main_container, text="", font=("メイリオ", 9), fg="gray")
+        self.status_label = tk.Label(main_container, text="", font=FONTS['small'], fg="gray")
         self.status_label.pack()
 
         # プログレスバー
-        self.progress = ttk.Progressbar(main_container, mode='indeterminate')
+        self.progress = ttk.Progressbar(main_container, mode='determinate', maximum=6)
         self.progress.pack(fill="x", padx=20, pady=5)
 
-        # ログ表示
-        self.create_log_frame(height=10, parent=main_container)
+        # ログ表示（タブ直下に配置し、ウィンドウリサイズに追従させる）
+        self.create_log_frame(height=8)
         # GUIログハンドラを設定（各モジュールのログをGUIに表示）
         self.setup_gui_logging()
         self.log("準備完了。入力ディレクトリと出力ファイルを選択して実行してください。", "info")
@@ -282,7 +258,7 @@ class PDFTab(BaseTab):
                     self.update_status(f"出力ファイルを選択: {validated_path.name}")
                     logger.info(f"出力ファイルを選択: {validated_path}")
                     # 実行ボタンの状態を更新
-                    self._update_run_button_state()
+                    self._validate_inputs()
                 else:
                     self._show_validation_error(error_msg)
             else:
@@ -421,7 +397,7 @@ class PDFTab(BaseTab):
                 # GUI操作はすべてスレッドセーフに実行
                 set_button_state(self.run_button, False, self.status_label, "🔄 実行中...")
                 thread_safe_call(self.tab, lambda: self.cancel_button.config(state="normal"))
-                thread_safe_call(self.tab, lambda: self.progress.start(10))
+                thread_safe_call(self.tab, lambda: self.progress.configure(value=0))
                 self.update_status("PDF統合を実行中...")
 
                 self.log("=== PDF統合開始 ===", "info")
@@ -433,41 +409,33 @@ class PDFTab(BaseTab):
                 input_dir_str_final = str(input_dir_path)
                 output_file_str_final = str(output_file_path)
 
-                self.log("一時ディレクトリを取得中...", "info")
                 temp_dir = self.config.get_temp_dir()
-                self.log(f"一時ディレクトリ: {temp_dir}", "info")
-
-                self.log("設定を読み込み中...", "info")
                 ichitaro_settings = self.config.get('ichitaro')
 
-                self.log("PDFコンバーターを初期化中...", "info")
                 converter = PDFConverter(
-                    temp_dir,
-                    ichitaro_settings,
+                    temp_dir, ichitaro_settings,
                     cancel_check=self._is_cancelled,
                     dialog_callback=dialog_callback,
                     config=self.config
                 )
-
-                self.log("PDFプロセッサーを初期化中...", "info")
                 processor = PDFProcessor(self.config)
-
-                self.log("ドキュメントコレクターを初期化中...", "info")
                 collector = DocumentCollector(
                     converter, processor,
                     cancel_check=self._is_cancelled
                 )
 
-                self.log("オーケストレーターを初期化中...", "info")
+                def on_progress(step: int, total: int, message: str) -> None:
+                    thread_safe_call(self.tab, lambda: self.progress.configure(value=step))
+
                 orchestrator = PDFMergeOrchestrator(
                     self.config, converter, processor, collector,
-                    cancel_check=self._is_cancelled
+                    cancel_check=self._is_cancelled,
+                    progress_callback=on_progress
                 )
-
-                self.log("PDF統合処理を開始します...", "info")
                 create_separators = (plan_type == "education")
                 orchestrator.create_merged_pdf(input_dir_str_final, output_file_str_final, create_separators)
 
+                thread_safe_call(self.tab, lambda: self.progress.configure(value=6))
                 self.log("=== PDF統合完了 ===", "success")
                 set_button_state(self.run_button, True, self.status_label, "✅ 完了")
                 self.update_status("PDF統合が完了しました")
@@ -491,7 +459,7 @@ class PDFTab(BaseTab):
             finally:
                 def _cleanup():
                     try:
-                        self.progress.stop()
+                        self.progress.configure(value=0)
                         self.cancel_button.config(state="disabled")
                     except Exception:
                         pass
@@ -516,7 +484,7 @@ class PDFTab(BaseTab):
 
         def task():
             try:
-                from folder_structure_detector import FolderStructureDetector, PlanType
+                from core.folder_structure_detector import FolderStructureDetector, PlanType
 
                 detector = FolderStructureDetector()
                 result = detector.detect_structure(str(directory_path))
@@ -564,7 +532,7 @@ class PDFTab(BaseTab):
         if hasattr(self, 'plan_type_label'):
             self.plan_type_label.config(
                 text=f"{icon} {plan_name} (確信度: {confidence_pct}%)",
-                fg="#2196F3" if confidence_pct >= 70 else "#FF9800"
+                fg=COLORS['primary'] if confidence_pct >= 70 else COLORS['warning_mild']
             )
 
         # ステータスバーにも表示
@@ -614,64 +582,36 @@ class PDFTab(BaseTab):
         self._validation_timer = self.tab.after(300, self._validate_inputs)
 
     def _validate_inputs(self) -> None:
-        """入力フィールドの検証とビジュアルフィードバック"""
-        # 入力ディレクトリの検証
+        """入力フィールドの検証、ビジュアルフィードバック、実行ボタン状態の更新"""
         input_path = self.input_dir_var.get()
-        if input_path and input_path != UILabels.PLACEHOLDER_DIR:
-            is_valid, error_msg, validated_path = PathValidator.validate_directory(input_path, must_exist=True)
-            if is_valid:
-                self.input_validation_label.config(text=UIIcons.ICON_SUCCESS, fg=UIColors.VALID)
-                create_tooltip(self.input_validation_label, "入力ディレクトリが存在します")
+        output_path = self.output_file_var.get()
+
+        # 入力ディレクトリの検証
+        input_valid = False
+        if input_path and input_path != _PLACEHOLDER_DIR:
+            input_valid, error_msg, _ = PathValidator.validate_directory(input_path, must_exist=True)
+            if input_valid:
+                self.input_validation_label.config(text="✓", fg=COLORS['valid'])
             else:
-                self.input_validation_label.config(text=UIIcons.ICON_ERROR, fg=UIColors.INVALID)
-                create_tooltip(self.input_validation_label, error_msg)
+                self.input_validation_label.config(text="✗", fg=COLORS['invalid'])
         else:
             self.input_validation_label.config(text="", fg='black')
 
         # 出力ファイルの検証
-        output_path = self.output_file_var.get()
-        if output_path and output_path != UILabels.PLACEHOLDER_FILE:
-            is_valid, error_msg, validated_path = PathValidator.validate_file_path(output_path, must_exist=False, allowed_extensions=['.pdf'])
-            if is_valid:
-                self.output_validation_label.config(text=UIIcons.ICON_SUCCESS, fg=UIColors.VALID)
-                create_tooltip(self.output_validation_label, "出力先のパスが有効です")
+        output_valid = False
+        if output_path and output_path != _PLACEHOLDER_FILE:
+            output_valid, error_msg, _ = PathValidator.validate_file_path(output_path, must_exist=False, allowed_extensions=['.pdf'])
+            if output_valid:
+                self.output_validation_label.config(text="✓", fg=COLORS['valid'])
             else:
-                self.output_validation_label.config(text=UIIcons.ICON_ERROR, fg=UIColors.INVALID)
-                create_tooltip(self.output_validation_label, error_msg)
+                self.output_validation_label.config(text="✗", fg=COLORS['invalid'])
         else:
             self.output_validation_label.config(text="", fg='black')
 
-        # 実行ボタンの有効/無効を更新
-        self._update_run_button_state()
-
-    def _update_run_button_state(self) -> None:
-        """実行ボタンの状態を更新"""
-        input_path = self.input_dir_var.get()
-        output_path = self.output_file_var.get()
-
-        logger.debug(f"実行ボタン状態チェック: input={input_path}, output={output_path}")
-
-        # 両方が入力されており、プレースホルダーでない場合のみ有効
-        if (input_path and input_path != UILabels.PLACEHOLDER_DIR and
-            output_path and output_path != UILabels.PLACEHOLDER_FILE):
-            # さらに実際にパスが有効かチェック
-            input_valid, input_err, _ = PathValidator.validate_directory(input_path, must_exist=True)
-            output_valid, output_err, _ = PathValidator.validate_file_path(output_path, must_exist=False, allowed_extensions=['.pdf'])
-
-            logger.debug(f"パス検証結果: input_valid={input_valid}, output_valid={output_valid}")
-            if not input_valid:
-                logger.debug(f"入力パス検証エラー: {input_err}")
-            if not output_valid:
-                logger.debug(f"出力パス検証エラー: {output_err}")
-
-            if input_valid and output_valid:
-                logger.info("実行ボタンを有効化")
-                self.run_button.config(state='normal')
-            else:
-                logger.warning(f"実行ボタンを無効化: input_valid={input_valid}, output_valid={output_valid}")
-                self.run_button.config(state='disabled')
+        # 実行ボタンの状態を更新
+        if input_valid and output_valid:
+            self.run_button.config(state='normal')
         else:
-            logger.warning(f"実行ボタンを無効化: 入力が不十分 (input={bool(input_path)}, output={bool(output_path)})")
             self.run_button.config(state='disabled')
 
     def _load_default_paths(self) -> None:
@@ -682,7 +622,7 @@ class PDFTab(BaseTab):
             google_drive_base = base_paths.get("google_drive", "")
 
             # 入力ディレクトリが未設定の場合、Google Driveのベースパスを設定
-            if not self.input_dir_var.get() or self.input_dir_var.get() == UILabels.PLACEHOLDER_DIR:
+            if not self.input_dir_var.get() or self.input_dir_var.get() == _PLACEHOLDER_DIR:
                 if google_drive_base:
                     # 教育計画のディレクトリパスを構築
                     year = self.config.get("year") or self.config.year or ""
@@ -705,7 +645,7 @@ class PDFTab(BaseTab):
                             logger.info(f"デフォルト入力ディレクトリを設定: {default_input_path}")
 
             # 出力ファイルが未設定の場合、デスクトップのデフォルトファイル名を設定
-            if not self.output_file_var.get() or self.output_file_var.get() == UILabels.PLACEHOLDER_FILE:
+            if not self.output_file_var.get() or self.output_file_var.get() == _PLACEHOLDER_FILE:
                 desktop_path = Path.home() / "Desktop"
                 output_config = self.config.get("output") or {}
                 default_output_file = output_config.get("merged_pdf", "merged_output.pdf")
@@ -726,6 +666,6 @@ class PDFTab(BaseTab):
             error_msg: エラーメッセージ（Noneの場合は不明なエラー）
         """
         messagebox.showwarning(
-            UIMessages.ERROR_VALIDATION,
-            error_msg or UIMessages.ERROR_UNKNOWN
+            "検証エラー",
+            error_msg or "不明なエラー"
         )

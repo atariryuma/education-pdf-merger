@@ -12,12 +12,12 @@ from typing import Optional, Any, Callable, Dict, TYPE_CHECKING
 from converters.office_converter import OfficeConverter
 from converters.image_converter import ImageConverter
 from converters.ichitaro_converter import IchitaroConverter
-from constants import PDFConversionConstants
-from path_validator import PathValidator
+from shared.constants import PDFConversionConstants
+from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
-    from config_loader import ConfigLoader
-    from pdf_processor import PDFProcessor
+    from infrastructure.config_loader import ConfigLoader
+    from core.pdf_processor import PDFProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class PDFConverter:
         if pdf_processor is not None:
             self._pdf_processor = pdf_processor
         elif config is not None:
-            from pdf_processor import PDFProcessor
+            from core.pdf_processor import PDFProcessor
             self._pdf_processor = PDFProcessor(config)
         else:
             self._pdf_processor = None

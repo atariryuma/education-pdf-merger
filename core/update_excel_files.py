@@ -4,6 +4,7 @@ Excel自動転記モジュール
 年間行事計画（参照ファイル）から様式ファイル（反映ファイル）へ
 日付、行事時数、欠時数を自動転記・集計する
 """
+import datetime as dt
 import logging
 import os
 import re
@@ -20,8 +21,8 @@ except ImportError as e:
         "pip install pywin32"
     ) from e
 
-from exceptions import PDFMergeError, CancelledError
-from constants import ExcelLookIn, ExcelLookAt, ExcelSortOrder, ExcelSortHeader, ExcelTransferConstants, PDFConversionConstants
+from shared.exceptions import PDFMergeError, CancelledError
+from shared.constants import ExcelSortOrder, ExcelSortHeader, ExcelTransferConstants, PDFConversionConstants
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -200,6 +201,125 @@ class ExcelTransfer:
             f"データ行={len(self._ref_data_cache)}件, 最終行={last_row}"
         )
 
+        # カテゴリインデックスを構築
+        self._build_category_index()
+
+    def _build_category_index(self) -> None:
+        """
+        参照Excelからカテゴリ別インデックスを構築
+
+        E～AN列の各行を走査し、どのカテゴリ（儀式、文化等）に属するかを判定。
+        結果を {カテゴリ: {正規化行事名: 行番号}} の辞書として保持する。
+        カテゴリなし検索用に全行事のインデックスも作成する。
+
+        構造:
+            _category_index["儀式"] = {"入学式": 5, "卒業式": 120, ...}
+            _category_index["文化"] = {"学習発表会": 45, ...}
+            _all_events_index = {"入学式": 5, "卒業式": 120, "学習発表会": 45, ...}
+        """
+        self._category_index: Dict[str, Dict[str, int]] = {}
+        self._all_events_index: Dict[str, int] = {}
+        self._row_category_cache: Dict[int, str] = {}  # 行番号→カテゴリ
+
+        for row_num, c_value in self._ref_c_cache:
+            # この行のカテゴリを判定（E～AN列を確認）
+            row_data = self._ref_data_cache.get(row_num, [])
+            category = self._detect_row_category(row_data)
+            if category:
+                self._row_category_cache[row_num] = category
+
+            # C列の行事名を正規化
+            normalized = self._normalize_text(c_value)
+            if not normalized:
+                continue
+
+            # 全行事インデックスに追加（先に見つかった行を優先）
+            if normalized not in self._all_events_index:
+                self._all_events_index[normalized] = row_num
+
+            # カテゴリ別インデックスに追加
+            if category:
+                if category not in self._category_index:
+                    self._category_index[category] = {}
+                if normalized not in self._category_index[category]:
+                    self._category_index[category][normalized] = row_num
+
+            # 複数行セル対応: 各行も個別にインデックスに追加
+            for line in self._split_cell_lines(c_value):
+                norm_line = self._normalize_text(line)
+                if norm_line and norm_line != normalized:
+                    if norm_line not in self._all_events_index:
+                        self._all_events_index[norm_line] = row_num
+                    if category and norm_line not in self._category_index.get(category, {}):
+                        if category not in self._category_index:
+                            self._category_index[category] = {}
+                        self._category_index[category][norm_line] = row_num
+
+        # ログ出力
+        for cat, events in self._category_index.items():
+            logger.info(f"  カテゴリ [{cat}]: {len(events)}件")
+        logger.info(f"  全行事インデックス: {len(self._all_events_index)}件")
+
+    def _detect_row_category(self, row_data: list) -> str:
+        """
+        E～AN列のデータから行のカテゴリを判定
+
+        最も多く出現するEVENT_KEYWORDを返す。
+        行事キーワードがなく欠時のみの場合は「欠時」を返す。
+
+        Args:
+            row_data: E～AN列のデータリスト
+
+        Returns:
+            str: カテゴリ名。判定不能の場合は空文字
+        """
+        if not row_data:
+            return ""
+
+        keyword_counts: Dict[str, int] = {}
+        has_absent = False
+
+        for cell in row_data:
+            if cell is None:
+                continue
+            cell_str = str(cell).strip()
+            if not cell_str:
+                continue
+            if cell_str == ExcelTransferConstants.ABSENT_KEYWORD:
+                has_absent = True
+                continue
+            for kw in ExcelTransferConstants.EVENT_KEYWORDS:
+                if kw in cell_str:
+                    keyword_counts[kw] = keyword_counts.get(kw, 0) + 1
+                    break
+
+        if keyword_counts:
+            return max(keyword_counts, key=keyword_counts.get)  # type: ignore[arg-type]
+        if has_absent:
+            return ExcelTransferConstants.ABSENT_KEYWORD
+        return ""
+
+    @staticmethod
+    def _to_datetime(value: Any) -> 'Optional[Any]':
+        """
+        Excel日付値をdatetimeに変換（タイムゾーン除去）
+
+        Args:
+            value: datetime、Excelシリアル値(int/float)、または不明な値
+
+        Returns:
+            Optional[datetime]: 変換結果。変換不能な場合はNone
+        """
+
+        if isinstance(value, dt.datetime):
+            return value.replace(tzinfo=None)
+        if isinstance(value, (int, float)):
+            try:
+                return dt.datetime(1899, 12, 30) + dt.timedelta(days=int(value))
+            except (ValueError, OverflowError):
+                return None
+        return None
+
     def _split_cell_lines(self, cell_value: str) -> List[str]:
         """
         セル内テキストを行・区切り文字で分割
@@ -214,96 +334,93 @@ class ExcelTransfer:
         lines = re.split(r'[\n\r]+|(?=[・※])', cell_value)
         return [line.strip().lstrip('・※') for line in lines if line.strip()]
 
-    def _find_value_in_source(self, search_value: str) -> Optional[int]:
+    def _find_value_in_source(
+        self, search_value: str, category: Optional[str] = None
+    ) -> Optional[int]:
         """
-        参照ExcelのC列から値を検索（部分一致→あいまい検索の2段階）
+        インデックスから行事名を検索（完全一致→部分一致→あいまい検索の3段階）
 
-        1. 部分文字列一致: 検索値がセル内に含まれるか（複数行セル対応）
-        2. あいまい検索: セル内の各行と類似度を比較し、最も近いものを返す
+        カテゴリが指定された場合、そのカテゴリ内のみを検索する（安全）。
+        カテゴリなしの場合は全行事インデックスを検索する（ループ2,3用）。
 
         Args:
-            search_value: 検索値
+            search_value: 検索値（行事名）
+            category: カテゴリ名（"儀式"、"文化"等）。Noneで全体検索
 
         Returns:
             Optional[int]: 見つかった行番号（見つからない場合None）
         """
-        SIMILARITY_THRESHOLD = 0.5
-
+        self._ensure_ref_cache()
         normalized_search = self._normalize_text(search_value)
         if not normalized_search:
             return None
 
-        ref_data = self._get_ref_column_data()
+        # 検索対象のインデックスを選択
+        if category and category in self._category_index:
+            index = self._category_index[category]
+            search_scope = f"カテゴリ[{category}]"
+        else:
+            index = self._all_events_index
+            search_scope = "全体"
 
-        # ステップ1: 部分文字列一致（最も短いマッチ＝最も近いものを優先）
+        if not index:
+            logger.info(f"    一致なし: '{search_value}' ({search_scope}にデータなし)")
+            return None
+
+        # ステップ1: 完全一致（辞書引き O(1)）
+        if normalized_search in index:
+            row = index[normalized_search]
+            logger.info(
+                f"    完全一致: '{search_value}' → 行{row} ({search_scope})"
+            )
+            return row
+
+        # ステップ2: 部分一致（検索値がインデックスのキーに含まれるか）
         best_partial_row: Optional[int] = None
         best_partial_len: int = float('inf')  # type: ignore[assignment]
-        best_partial_value: str = ""
+        best_partial_key: str = ""
 
-        for row_num, cell_value in ref_data:
-            normalized_cell = self._normalize_text(cell_value)
-            if normalized_search in normalized_cell:
-                if len(normalized_cell) < best_partial_len:
+        for key, row_num in index.items():
+            if normalized_search in key:
+                if len(key) < best_partial_len:
                     best_partial_row = row_num
-                    best_partial_len = len(normalized_cell)
-                    best_partial_value = cell_value
+                    best_partial_len = len(key)
+                    best_partial_key = key
 
         if best_partial_row is not None:
-            if best_partial_len == len(normalized_search):
-                logger.info(
-                    f"    完全一致: '{search_value}' = '{best_partial_value}' (行{best_partial_row})"
-                )
-            else:
-                display = best_partial_value[:50] + '...' if len(best_partial_value) > 50 else best_partial_value
-                logger.info(
-                    f"    部分一致: '{search_value}' ⊂ '{display}' (行{best_partial_row})"
-                )
+            display = best_partial_key[:50] + '...' if len(best_partial_key) > 50 else best_partial_key
+            logger.info(
+                f"    部分一致: '{search_value}' ⊂ '{display}' → 行{best_partial_row} ({search_scope})"
+            )
             return best_partial_row
 
-        # ステップ2: あいまい検索（セル内の各行と比較）
+        # ステップ3: あいまい検索（同カテゴリ内の少数候補のみ）
         best_row: Optional[int] = None
         best_ratio: float = 0.0
-        best_value: str = ""
+        best_key: str = ""
 
-        for row_num, cell_value in ref_data:
-            # セル全体との比較
-            normalized_cell = self._normalize_text(cell_value)
-            if not normalized_cell:
-                continue
-
-            ratio = SequenceMatcher(None, normalized_search, normalized_cell).ratio()
+        for key, row_num in index.items():
+            ratio = SequenceMatcher(None, normalized_search, key).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
                 best_row = row_num
-                best_value = cell_value
+                best_key = key
 
-            # セル内の各行との比較（複数行セル対応）
-            for line in self._split_cell_lines(cell_value):
-                normalized_line = self._normalize_text(line)
-                if not normalized_line:
-                    continue
-
-                line_ratio = SequenceMatcher(None, normalized_search, normalized_line).ratio()
-                if line_ratio > best_ratio:
-                    best_ratio = line_ratio
-                    best_row = row_num
-                    best_value = line
-
-        if best_ratio >= SIMILARITY_THRESHOLD:
+        if best_ratio >= ExcelTransferConstants.SIMILARITY_THRESHOLD:
             logger.info(
-                f"    あいまい一致: '{search_value}' ≈ '{best_value}' "
-                f"(類似度: {best_ratio:.0%}, 行{best_row})"
+                f"    あいまい一致: '{search_value}' ≈ '{best_key}' "
+                f"(類似度: {best_ratio:.0%}, 行{best_row}, {search_scope})"
             )
             return best_row
+
+        if best_key:
+            logger.info(
+                f"    一致なし: '{search_value}' "
+                f"(最も近い: '{best_key}', 類似度: {best_ratio:.0%} < 閾値{ExcelTransferConstants.SIMILARITY_THRESHOLD:.0%}, {search_scope})"
+            )
         else:
-            if best_value:
-                logger.info(
-                    f"    一致なし: '{search_value}' "
-                    f"(最も近い: '{best_value}', 類似度: {best_ratio:.0%} < 閾値{SIMILARITY_THRESHOLD:.0%})"
-                )
-            else:
-                logger.info(f"    一致なし: '{search_value}' (参照データなし)")
-            return None
+            logger.info(f"    一致なし: '{search_value}' ({search_scope}にデータなし)")
+        return None
 
     def _read_cell_value(self, row: int, col: str) -> Any:
         """
@@ -340,15 +457,11 @@ class ExcelTransfer:
         Returns:
             Optional[str]: ベース名（「期間」「週間」を含まない場合はNone）
         """
-        PERIOD_KEYWORDS = ("期間", "週間")
-        if not any(kw in text for kw in PERIOD_KEYWORDS):
+        if not any(kw in text for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
             return None
         # 複数行セル対応：「期間」「週間」を含む行だけを抽出
-        for line in re.split(r'[\n\r]+|(?=[・※])', text):
-            line = line.strip().lstrip('・※')
-            if not line:
-                continue
-            if any(kw in line for kw in PERIOD_KEYWORDS):
+        for line in self._split_cell_lines(text):
+            if any(kw in line for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
                 # 末尾の日付範囲サフィックス（～24日、～10月9日）を除去
                 line = re.sub(r'～\d{1,2}月?\d{1,2}日$', '', line).strip()
                 # 末尾の連番記号（①②③...、(1)(2)、１２３...）を除去してベース名を取得
@@ -406,11 +519,9 @@ class ExcelTransfer:
         if c_value is not None:
             c_text = str(c_value)
             # C列の「期間」「週間」を含む行から日付範囲を検出
-            PERIOD_KEYWORDS = ("期間", "週間")
-            if any(kw in c_text for kw in PERIOD_KEYWORDS):
-                for line in re.split(r'[\n\r]+|(?=[・※])', c_text):
-                    line_stripped = line.strip().lstrip('・※')
-                    if any(kw in line_stripped for kw in PERIOD_KEYWORDS):
+            if any(kw in c_text for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
+                for line_stripped in self._split_cell_lines(c_text):
+                    if any(kw in line_stripped for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
                         ref_date_suffix = self._parse_date_range_suffix(line_stripped)
                         if ref_date_suffix is not None:
                             logger.info(
@@ -444,7 +555,6 @@ class ExcelTransfer:
             date_suffix: (月, 日) - 月=0は起点行と同月
             search_str: ログ出力用の検索値
         """
-        import datetime as dt
 
         # 起点行のA列から開始日を取得
         start_date_raw = self._ref_a_cache.get(found_row)
@@ -454,18 +564,9 @@ class ExcelTransfer:
             )
             return [found_row]
 
-        # datetime変換（タイムゾーン情報は除去して統一）
-        if isinstance(start_date_raw, dt.datetime):
-            start_date = start_date_raw.replace(tzinfo=None)
-        elif isinstance(start_date_raw, (int, float)):
-            # Excelシリアル値の場合
-            try:
-                start_date = dt.datetime(1899, 12, 30) + dt.timedelta(days=int(start_date_raw))
-            except (ValueError, OverflowError):
-                logger.warning(f"    期間収集: 起点行{found_row}の日付変換失敗: {start_date_raw}")
-                return [found_row]
-        else:
-            logger.warning(f"    期間収集: 起点行{found_row}の日付形式不明: {type(start_date_raw)}")
+        start_date = self._to_datetime(start_date_raw)
+        if start_date is None:
+            logger.warning(f"    期間収集: 起点行{found_row}の日付変換失敗: {start_date_raw}")
             return [found_row]
 
         # 終了日を決定
@@ -491,15 +592,8 @@ class ExcelTransfer:
         # 日付範囲内で欠時を含む行を収集
         rows: List[int] = []
         for row_num, date_val in self._ref_a_cache.items():
-            # datetime変換（タイムゾーン情報は除去して統一）
-            if isinstance(date_val, dt.datetime):
-                row_date = date_val.replace(tzinfo=None)
-            elif isinstance(date_val, (int, float)):
-                try:
-                    row_date = dt.datetime(1899, 12, 30) + dt.timedelta(days=int(date_val))
-                except (ValueError, OverflowError):
-                    continue
-            else:
+            row_date = self._to_datetime(date_val)
+            if row_date is None:
                 continue
 
             # 日付範囲チェック
@@ -546,51 +640,10 @@ class ExcelTransfer:
         )
         return rows
 
-    def _detect_event_category(self, found_row: int) -> str:
-        """
-        参照ExcelのE～AN列から行事カテゴリを自動検出
-
-        Args:
-            found_row: 参照Excelの行番号
-
-        Returns:
-            str: 検出されたカテゴリ（儀式、文化等）。見つからない場合は空文字
-        """
-        row_data = self._read_data_row(
-            found_row,
-            ExcelTransferConstants.REF_DATA_START_COL,
-            ExcelTransferConstants.REF_DATA_END_COL
-        )
-        if not row_data:
-            return ""
-
-        # 各EVENT_KEYWORDの出現回数をカウント
-        keyword_counts: Dict[str, int] = {}
-        for cell in row_data:
-            if cell is None:
-                continue
-            cell_str = str(cell).strip()
-            if not cell_str:
-                continue
-            for kw in ExcelTransferConstants.EVENT_KEYWORDS:
-                if kw in cell_str:
-                    keyword_counts[kw] = keyword_counts.get(kw, 0) + 1
-                    break
-
-        if not keyword_counts:
-            # EVENT_KEYWORDSに一致しない場合、欠時チェック
-            for cell in row_data:
-                if cell is not None and str(cell).strip() == ExcelTransferConstants.ABSENT_KEYWORD:
-                    return ExcelTransferConstants.ABSENT_KEYWORD
-            return ""
-
-        # 最も多いキーワードを返す
-        return max(keyword_counts, key=keyword_counts.get)  # type: ignore[arg-type]
-
     def _count_events_in_found_row(
         self,
         found_row: int,
-        filter_keyword: Optional[str] = None,
+        category: Optional[str] = None,
         search_value: Optional[str] = None
     ) -> Dict[int, Tuple[int, int]]:
         """
@@ -600,7 +653,7 @@ class ExcelTransfer:
 
         Args:
             found_row: 参照Excelの行番号
-            filter_keyword: フィルター用キーワード（D8～D50用、Noneの場合はループ2,3）
+            category: カテゴリ名（"儀式"等）。指定時はそのキーワードのみカウント
             search_value: ターゲットの検索値（期間/週間の判定に使用）
 
         Returns:
@@ -612,7 +665,7 @@ class ExcelTransfer:
         try:
             # ターゲットの検索値から期間/週間を判定（参照C列ではなく検索値で判定）
             search_str = str(search_value).strip() if search_value else ""
-            is_period = any(kw in search_str for kw in ("期間", "週間"))
+            is_period = any(kw in search_str for kw in ExcelTransferConstants.PERIOD_KEYWORDS)
 
             # 期間/週間の場合は関連行を全て収集
             if is_period:
@@ -639,9 +692,7 @@ class ExcelTransfer:
                 }
 
             # 期間/週間の種別判定：どちらも欠時としてカウント
-            period_mode: Optional[str] = None
             if is_period:
-                period_mode = "absent"
                 logger.info(f"    期間/週間検出: '{search_str}' → 欠時としてカウント")
 
             counts: Dict[int, Tuple[int, int]] = {}
@@ -669,15 +720,15 @@ class ExcelTransfer:
                             cell_str = str(cell).strip()
                             if cell_str == ExcelTransferConstants.ABSENT_KEYWORD:
                                 total_absent += 1
-                    elif filter_keyword is not None:
-                        # D8～D50用：行事キーワードのみカウント（欠時は期間/週間でカウント）
+                    elif category is not None:
+                        # カテゴリ指定あり：そのカテゴリのみカウント
                         for cell in group:
                             if cell is None:
                                 continue
                             cell_str = str(cell).strip()
                             if not cell_str:
                                 continue
-                            if cell_str == filter_keyword:
+                            if cell_str == category:
                                 total_event += 1
                     else:
                         # ループ2,3用（通常行事）：行事時数のみカウント
@@ -727,7 +778,7 @@ class ExcelTransfer:
         self,
         row: int,
         search_col: str,
-        filter_keyword: Optional[str] = None
+        category: Optional[str] = None
     ) -> None:
         """
         1行分の転記処理（参照Excel → ターゲットExcel）
@@ -735,7 +786,7 @@ class ExcelTransfer:
         Args:
             row: ターゲットExcelファイルの行番号
             search_col: 検索値を取得する列（D or C）
-            filter_keyword: フィルター用キーワード（Noneの場合は部分一致）
+            category: カテゴリ名（"儀式"等）。インデックス検索の絞り込みに使用
 
         Note:
             このメソッドはターゲットExcelワークシートを直接変更します（副作用あり）
@@ -753,7 +804,7 @@ class ExcelTransfer:
         search_str = str(search_value).strip()
         # original_search_value: 日付範囲サフィックス付きの元値（_get_period_rowsに渡す）
         original_search_value = search_str
-        if any(kw in search_str for kw in ("期間", "週間")):
+        if any(kw in search_str for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
             if re.search(r'[②-⑳]', search_str):
                 # ②以降 → A～P列を一括クリア（①に集約）
                 empty_row = [[""] * 16]
@@ -778,10 +829,10 @@ class ExcelTransfer:
                 )
                 search_value = search_for_lookup
 
-        logger.info(f"  > 行{row}: {search_col}列の値 '{search_value}' を参照Excelで検索中...")
+        logger.info(f"  > 行{row}: '{search_value}' を検索中 (カテゴリ: {category or '全体'})...")
 
-        # 参照Excelから検索
-        found_row = self._find_value_in_source(search_value)
+        # インデックスから検索（カテゴリで安全に絞り込み）
+        found_row = self._find_value_in_source(search_value, category)
 
         if found_row is not None:
             # 日付を取得（キャッシュから）
@@ -790,15 +841,10 @@ class ExcelTransfer:
                 ExcelTransferConstants.TARGET_DATE_COL
             )
 
-            # Loop1（D列検索）の場合、C列（内容）を参照データから自動検出
-            if search_col == ExcelTransferConstants.LOOP1_SEARCH_COL:
-                detected_category = self._detect_event_category(found_row)
-                if detected_category:
-                    self.target_ws.Range(
-                        f"{ExcelTransferConstants.TARGET_FILTER_COL}{row}"
-                    ).Value = detected_category
-                    filter_keyword = detected_category
-                    logger.info(f"    内容自動検出: '{detected_category}'")
+            # カテゴリが未指定の場合（ループ2,3）、キャッシュから取得
+            filter_keyword = category
+            if not filter_keyword:
+                filter_keyword = self._row_category_cache.get(found_row)
 
             # 行事時数・欠時数をカウント（日付範囲サフィックス付きの元値を渡す）
             counts = self._count_events_in_found_row(found_row, filter_keyword, original_search_value)
@@ -816,8 +862,14 @@ class ExcelTransfer:
                 )
                 return
 
-            # A～P列の書き込みデータを構築
+            # A列に日付を書き込み
             self.target_ws.Range(f"A{row}").Value = ref_date
+
+            # ループ1の場合、C列にカテゴリを書き込み
+            if search_col == ExcelTransferConstants.LOOP1_SEARCH_COL and filter_keyword:
+                self.target_ws.Range(
+                    f"{ExcelTransferConstants.TARGET_FILTER_COL}{row}"
+                ).Value = filter_keyword
 
             # E～P列を一括書き込み（12セル = 6学年 × 2列）
             grade_data = []
@@ -828,7 +880,8 @@ class ExcelTransfer:
             self.target_ws.Range(f"E{row}:P{row}").Value = [grade_data]
 
             logger.info(
-                f"  ✓ 行{row}: '{search_value}' → 参照Excel行{found_row} (日付: {ref_date})"
+                f"  ✓ 行{row}: '{search_value}' → 参照Excel行{found_row} "
+                f"(日付: {ref_date}, カテゴリ: {filter_keyword})"
             )
         else:
             # 見つからない場合：行全体をクリア（ソートで下に移動）
@@ -941,48 +994,42 @@ class ExcelTransfer:
         """
         3つの転記ループを実行
 
+        ループ1: D8～D50（C列のカテゴリでインデックス絞り込み）
+        ループ2: C55～C62（カテゴリなし＝全体検索）
+        ループ3: C67～C95（カテゴリなし＝全体検索）
+
         Raises:
             ExcelTransferError: 転記処理中にエラーが発生した場合
         """
-        # ループ1: D8～D50（フィルターあり）
+        # ループ1: D8～D50（カテゴリ付き検索）
         logger.info(PDFConversionConstants.LOG_SEPARATOR_MINOR)
-        logger.info(
-            f"【ループ1】{ExcelTransferConstants.LOOP1_SEARCH_COL}"
-            f"{ExcelTransferConstants.LOOP1_START_ROW}～"
-            f"{ExcelTransferConstants.LOOP1_END_ROW - 1} の処理を開始"
-        )
-        self._report_progress("ループ1: フィルター付き転記を実行中...")
-
-        # C列のフィルターキーワードを一括取得
         start_row = ExcelTransferConstants.LOOP1_START_ROW
         end_row = ExcelTransferConstants.LOOP1_END_ROW
-        filter_range_addr = (
+        total_rows = end_row - start_row
+        logger.info(f"【ループ1】D{start_row}～D{end_row - 1} の処理を開始（全{total_rows}行）")
+        self._report_progress("ループ1: カテゴリ付き転記を実行中...")
+
+        # C列のカテゴリを一括取得（インデックス絞り込みに使用）
+        category_range = self.target_ws.Range(
             f"{ExcelTransferConstants.TARGET_FILTER_COL}{start_row}:"
             f"{ExcelTransferConstants.TARGET_FILTER_COL}{end_row - 1}"
-        )
-        filter_range_values = self.target_ws.Range(filter_range_addr).Value
-
-        # 一括取得した値をリスト化
-        filter_list = []
-        if filter_range_values:
-            if isinstance(filter_range_values, tuple):
-                filter_list = [row[0] if row else None for row in filter_range_values]
+        ).Value
+        category_list: List[Optional[str]] = []
+        if category_range:
+            if isinstance(category_range, tuple):
+                category_list = [
+                    str(row[0]).strip() if row and row[0] else None
+                    for row in category_range
+                ]
             else:
-                filter_list = [filter_range_values]
+                category_list = [str(category_range).strip() if category_range else None]
 
-        logger.debug(f"フィルターキーワードを一括取得: {len(filter_list)}件")
-        logger.info(f"ループ1: 行{start_row}～{end_row - 1}を処理します（全{end_row - start_row}行）")
-
-        total_rows = end_row - start_row
         for i, row in enumerate(range(start_row, end_row)):
-            filter_keyword = filter_list[i] if i < len(filter_list) else None
-            if filter_keyword is not None:
-                filter_keyword = str(filter_keyword).strip()
-
+            category = category_list[i] if i < len(category_list) else None
             self._report_progress(f"ループ1: 転記中... ({i + 1}/{total_rows})")
-            self._process_row(row, ExcelTransferConstants.LOOP1_SEARCH_COL, filter_keyword)
+            self._process_row(row, ExcelTransferConstants.LOOP1_SEARCH_COL, category)
 
-        # ループ1の範囲を並び替え（C列=内容ごと → A列=日付順）
+        # ループ1の範囲を並び替え（C列=カテゴリ順 → A列=日付順）
         self._report_progress("ループ1: 並び替え中...")
         self._sort_range(
             ExcelTransferConstants.LOOP1_SORT_RANGE,
@@ -991,25 +1038,18 @@ class ExcelTransfer:
         )
         logger.info("【ループ1】完了")
 
-        # ループ2: C55～C62（フィルターなし）
+        # ループ2: C55～C62（カテゴリなし＝全体検索）
         logger.info(PDFConversionConstants.LOG_SEPARATOR_MINOR)
-        logger.info(
-            f"【ループ2】{ExcelTransferConstants.LOOP2_SEARCH_COL}"
-            f"{ExcelTransferConstants.LOOP2_START_ROW}～"
-            f"{ExcelTransferConstants.LOOP2_END_ROW - 1} の処理を開始"
-        )
-        self._report_progress("ループ2: 通常転記を実行中...")
-
         start_row = ExcelTransferConstants.LOOP2_START_ROW
         end_row = ExcelTransferConstants.LOOP2_END_ROW
         total_rows = end_row - start_row
-        logger.info(f"ループ2: 行{start_row}～{end_row - 1}を処理します（全{total_rows}行）")
+        logger.info(f"【ループ2】C{start_row}～C{end_row - 1} の処理を開始（全{total_rows}行）")
+        self._report_progress("ループ2: 転記を実行中...")
 
         for i, row in enumerate(range(start_row, end_row)):
             self._report_progress(f"ループ2: 転記中... ({i + 1}/{total_rows})")
             self._process_row(row, ExcelTransferConstants.LOOP2_SEARCH_COL, None)
 
-        # ループ2の範囲を並び替え
         self._report_progress("ループ2: 並び替え中...")
         self._sort_range(
             ExcelTransferConstants.LOOP2_SORT_RANGE,
@@ -1017,25 +1057,18 @@ class ExcelTransfer:
         )
         logger.info("【ループ2】完了")
 
-        # ループ3: C67～C96（フィルターなし）
+        # ループ3: C67～C95（カテゴリなし＝全体検索）
         logger.info(PDFConversionConstants.LOG_SEPARATOR_MINOR)
-        logger.info(
-            f"【ループ3】{ExcelTransferConstants.LOOP3_SEARCH_COL}"
-            f"{ExcelTransferConstants.LOOP3_START_ROW}～"
-            f"{ExcelTransferConstants.LOOP3_END_ROW - 1} の処理を開始"
-        )
-        self._report_progress("ループ3: 通常転記を実行中...")
-
         start_row = ExcelTransferConstants.LOOP3_START_ROW
         end_row = ExcelTransferConstants.LOOP3_END_ROW
         total_rows = end_row - start_row
-        logger.info(f"ループ3: 行{start_row}～{end_row - 1}を処理します（全{total_rows}行）")
+        logger.info(f"【ループ3】C{start_row}～C{end_row - 1} の処理を開始（全{total_rows}行）")
+        self._report_progress("ループ3: 転記を実行中...")
 
         for i, row in enumerate(range(start_row, end_row)):
             self._report_progress(f"ループ3: 転記中... ({i + 1}/{total_rows})")
             self._process_row(row, ExcelTransferConstants.LOOP3_SEARCH_COL, None)
 
-        # ループ3の範囲を並び替え
         self._sort_range(
             ExcelTransferConstants.LOOP3_SORT_RANGE,
             ExcelTransferConstants.LOOP3_SORT_KEY
@@ -1511,7 +1544,7 @@ def main() -> None:
         実際のファイルパスを引数として指定する必要があります。
     """
     import sys
-    from config_loader import ConfigLoader
+    from infrastructure.config_loader import ConfigLoader
 
     if len(sys.argv) < 3:
         print("使用方法: python update_excel_files.py <参照ファイルパス> <対象ファイルパス>")

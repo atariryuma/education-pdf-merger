@@ -5,10 +5,10 @@ PDFMergeOrchestrator のユニットテスト
 """
 import os
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call
 
-from pdf_merge_orchestrator import PDFMergeOrchestrator
-from exceptions import CancelledError
+from core.pdf_merge_orchestrator import PDFMergeOrchestrator
+from shared.exceptions import CancelledError
 
 
 @pytest.fixture

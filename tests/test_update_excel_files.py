@@ -4,10 +4,10 @@ ExcelTransfer のユニットテスト
 Excel転記処理（COM操作をモック化）をテスト
 """
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
-from update_excel_files import ExcelTransfer, ExcelTransferError
-from exceptions import CancelledError
+from core.update_excel_files import ExcelTransfer, ExcelTransferError
+from shared.exceptions import CancelledError
 
 
 @pytest.fixture
@@ -71,8 +71,8 @@ class TestCheckCancelled:
 class TestFindWorkbook:
     """_find_workbook のテスト"""
 
-    @patch('update_excel_files.pythoncom')
-    @patch('update_excel_files.win32com.client')
+    @patch('core.update_excel_files.pythoncom')
+    @patch('core.update_excel_files.win32com.client')
     def test_finds_matching_workbook(self, mock_client, mock_pythoncom, transfer):
         """ファイル名が一致するワークブックを返す"""
         mock_wb = MagicMock()
@@ -85,8 +85,8 @@ class TestFindWorkbook:
         result = transfer._find_workbook("C:\\test\\ref.xlsx")
         assert result is mock_wb
 
-    @patch('update_excel_files.pythoncom')
-    @patch('update_excel_files.win32com.client')
+    @patch('core.update_excel_files.pythoncom')
+    @patch('core.update_excel_files.win32com.client')
     def test_raises_when_not_found(self, mock_client, mock_pythoncom, transfer):
         """ワークブックが見つからない場合エラー"""
         mock_excel = MagicMock()
@@ -127,8 +127,8 @@ class TestConnectWorksheet:
 class TestInitComConnection:
     """_init_com_connection のテスト"""
 
-    @patch('update_excel_files.win32com.client')
-    @patch('update_excel_files.pythoncom')
+    @patch('core.update_excel_files.win32com.client')
+    @patch('core.update_excel_files.pythoncom')
     def test_initializes_com(self, mock_pythoncom, mock_client, transfer):
         """COMが正常に初期化される"""
         mock_excel = MagicMock()
@@ -141,8 +141,8 @@ class TestInitComConnection:
         assert transfer.excel is mock_excel
         assert transfer._com_initialized is True
 
-    @patch('update_excel_files.win32com.client')
-    @patch('update_excel_files.pythoncom')
+    @patch('core.update_excel_files.win32com.client')
+    @patch('core.update_excel_files.pythoncom')
     def test_com_already_initialized(self, mock_pythoncom, mock_client, transfer):
         """COM初期化済みの場合はスキップ"""
         mock_pythoncom.CoInitialize.side_effect = Exception("Already initialized")
@@ -157,7 +157,7 @@ class TestInitComConnection:
 class TestCleanupExcel:
     """_cleanup_excel のテスト"""
 
-    @patch('update_excel_files.pythoncom')
+    @patch('core.update_excel_files.pythoncom')
     def test_cleanup_releases_all(self, mock_pythoncom, transfer):
         """全COMオブジェクトが解放される"""
         transfer.excel = MagicMock()
@@ -177,7 +177,7 @@ class TestCleanupExcel:
         assert transfer._com_initialized is False
         mock_pythoncom.CoUninitialize.assert_called_once()
 
-    @patch('update_excel_files.pythoncom')
+    @patch('core.update_excel_files.pythoncom')
     def test_cleanup_skips_uninit(self, mock_pythoncom, transfer):
         """COM未初期化時はCoUninitializeをスキップ"""
         transfer._com_initialized = False
@@ -214,21 +214,40 @@ class TestFindValueInSource:
     """_find_value_in_source のテスト"""
 
     def test_finds_value(self, transfer):
-        """検索値が見つかった場合に行番号を返す"""
-        mock_ws = MagicMock()
-        mock_found = MagicMock()
-        mock_found.Row = 15
-        mock_ws.Range.return_value.Find.return_value = mock_found
-        transfer.ref_ws = mock_ws
+        """完全一致でインデックスから行番号を返す"""
+        transfer._all_events_index = {"入学式": 15, "卒業式": 20}
+        transfer._category_index = {"儀式": {"入学式": 15, "卒業式": 20}}
+        transfer._ref_c_cache = [(15, "入学式"), (20, "卒業式")]
 
         result = transfer._find_value_in_source("入学式")
         assert result == 15
 
+    def test_finds_value_with_category(self, transfer):
+        """カテゴリ指定で絞り込み検索する"""
+        transfer._all_events_index = {"入学式": 15, "卒業式": 20, "学習発表会": 45}
+        transfer._category_index = {
+            "儀式": {"入学式": 15, "卒業式": 20},
+            "文化": {"学習発表会": 45},
+        }
+        transfer._ref_c_cache = [(15, "入学式"), (20, "卒業式"), (45, "学習発表会")]
+
+        result = transfer._find_value_in_source("入学式", category="儀式")
+        assert result == 15
+
+    def test_finds_value_partial_match(self, transfer):
+        """部分一致で行番号を返す"""
+        transfer._all_events_index = {"令和7年度入学式": 10, "卒業式": 20}
+        transfer._category_index = {}
+        transfer._ref_c_cache = [(10, "令和7年度入学式"), (20, "卒業式")]
+
+        result = transfer._find_value_in_source("入学式")
+        assert result == 10
+
     def test_returns_none_when_not_found(self, transfer):
         """検索値が見つからない場合にNoneを返す"""
-        mock_ws = MagicMock()
-        mock_ws.Range.return_value.Find.return_value = None
-        transfer.ref_ws = mock_ws
+        transfer._all_events_index = {"卒業式": 5, "運動会": 10}
+        transfer._category_index = {}
+        transfer._ref_c_cache = [(5, "卒業式"), (10, "運動会")]
 
         result = transfer._find_value_in_source("存在しない値")
         assert result is None

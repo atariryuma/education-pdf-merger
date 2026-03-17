@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 from converters.ichitaro_converter import IchitaroConverter
-from exceptions import CancelledError
+from shared.exceptions import CancelledError
 
 
 @pytest.fixture

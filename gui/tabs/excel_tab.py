@@ -8,7 +8,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import threading
-from typing import Any, Tuple, TYPE_CHECKING, Optional
+from typing import Any, Dict, TYPE_CHECKING, Optional
 from pathlib import Path
 
 try:
@@ -19,12 +19,13 @@ except ImportError:
     pythoncom = None
 
 from gui.tabs.base_tab import BaseTab
+from gui.styles import COLORS, FONTS
 from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip, thread_safe_call
-from path_validator import PathValidator
-from update_excel_files import ExcelTransfer
+from infrastructure.path_validator import PathValidator
+from core.update_excel_files import ExcelTransfer
 
 if TYPE_CHECKING:
-    from config_loader import ConfigLoader
+    from infrastructure.config_loader import ConfigLoader
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -51,8 +52,11 @@ class ExcelTab(BaseTab):
         # 設定タブへの参照（後から設定される）
         self.settings_tab: Optional[Any] = None
 
+        # 自動検出の二重実行防止フラグ
+        self._detecting = False
+
         self._create_ui()
-        self.add_to_notebook("📊 Excel処理")
+        self.add_to_notebook("Excel処理")
 
     def set_settings_tab(self, settings_tab: Any) -> None:
         """設定タブへの参照を設定（app.pyから呼ばれる）"""
@@ -60,31 +64,11 @@ class ExcelTab(BaseTab):
 
     def _create_ui(self) -> None:
         """UIを構築"""
-        # スクロール可能なメインコンテナ（BaseTabの共通メソッドを使用）
-        self.canvas, _scrollbar, self.scrollable_frame = self.create_scrollable_container()
-
-        # メインコンテナをスクロール可能フレーム内に配置
-        main_container = self.scrollable_frame
-
-        # 説明フレーム
-        info_frame = tk.LabelFrame(main_container, text="📋 Excel自動更新機能", font=("メイリオ", 11, "bold"))
-        info_frame.pack(fill="x", padx=20, pady=15)
-
-        info_text = "年間行事計画（編集用）から様式4へ自動的にデータを転記します。"
-        tk.Label(info_frame, text=info_text, justify="left", font=("メイリオ", 10)).pack(pady=(15, 5), padx=15)
-
-        steps_text = (
-            "📝 実行手順\n\n"
-            "1️⃣ 「🔍 自動検出」でExcelで開いているファイルを検出\n"
-            "   または「📁 ファイルを選択」で手動選択\n\n"
-            "2️⃣ ファイルパスが表示され、●マークが緑色になったことを確認\n\n"
-            "3️⃣ 「Excelデータ更新を実行」ボタンをクリック\n\n"
-            "4️⃣ 処理完了後、内容を確認してExcelで保存"
-        )
-        tk.Label(info_frame, text=steps_text, justify="left", font=("メイリオ", 9), fg="#333").pack(pady=(5, 15), padx=15, anchor="w")
+        main_container = tk.Frame(self.tab)
+        main_container.pack(fill="x")
 
         # ファイル選択フレーム
-        file_frame = tk.LabelFrame(main_container, text="📂 対象ファイル", font=("メイリオ", 11, "bold"))
+        file_frame = tk.LabelFrame(main_container, text="対象ファイル", font=FONTS['subheading'])
         file_frame.pack(fill="x", padx=20, pady=10)
 
         # 自動検出ボタン
@@ -96,7 +80,7 @@ class ExcelTab(BaseTab):
             text="🔍 開いているExcelファイルを自動検出",
             command=self._auto_detect_files,
             color="success",
-            font=("メイリオ", 10, "bold"),
+            font=FONTS['default_bold'],
             width=36,
             height=1
         )
@@ -110,16 +94,16 @@ class ExcelTab(BaseTab):
         ref_frame = tk.Frame(file_frame)
         ref_frame.pack(fill="x", padx=15, pady=8)
 
-        tk.Label(ref_frame, text="参照元:", width=10, anchor="w", font=("メイリオ", 9, "bold")).pack(side="left")
+        tk.Label(ref_frame, text="参照元:", width=10, anchor="w", font=FONTS['small_bold']).pack(side="left")
 
-        self.ref_status = tk.Label(ref_frame, text="●", fg="gray", font=("メイリオ", 12))
+        self.ref_status = tk.Label(ref_frame, text="●", fg="gray", font=FONTS['status_dot'])
         self.ref_status.pack(side="left", padx=(0, 5))
 
         self.ref_label = tk.Label(
             ref_frame,
             text="未選択",
-            font=("メイリオ", 9),
-            fg="#666",
+            font=FONTS['small'],
+            fg=COLORS['text_secondary'],
             anchor="w",
             cursor="hand2"
         )
@@ -134,7 +118,7 @@ class ExcelTab(BaseTab):
             ref_btn_frame,
             text="📁 ファイルを選択",
             command=lambda: self._select_file("reference"),
-            font=("メイリオ", 8),
+            font=FONTS['tiny'],
             width=14
         ).pack(side="left", padx=2)
 
@@ -143,23 +127,23 @@ class ExcelTab(BaseTab):
             text="📂",
             command=lambda: self._open_selected_file(self.ref_file_path),
             width=3,
-            font=("メイリオ", 9)
+            font=FONTS['small']
         ).pack(side="left", padx=2)
 
         # 対象ファイル
         target_frame = tk.Frame(file_frame)
         target_frame.pack(fill="x", padx=15, pady=8)
 
-        tk.Label(target_frame, text="対象:", width=10, anchor="w", font=("メイリオ", 9, "bold")).pack(side="left")
+        tk.Label(target_frame, text="対象:", width=10, anchor="w", font=FONTS['small_bold']).pack(side="left")
 
-        self.target_status = tk.Label(target_frame, text="●", fg="gray", font=("メイリオ", 12))
+        self.target_status = tk.Label(target_frame, text="●", fg="gray", font=FONTS['status_dot'])
         self.target_status.pack(side="left", padx=(0, 5))
 
         self.target_label = tk.Label(
             target_frame,
             text="未選択",
-            font=("メイリオ", 9),
-            fg="#666",
+            font=FONTS['small'],
+            fg=COLORS['text_secondary'],
             anchor="w",
             cursor="hand2"
         )
@@ -174,7 +158,7 @@ class ExcelTab(BaseTab):
             target_btn_frame,
             text="📁 ファイルを選択",
             command=lambda: self._select_file("target"),
-            font=("メイリオ", 8),
+            font=FONTS['tiny'],
             width=14
         ).pack(side="left", padx=2)
 
@@ -183,40 +167,45 @@ class ExcelTab(BaseTab):
             text="📂",
             command=lambda: self._open_selected_file(self.target_file_path),
             width=3,
-            font=("メイリオ", 9)
+            font=FONTS['small']
         ).pack(side="left", padx=2)
 
         # セパレーター（視覚的な区切り）
         ttk.Separator(main_container, orient="horizontal").pack(fill="x", padx=20, pady=10)
 
-        # 行事名初期設定エリア（年1回の使用を想定）
-        event_setup_frame = tk.LabelFrame(
-            main_container,
-            text="📥 行事名の初期設定（年1回・初回セットアップ用）",
-            font=("メイリオ", 10, "bold"),
-            bg="#F0F8FF"  # 薄い青色の背景
+        # 行事名初期設定エリア（折りたたみ式、デフォルトで折りたたみ）
+        self.event_setup_toggle_button, self.event_setup_content_frame = self.create_collapsible_section(
+            main_container, "▶ 行事名の初期設定", "▼ 行事名の初期設定",
+            fill="x", padx=20, pady=(10, 0)
         )
-        event_setup_frame.pack(fill="x", padx=20, pady=10)
+
+        event_setup_frame = tk.LabelFrame(
+            self.event_setup_content_frame,
+            text="行事名の初期設定（年1回）",
+            font=FONTS['default_bold'],
+            bg=COLORS['surface_light']  # 薄い青色の背景
+        )
+        event_setup_frame.pack(fill="x", padx=20, pady=(0, 10))
 
         # 説明ラベル
         tk.Label(
             event_setup_frame,
-            text="💡 対象ファイルのみ選択して実行してください（参照元ファイルは不要）",
-            font=("メイリオ", 9),
-            fg="#0066CC",
-            bg="#F0F8FF"
+            text="対象ファイルのみ選択して実行してください（参照元ファイルは不要）",
+            font=FONTS['small'],
+            fg=COLORS['primary'],
+            bg=COLORS['surface_light']
         ).pack(pady=(10, 5), padx=15, anchor="w")
 
         # ボタンコンテナ
-        event_button_container = tk.Frame(event_setup_frame, bg="#F0F8FF")
+        event_button_container = tk.Frame(event_setup_frame, bg=COLORS['surface_light'])
         event_button_container.pack(pady=(5, 10))
 
         self.read_event_button = create_hover_button(
             event_button_container,
-            text="📥 Excelから行事名を読込",
+            text="Excelから行事名を読込",
             command=self._read_event_names_from_excel,
             color="success",
-            font=("メイリオ", 9),
+            font=FONTS['small'],
             width=26,
             height=2
         )
@@ -227,9 +216,9 @@ class ExcelTab(BaseTab):
         tk.Label(
             event_setup_frame,
             text="※ 既存のExcelファイルから行事名リストを取り込みます。設定タブで編集も可能です。",
-            font=("メイリオ", 8),
-            fg="#666",
-            bg="#F0F8FF"
+            font=FONTS['tiny'],
+            fg=COLORS['text_secondary'],
+            bg=COLORS['surface_light']
         ).pack(pady=(0, 10), padx=15, anchor="w")
 
         # 実行ボタン（横並び）
@@ -246,22 +235,24 @@ class ExcelTab(BaseTab):
             text="▶ Excelデータ更新を実行",
             command=self._run_excel_update,
             color="primary",
-            font=("メイリオ", 11, "bold"),
+            font=FONTS['subheading'],
             width=28,
             height=2
         )
         self.run_button.pack(side="left", padx=5)
 
         # ステータスラベル
-        self.status_label = tk.Label(main_container, text="", font=("メイリオ", 9), fg="gray")
+        self.status_label = tk.Label(main_container, text="", font=FONTS['small'], fg="gray")
         self.status_label.pack()
 
-        # ログ表示
-        self.create_log_frame(height=8, parent=main_container)
+        # ログ表示（タブ直下に配置し、ウィンドウリサイズに追従させる）
+        self.create_log_frame(height=6)
         self.log("✅ 準備完了。「🔍 自動検出」または「📁 ファイルを選択」からExcelファイルを指定してください。", "info")
 
     def _auto_detect_files(self) -> None:
         """開いているExcelファイルを自動検出"""
+        if self._detecting:
+            return
         if win32com is None or pythoncom is None:
             messagebox.showerror(
                 "モジュールエラー",
@@ -282,6 +273,9 @@ class ExcelTab(BaseTab):
             ref_keywords = ["編集用", "年間行事"]
         if not target_keywords:
             target_keywords = ["様式4", "様式４"]
+
+        # 二重実行防止
+        self._detecting = True
 
         # COM操作を別スレッド(MTA)で実行（メインスレッドはSTA固定のため）
         result: Dict[str, list] = {"ref": [], "target": [], "error": []}
@@ -313,72 +307,89 @@ class ExcelTab(BaseTab):
 
         thread = threading.Thread(target=_detect_in_thread, daemon=True)
         thread.start()
-        thread.join(timeout=10)
 
-        if result["error"]:
-            error_msg = result["error"][0]
-            logger.error(f"Excelアプリケーションへの接続エラー: {error_msg}")
-            messagebox.showerror(
-                "Excel接続エラー",
-                "Excelが起動していないか、接続できません。\n\n"
-                "以下を確認してください:\n"
-                "• Microsoft Excelが起動しているか\n"
-                "• 対象ファイルが開いているか"
-            )
-            return
+        # 非ブロッキングポーリングで完了を待つ（UIフリーズ防止）
+        poll_count = 0
+        max_polls = 50  # 50 * 200ms = 10秒タイムアウト
 
-        ref_candidates = result["ref"]
-        target_candidates = result["target"]
+        def _on_detect_complete() -> None:
+            nonlocal poll_count
+            if thread.is_alive():
+                poll_count += 1
+                if poll_count >= max_polls:
+                    logger.warning("自動検出がタイムアウトしました（10秒）")
+                    self.log("❌ 自動検出がタイムアウトしました", "warning")
+                    self.update_status("❌ 自動検出がタイムアウトしました")
+                    self._detecting = False
+                    return
+                self.tab.after(200, _on_detect_complete)
+                return
 
-        # 自動検出結果をログ出力
-        self.log("=== 自動検出開始 ===", "info")
+            # スレッド完了後の結果処理
+            if result["error"]:
+                error_msg = result["error"][0]
+                logger.error(f"Excelアプリケーションへの接続エラー: {error_msg}")
+                messagebox.showerror(
+                    "Excel接続エラー",
+                    "Excelが起動していないか、接続できません。\n\n"
+                    "以下を確認してください:\n"
+                    "• Microsoft Excelが起動しているか\n"
+                    "• 対象ファイルが開いているか"
+                )
+                self._detecting = False
+                return
 
-        if ref_candidates:
-            selected_ref = ref_candidates[0]
-            self.ref_file_path = selected_ref[1]
-            self._update_file_label("reference", selected_ref[0], selected_ref[1])
-            self.log(f"✅ 参照元を検出: {selected_ref[0]}", "success")
-            if len(ref_candidates) > 1:
-                self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in ref_candidates[1:]])}", "info")
-        else:
-            keywords_str = "」「".join(ref_keywords)
-            self.log(f"❌ 参照元ファイルが見つかりません（ファイル名またはシート名に「{keywords_str}」を含むファイルを開いてください）", "warning")
+            ref_candidates = result["ref"]
+            target_candidates = result["target"]
 
-        if target_candidates:
-            selected_target = target_candidates[0]
-            self.target_file_path = selected_target[1]
-            self._update_file_label("target", selected_target[0], selected_target[1])
-            self.log(f"✅ 対象を検出: {selected_target[0]}", "success")
-            if len(target_candidates) > 1:
-                self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in target_candidates[1:]])}", "info")
-        else:
-            keywords_str = "」「".join(target_keywords)
-            self.log(f"❌ 対象ファイルが見つかりません（ファイル名またはシート名に「{keywords_str}」を含むファイルを開いてください）", "warning")
+            # 自動検出結果をログ出力
+            self.log("=== 自動検出開始 ===", "info")
 
-        if ref_candidates and target_candidates:
-            self.update_status("✅ 両方のファイルを自動検出しました")
-            messagebox.showinfo(
-                "検出成功",
-                f"参照元: {ref_candidates[0][0]}\n対象: {target_candidates[0][0]}\n\n"
-                "ファイルが正しいか確認してください。"
-            )
-        elif ref_candidates or target_candidates:
-            self.update_status("⚠️ 一部のファイルのみ検出されました")
-            messagebox.showwarning(
-                "一部検出",
-                "一部のファイルのみ検出されました。\n手動で残りのファイルを選択してください。"
-            )
-        else:
-            self.update_status("❌ ファイルが検出されませんでした")
-            ref_keywords_str = "」「".join(ref_keywords)
-            target_keywords_str = "」「".join(target_keywords)
-            messagebox.showwarning(
-                "未検出",
-                "対象ファイルが見つかりませんでした。\n\n"
-                f"参照元: 「{ref_keywords_str}」を含むファイル\n"
-                f"対象: 「{target_keywords_str}」を含むファイル\n\n"
-                "上記ファイルをExcelで開いてから再実行してください。"
-            )
+            if ref_candidates:
+                selected_ref = ref_candidates[0]
+                self.ref_file_path = selected_ref[1]
+                self._update_file_label("reference", selected_ref[0], selected_ref[1])
+                self.log(f"✅ 参照元を検出: {selected_ref[0]}", "success")
+                if len(ref_candidates) > 1:
+                    self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in ref_candidates[1:]])}", "info")
+            else:
+                keywords_str = "」「".join(ref_keywords)
+                self.log(f"❌ 参照元ファイルが見つかりません（ファイル名またはシート名に「{keywords_str}」を含むファイルを開いてください）", "warning")
+
+            if target_candidates:
+                selected_target = target_candidates[0]
+                self.target_file_path = selected_target[1]
+                self._update_file_label("target", selected_target[0], selected_target[1])
+                self.log(f"✅ 対象を検出: {selected_target[0]}", "success")
+                if len(target_candidates) > 1:
+                    self.log(f"   ℹ️ 他の候補: {', '.join([c[0] for c in target_candidates[1:]])}", "info")
+            else:
+                keywords_str = "」「".join(target_keywords)
+                self.log(f"❌ 対象ファイルが見つかりません（ファイル名またはシート名に「{keywords_str}」を含むファイルを開いてください）", "warning")
+
+            if ref_candidates and target_candidates:
+                self.update_status("✅ 両方のファイルを自動検出しました")
+            elif ref_candidates or target_candidates:
+                self.update_status("⚠️ 一部のファイルのみ検出されました")
+                messagebox.showwarning(
+                    "一部検出",
+                    "一部のファイルのみ検出されました。\n手動で残りのファイルを選択してください。"
+                )
+            else:
+                self.update_status("❌ ファイルが検出されませんでした")
+                ref_keywords_str = "」「".join(ref_keywords)
+                target_keywords_str = "」「".join(target_keywords)
+                messagebox.showwarning(
+                    "未検出",
+                    "対象ファイルが見つかりませんでした。\n\n"
+                    f"参照元: 「{ref_keywords_str}」を含むファイル\n"
+                    f"対象: 「{target_keywords_str}」を含むファイル\n\n"
+                    "上記ファイルをExcelで開いてから再実行してください。"
+                )
+
+            self._detecting = False
+
+        self.tab.after(200, _on_detect_complete)
 
     def _select_file(self, file_type: str) -> None:
         """
@@ -435,10 +446,10 @@ class ExcelTab(BaseTab):
             full_path: フルパス
         """
         if file_type == "reference":
-            self.ref_label.config(text=full_path, fg="#2196F3")
+            self.ref_label.config(text=full_path, fg=COLORS['primary'])
             self.ref_status.config(fg="green")
         else:
-            self.target_label.config(text=full_path, fg="#2196F3")
+            self.target_label.config(text=full_path, fg=COLORS['primary'])
             self.target_status.config(fg="green")
 
     def _open_selected_file(self, file_path: Optional[str]) -> None:

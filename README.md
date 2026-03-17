@@ -133,16 +133,31 @@ pdf-merge-system/
 ├── requirements-dev.txt        # 開発用依存関係
 │
 ├── run_app.py                  # GUIアプリケーション起動
-├── convert_and_merge.py        # 教育計画PDF作成
 │
-├── config_loader.py            # 設定読み込み
-├── pdf_converter.py            # PDF変換エンジン
-├── pdf_processor.py            # PDF処理（マージ、圧縮など）
-├── document_collector.py       # ドキュメント収集・目次生成
-├── ghostscript_utils.py        # Ghostscript操作
-├── logging_config.py           # ロギング設定
-├── exceptions.py               # 例外クラス
-├── constants.py                # 定数定義
+├── core/                       # コアビジネスロジック
+│   ├── pdf_merge_orchestrator.py  # 全体フロー制御
+│   ├── document_collector.py      # ドキュメント収集・目次生成
+│   ├── pdf_converter.py           # PDF変換エンジン
+│   ├── pdf_processor.py           # PDF処理（マージ、圧縮など）
+│   ├── update_excel_files.py      # Excel転記処理
+│   └── folder_structure_detector.py # フォルダ構造検出
+│
+├── infrastructure/             # インフラ層
+│   ├── config_loader.py           # 設定読み込み
+│   ├── config_validator.py        # 設定バリデーション
+│   ├── path_validator.py          # パス検証
+│   ├── ghostscript.py             # Ghostscript検出・圧縮
+│   ├── logging_config.py          # ロギング設定
+│   └── year_utils.py              # 年度・和暦変換
+│
+├── converters/                 # ファイル変換器
+│   ├── office_converter.py        # Word/Excel/PPT変換
+│   ├── image_converter.py         # 画像変換
+│   └── ichitaro_converter.py      # 一太郎変換
+│
+├── shared/                     # 共通モジュール
+│   ├── constants.py               # 定数定義
+│   └── exceptions.py              # 例外クラス
 │
 ├── gui/                        # GUIモジュール
 ├── tests/                      # テストコード

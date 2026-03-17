@@ -29,7 +29,7 @@ if exist "dist" rmdir /s /q dist
 if exist "__pycache__" rmdir /s /q __pycache__
 
 echo [2/4] 構文チェック中...
-python -m py_compile pdf_converter.py converters\office_converter.py converters\image_converter.py converters\ichitaro_converter.py
+python -m py_compile core\pdf_converter.py converters\office_converter.py converters\image_converter.py converters\ichitaro_converter.py
 if errorlevel 1 (
     echo [エラー] 構文エラーがあります。ビルドを中止します。
     pause

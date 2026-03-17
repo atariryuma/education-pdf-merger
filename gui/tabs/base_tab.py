@@ -6,12 +6,13 @@
 import logging
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-from typing import Optional, Callable, Tuple, TYPE_CHECKING
+from typing import Any, Optional, Callable, Tuple, TYPE_CHECKING
 
+from gui.styles import COLORS, FONTS
 from gui.utils import log_message
 
 if TYPE_CHECKING:
-    from config_loader import ConfigLoader
+    from infrastructure.config_loader import ConfigLoader
 
 
 class GUILogHandler(logging.Handler):
@@ -76,7 +77,7 @@ class BaseTab:
             parent = self.tab
         log_frame = tk.Frame(parent)
         log_frame.pack(fill="both", expand=True, padx=20, pady=(5, 15))
-        tk.Label(log_frame, text="実行ログ:", font=("メイリオ", 10, "bold")).pack(anchor="w", pady=(0, 5))
+        tk.Label(log_frame, text="実行ログ:", font=FONTS['default_bold']).pack(anchor="w", pady=(0, 5))
         self.log_widget = scrolledtext.ScrolledText(
             log_frame, width=80, height=height, state="disabled", wrap=tk.WORD
         )
@@ -94,7 +95,7 @@ class BaseTab:
             return
 
         if logger_names is None:
-            from constants import AppConstants
+            from shared.constants import AppConstants
             logger_names = AppConstants.GUI_LOGGER_NAMES
 
         # GUIログハンドラを作成
@@ -118,7 +119,7 @@ class BaseTab:
     def remove_gui_logging(self) -> None:
         """GUIログハンドラを削除"""
         if hasattr(self, '_gui_handler') and self._gui_handler:
-            from constants import AppConstants
+            from shared.constants import AppConstants
 
             for name in AppConstants.GUI_LOGGER_NAMES:
                 logger = logging.getLogger(name)
@@ -146,62 +147,47 @@ class BaseTab:
         """
         self.log(message, "info")
 
-    def create_scrollable_container(self) -> Tuple[tk.Canvas, tk.Scrollbar, tk.Frame]:
+    def create_collapsible_section(
+        self,
+        parent: tk.Widget,
+        title_collapsed: str,
+        title_expanded: str,
+        **pack_kwargs: Any
+    ) -> Tuple[tk.Button, tk.Frame]:
         """
-        スクロール可能なコンテナを作成（全タブ共通処理）
+        折りたたみ可能なセクションを作成
 
-        このメソッドは、pdf_tab、settings_tab、excel_tabで重複していた
-        スクロール処理を統一するために作成されました。
+        Args:
+            parent: 親ウィジェット
+            title_collapsed: 折りたたみ時のボタンテキスト（例: "▶ 使い方を表示"）
+            title_expanded: 展開時のボタンテキスト（例: "▼ 使い方を非表示"）
+            **pack_kwargs: toggle_button.pack() に渡す引数
 
         Returns:
-            Tuple[tk.Canvas, tk.Scrollbar, tk.Frame]: (canvas, scrollbar, scrollable_frame)
-
-        Note:
-            マウスホイール処理は自動的にバインドされます。
-            返却されたscrollable_frameに子ウィジェットを追加してください。
+            Tuple[tk.Button, tk.Frame]: (トグルボタン, コンテンツフレーム)
+            コンテンツフレームに子ウィジェットを追加してください。
+            デフォルトでは折りたたまれています。
         """
-        # スクロール可能なメインコンテナ
-        canvas = tk.Canvas(self.tab, highlightthickness=0, bg="#f0f0f0")
-        scrollbar = tk.Scrollbar(self.tab, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#f0f0f0")
+        content_frame = tk.Frame(parent)
 
-        # scrollregionを更新する関数
-        def update_scrollregion(event: Optional[tk.Event] = None) -> None:
-            canvas.update_idletasks()
-            canvas.configure(scrollregion=canvas.bbox("all"))
+        def toggle() -> None:
+            if content_frame.winfo_manager():  # currently packed
+                content_frame.pack_forget()
+                toggle_btn.config(text=title_collapsed)
+            else:
+                content_frame.pack(fill="x", after=toggle_btn)
+                toggle_btn.config(text=title_expanded)
 
-        scrollable_frame.bind("<Configure>", update_scrollregion)
+        toggle_btn = tk.Button(
+            parent,
+            text=title_collapsed,
+            command=toggle,
+            font=FONTS['default_bold'],
+            relief="flat",
+            anchor="w",
+            cursor="hand2",
+            bg=COLORS['surface_dim']
+        )
+        toggle_btn.pack(**pack_kwargs) if pack_kwargs else toggle_btn.pack(fill="x")
 
-        # create_windowでウィンドウIDを保存
-        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        # Canvasのサイズに合わせてscrollable_frameの幅を調整
-        def on_canvas_configure(event: tk.Event) -> None:
-            canvas.itemconfig(canvas_window, width=event.width)
-
-        # マウスホイールでのスクロールを有効化
-        def on_mousewheel(event: tk.Event) -> str:
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            return "break"
-
-        # Canvas自体とすべての子ウィジェットにマウスホイールイベントをバインド
-        def bind_mousewheel_recursive(widget: tk.Widget) -> None:
-            widget.bind("<MouseWheel>", on_mousewheel)
-            for child in widget.winfo_children():
-                bind_mousewheel_recursive(child)
-
-        canvas.bind("<Configure>", on_canvas_configure)
-        canvas.bind("<MouseWheel>", on_mousewheel)
-
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        # マウスホイール処理を遅延初期化（パフォーマンス向上）
-        def deferred_mousewheel_bind() -> None:
-            bind_mousewheel_recursive(scrollable_frame)
-
-        # 100ms後にバインド（UI構築完了後）
-        self.tab.after(100, deferred_mousewheel_bind)
-
-        return canvas, scrollbar, scrollable_frame
+        return toggle_btn, content_frame

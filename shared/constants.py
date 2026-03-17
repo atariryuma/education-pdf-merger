@@ -21,17 +21,6 @@ class PowerPointFormat(IntEnum):
     PDF = 32  # ppSaveAsPDF
 
 
-class ExcelLookIn(IntEnum):
-    """Excel検索対象の定数"""
-    VALUES = -4163  # xlValues
-
-
-class ExcelLookAt(IntEnum):
-    """Excel検索方法の定数"""
-    PART = 2   # xlPart (部分一致)
-    WHOLE = 1  # xlWhole (完全一致)
-
-
 class ExcelSortOrder(IntEnum):
     """Excelソート順の定数"""
     ASCENDING = 1   # xlAscending (昇順)
@@ -59,6 +48,12 @@ class ExcelTransferConstants:
 
     # 欠時キーワード
     ABSENT_KEYWORD = "欠時"
+
+    # 期間/週間キーワード（期間行の判定用）
+    PERIOD_KEYWORDS = ("期間", "週間")
+
+    # あいまい検索の類似度閾値（0.7 = 70%以上で一致とみなす）
+    SIMILARITY_THRESHOLD = 0.7
 
     # 処理範囲（ループ1：D8～D50）
     LOOP1_START_ROW = 8
@@ -131,12 +126,14 @@ class AppConstants:
 
     # GUIログハンドラーで使用するロガー名リスト
     GUI_LOGGER_NAMES = [
-        'pdf_converter',
+        'core.pdf_converter',
+        'core.pdf_processor',
+        'core.document_collector',
+        'core.pdf_merge_orchestrator',
+        'core.update_excel_files',
         'converters.office_converter',
         'converters.image_converter',
         'converters.ichitaro_converter',
-        'pdf_processor',
-        'document_collector',
         '__main__'
     ]
 

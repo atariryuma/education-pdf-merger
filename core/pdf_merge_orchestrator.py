@@ -7,12 +7,12 @@ import logging
 import os
 from typing import Callable, List, Optional, Tuple
 
-from config_loader import ConfigLoader
-from pdf_converter import PDFConverter
-from pdf_processor import PDFProcessor
-from document_collector import DocumentCollector
-from exceptions import CancelledError
-from constants import PDFConstants
+from infrastructure.config_loader import ConfigLoader
+from core.pdf_converter import PDFConverter
+from core.pdf_processor import PDFProcessor
+from core.document_collector import DocumentCollector
+from shared.exceptions import CancelledError
+from shared.constants import PDFConstants
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ class PDFMergeOrchestrator:
         pdf_converter: PDFConverter,
         pdf_processor: PDFProcessor,
         document_collector: DocumentCollector,
-        cancel_check: Optional[Callable[[], bool]] = None
+        cancel_check: Optional[Callable[[], bool]] = None,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> None:
         """
         Args:
@@ -35,6 +36,7 @@ class PDFMergeOrchestrator:
             pdf_processor: PDFProcessorインスタンス
             document_collector: DocumentCollectorインスタンス
             cancel_check: キャンセル状態をチェックするコールバック関数
+            progress_callback: 進捗通知コールバック (step, total, message)
         """
         self.config = config
         self.converter = pdf_converter
@@ -42,10 +44,16 @@ class PDFMergeOrchestrator:
         self.collector = document_collector
         self.temp_dir = config.get_temp_dir()
         self._cancel_check = cancel_check or (lambda: False)
+        self._user_progress_callback = progress_callback or (lambda step, total, msg: None)
 
     def is_cancelled(self) -> bool:
         """キャンセルされたかどうかを確認"""
         return self._cancel_check()
+
+    def _progress_callback(self, step: int, total: int, message: str) -> None:
+        """進捗をログとコールバックの両方に通知"""
+        logger.info(f"[Step {step}/{total}] {message}")
+        self._user_progress_callback(step, total, message)
 
     def _check_cancel(self) -> None:
         """キャンセルされていれば例外を投げる"""
@@ -165,7 +173,7 @@ class PDFMergeOrchestrator:
 
         try:
             # 1. ドキュメント収集とPDF変換
-            logger.info("[Step 1/6] ドキュメントを収集・変換中...")
+            self._progress_callback(1, 6, "ドキュメントを収集・変換中...")
             toc_entries, content_pdfs = self.collector.collect_documents(
                 target_dir,
                 create_separator_for_subfolder
@@ -173,28 +181,28 @@ class PDFMergeOrchestrator:
             self._check_cancel()
 
             # 2. 一時的にマージ
-            logger.info("[Step 2/6] 一時マージPDFを作成中...")
+            self._progress_callback(2, 6, "一時マージPDFを作成中...")
             self.processor.merge_pdfs(content_pdfs, temp_merged)
             self._check_cancel()
 
             # 3. 目次PDFを生成
-            logger.info("[Step 3/6] 目次を作成中...")
+            self._progress_callback(3, 6, "目次を作成中...")
             adjusted_toc_entries = self._create_stable_toc_pdf(toc_entries, toc_pdf)
             self._check_cancel()
 
             # 4. 表紙と残りのページに分割
-            logger.info("[Step 4/6] 表紙とコンテンツを分割中...")
+            self._progress_callback(4, 6, "表紙とコンテンツを分割中...")
             cover_pdf, remainder_pdf = self.processor.split_pdf(temp_merged, self.temp_dir)
             self._check_cancel()
 
             # 5. 最終的にマージ（表紙 + 目次 + 残り）
-            logger.info("[Step 5/6] 最終PDFをマージ中...")
+            self._progress_callback(5, 6, "最終PDFをマージ中...")
             final_list = [cover_pdf, toc_pdf, remainder_pdf]
             self.processor.merge_pdfs(final_list, output_pdf)
             self._check_cancel()
 
             # 6. ページ番号を追加（表紙は除外）
-            logger.info("[Step 6/6] ページ番号としおりを追加中...")
+            self._progress_callback(6, 6, "ページ番号としおりを追加中...")
             self.processor.add_page_numbers(output_pdf, exclude_first_pages=PDFConstants.COVER_PAGE_COUNT)
             self._check_cancel()
 

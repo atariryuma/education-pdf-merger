@@ -8,8 +8,8 @@ import sys
 # プロジェクトルートをパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config_loader import ConfigLoader
-from exceptions import ConfigurationError
+from infrastructure.config_loader import ConfigLoader
+from shared.exceptions import ConfigurationError
 
 
 class TestConfigLoader:

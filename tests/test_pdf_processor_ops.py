@@ -5,9 +5,9 @@ PDF操作（マージ、分割、TOC、ページ番号、ブックマーク）�
 """
 import os
 import pytest
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
-from exceptions import PDFProcessingError
+from shared.exceptions import PDFProcessingError
 
 
 @pytest.fixture
@@ -38,10 +38,10 @@ def real_pdf(temp_dir):
 class TestMergePdfs:
     """merge_pdfs のテスト"""
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_merge_existing_pdfs(self, mock_metrics, temp_dir, mock_config):
         """存在するPDFがマージされる"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         try:
             import fitz
@@ -66,10 +66,10 @@ class TestMergePdfs:
         with fitz.open(output) as merged:
             assert merged.page_count == 3
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_merge_skips_none_paths(self, mock_metrics, temp_dir, mock_config):
         """Noneパスがスキップされる"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         try:
             import fitz
@@ -88,10 +88,10 @@ class TestMergePdfs:
 
         assert os.path.exists(output)
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_merge_empty_list(self, mock_metrics, temp_dir, mock_config):
         """空リストでもエラーにならない"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         processor = PDFProcessor(mock_config)
         output = os.path.join(temp_dir, "merged.pdf")
@@ -103,19 +103,19 @@ class TestMergePdfs:
 class TestGetPageCount:
     """get_page_count のテスト"""
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_correct_page_count(self, mock_metrics, real_pdf, mock_config):
         """正しいページ数が返される"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         processor = PDFProcessor(mock_config)
         count = processor.get_page_count(real_pdf)
         assert count == 3
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_nonexistent_file_raises(self, mock_metrics, mock_config):
         """存在しないファイルでPDFProcessingError"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         processor = PDFProcessor(mock_config)
         with pytest.raises(PDFProcessingError, match="読み込みに失敗"):
@@ -125,10 +125,10 @@ class TestGetPageCount:
 class TestSplitPdf:
     """split_pdf のテスト"""
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_split_creates_two_files(self, mock_metrics, real_pdf, temp_dir, mock_config):
         """分割で表紙と残りの2ファイルが作成される"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         processor = PDFProcessor(mock_config)
         cover, remainder = processor.split_pdf(real_pdf, temp_dir)
@@ -142,10 +142,10 @@ class TestSplitPdf:
         with fitz.open(remainder) as doc:
             assert doc.page_count == 2  # 3ページ中残り2ページ
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_split_nonexistent_raises(self, mock_metrics, temp_dir, mock_config):
         """存在しないPDFでPDFProcessingError"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         processor = PDFProcessor(mock_config)
         with pytest.raises(PDFProcessingError):
@@ -155,10 +155,10 @@ class TestSplitPdf:
 class TestAddPageNumbers:
     """add_page_numbers のテスト"""
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_page_numbers_added(self, mock_metrics, real_pdf, mock_config):
         """ページ番号が追加されてもファイルが壊れない"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
         import fitz
 
         processor = PDFProcessor(mock_config)
@@ -171,10 +171,10 @@ class TestAddPageNumbers:
 class TestSetPdfOutlines:
     """set_pdf_outlines のテスト"""
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_outlines_set(self, mock_metrics, real_pdf, mock_config):
         """アウトラインが設定される"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
         import fitz
 
         processor = PDFProcessor(mock_config)
@@ -188,10 +188,10 @@ class TestSetPdfOutlines:
             toc = doc.get_toc()
             assert len(toc) == 2
 
-    @patch('pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.pdfmetrics')
     def test_outlines_page_clamped(self, mock_metrics, real_pdf, mock_config):
         """範囲外のページ番号が補正される"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
         import fitz
 
         processor = PDFProcessor(mock_config)
@@ -209,11 +209,11 @@ class TestSetPdfOutlines:
 class TestCompressPdf:
     """compress_pdf のテスト"""
 
-    @patch('pdf_processor.pdfmetrics')
-    @patch('pdf_processor.subprocess')
+    @patch('core.pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.subprocess')
     def test_compress_success(self, mock_subprocess, mock_metrics, real_pdf, mock_config):
         """圧縮成功でTrueが返る"""
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         mock_subprocess.run.return_value = MagicMock(returncode=0)
         mock_subprocess.TimeoutExpired = TimeoutError
@@ -221,17 +221,17 @@ class TestCompressPdf:
 
         processor = PDFProcessor(mock_config)
         # _atomic_pdf_operation内でos.replaceが呼ばれるためモック
-        with patch('pdf_processor.os.replace'):
+        with patch('core.pdf_processor.os.replace'):
             result = processor.compress_pdf(real_pdf)
 
         assert result is True
 
-    @patch('pdf_processor.pdfmetrics')
-    @patch('pdf_processor.subprocess')
+    @patch('core.pdf_processor.pdfmetrics')
+    @patch('core.pdf_processor.subprocess')
     def test_compress_timeout_returns_false(self, mock_subprocess, mock_metrics, real_pdf, mock_config):
         """タイムアウトでFalseが返る"""
         import subprocess as real_subprocess
-        from pdf_processor import PDFProcessor
+        from core.pdf_processor import PDFProcessor
 
         mock_subprocess.TimeoutExpired = real_subprocess.TimeoutExpired
         mock_subprocess.CalledProcessError = real_subprocess.CalledProcessError

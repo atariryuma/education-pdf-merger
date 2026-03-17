@@ -11,7 +11,7 @@ import unicodedata
 from pathlib import Path
 from typing import Tuple, Optional
 
-from constants import PathConstants
+from shared.constants import PathConstants
 
 logger = logging.getLogger(__name__)
 

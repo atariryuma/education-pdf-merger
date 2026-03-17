@@ -20,11 +20,11 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 
-from exceptions import PDFProcessingError
-from constants import PDFConstants
+from shared.exceptions import PDFProcessingError
+from shared.constants import PDFConstants
 
 if TYPE_CHECKING:
-    from config_loader import ConfigLoader
+    from infrastructure.config_loader import ConfigLoader
 
 # ロガーの設定
 logger = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 from converters.office_converter import OfficeConverter
-from exceptions import PDFConversionError
+from shared.exceptions import PDFConversionError
 
 
 @pytest.fixture

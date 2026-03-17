@@ -1,10 +1,11 @@
 """
-Ghostscript自動検出ユーティリティ
+Ghostscriptユーティリティモジュール
 
-Windowsシステム上のGhostscriptインストールを自動検出します。
+Ghostscriptの自動検出、パス検証、動作確認、インストール案内を提供
 """
 import logging
 import os
+import subprocess
 import winreg
 from pathlib import Path
 from typing import Optional, List, Tuple
@@ -96,7 +97,6 @@ class GhostscriptDetector:
         # GS_DLL環境変数
         gs_dll = os.environ.get('GS_DLL')
         if gs_dll and Path(gs_dll).exists():
-            # DLLパスから実行ファイルパスを推定
             dll_dir = Path(gs_dll).parent
             for exe_name in cls.GS_EXECUTABLES:
                 exe_path = dll_dir / exe_name
@@ -106,10 +106,8 @@ class GhostscriptDetector:
         # GS_LIB環境変数
         gs_lib = os.environ.get('GS_LIB')
         if gs_lib:
-            # LIBパスから実行ファイルを検索
             lib_dir = Path(gs_lib)
             if lib_dir.exists():
-                # 親ディレクトリのbinフォルダを探す
                 bin_dir = lib_dir.parent / "bin"
                 if bin_dir.exists():
                     for exe_name in cls.GS_EXECUTABLES:
@@ -122,20 +120,17 @@ class GhostscriptDetector:
     @classmethod
     def _check_registry(cls) -> Optional[str]:
         """Windowsレジストリから検出"""
-        found_versions: List[Tuple[str, str]] = []  # (version, path)
+        found_versions: List[Tuple[str, str]] = []
 
         for root, key_path in cls.REGISTRY_KEYS:
             try:
                 with winreg.OpenKey(root, key_path) as key:
-                    # バージョン一覧を取得
                     i = 0
                     while True:
                         try:
                             version = winreg.EnumKey(key, i)
-                            # バージョンキーからGS_DLLまたはGS_LIBを取得
                             try:
                                 with winreg.OpenKey(root, f"{key_path}\\{version}") as ver_key:
-                                    # GS_DLL
                                     try:
                                         gs_dll = winreg.QueryValueEx(ver_key, "GS_DLL")[0]
                                         if Path(gs_dll).exists():
@@ -148,7 +143,6 @@ class GhostscriptDetector:
                                     except FileNotFoundError:
                                         pass
 
-                                    # GS_LIB
                                     try:
                                         gs_lib = winreg.QueryValueEx(ver_key, "GS_LIB")[0]
                                         lib_dir = Path(gs_lib)
@@ -173,9 +167,7 @@ class GhostscriptDetector:
                 logger.debug(f"レジストリキー {root}\\{key_path} の読み取りに失敗: {e}")
                 continue
 
-        # 最新バージョンを返す
         if found_versions:
-            # バージョン番号でソート（降順）
             found_versions.sort(reverse=True, key=lambda x: cls._parse_version(x[0]))
             logger.debug(f"レジストリから検出されたGhostscriptバージョン: {[v[0] for v in found_versions]}")
             return found_versions[0][1]
@@ -184,14 +176,7 @@ class GhostscriptDetector:
 
     @classmethod
     def _parse_version(cls, version_str: str) -> Tuple[int, ...]:
-        """バージョン文字列を解析してタプルに変換
-
-        Args:
-            version_str: バージョン文字列（例: "10.05.0", "9.54"）
-
-        Returns:
-            バージョンタプル（例: (10, 5, 0), (9, 54, 0)）
-        """
+        """バージョン文字列を解析してタプルに変換"""
         try:
             parts = version_str.split('.')
             return tuple(int(p) for p in parts)
@@ -206,10 +191,8 @@ class GhostscriptDetector:
             if not base.exists():
                 continue
 
-            # gsXX.XX.XX/bin/gswinXXc.exe のパターンを探す
             for exe_name in cls.GS_EXECUTABLES:
                 for exe_path in base.rglob(exe_name):
-                    # binディレクトリ内にあることを確認
                     if exe_path.parent.name == "bin":
                         return str(exe_path)
 
@@ -252,10 +235,58 @@ class GhostscriptDetector:
             logger.warning(f"Ghostscriptパスがファイルではありません: {gs_path}")
             return False
 
-        # 実行ファイル名の確認
         if path.name.lower() not in [exe.lower() for exe in cls.GS_EXECUTABLES]:
             logger.warning(f"Ghostscript実行ファイル名が不正です: {path.name}")
             return False
 
         logger.info(f"Ghostscriptパスが有効です: {gs_path}")
         return True
+
+    @classmethod
+    def verify(cls, gs_path: str) -> bool:
+        """
+        Ghostscriptが正常に動作するか確認（subprocessで--versionを実行）
+
+        Args:
+            gs_path: Ghostscript実行ファイルのパス
+
+        Returns:
+            bool: 正常に動作する場合True
+        """
+        if not gs_path or not os.path.exists(gs_path):
+            return False
+
+        try:
+            result = subprocess.run(
+                [gs_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                version = result.stdout.strip()
+                logger.info(f"Ghostscript バージョン: {version}")
+                return True
+        except Exception as e:
+            logger.warning(f"Ghostscript検証エラー: {e}")
+
+        return False
+
+    @classmethod
+    def get_install_instructions(cls) -> str:
+        """インストール手順を取得"""
+        download_url = "https://ghostscript.com/releases/gsdnld.html"
+        return f"""Ghostscriptがインストールされていません。
+
+【インストール手順】
+1. 以下のURLからGhostscriptをダウンロード:
+   {download_url}
+
+2. 「AGPL Release」から最新版をダウンロード
+   - 64bit Windows: Ghostscript X.XX.X for Windows (64 bit)
+   - 32bit Windows: Ghostscript X.XX.X for Windows (32 bit)
+
+3. ダウンロードしたインストーラーを実行
+
+4. インストール完了後、このアプリを再起動するか
+   設定タブで「自動検出」ボタンを押してください"""

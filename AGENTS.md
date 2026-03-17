@@ -45,13 +45,13 @@ pyinstaller build_installer.spec --clean
 
 ## High-Impact Files
 - `run_app.py`: GUI entrypoint
-- `pdf_merge_orchestrator.py`: top-level workflow orchestration
-- `document_collector.py`: source file discovery + conversion routing
-- `pdf_converter.py`: format conversion logic
-- `pdf_processor.py`: PDF merge/TOC/bookmarks/page-number/compress flow
-- `config_loader.py`: config loading, defaults, and validation entry
-- `path_validator.py`: path checks and safety
-- `update_excel_files.py`: Excel update processing
+- `core/pdf_merge_orchestrator.py`: top-level workflow orchestration
+- `core/document_collector.py`: source file discovery + conversion routing
+- `core/pdf_converter.py`: format conversion logic
+- `core/pdf_processor.py`: PDF merge/TOC/bookmarks/page-number/compress flow
+- `core/update_excel_files.py`: Excel update processing
+- `infrastructure/config_loader.py`: config loading, defaults, and validation entry
+- `infrastructure/path_validator.py`: path checks and safety
 - `gui/`: UI layer
 - `tests/`: unit and integration tests
 

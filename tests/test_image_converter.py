@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 from converters.image_converter import ImageConverter
-from exceptions import PDFConversionError
+from shared.exceptions import PDFConversionError
 
 
 @pytest.fixture

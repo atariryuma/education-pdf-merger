@@ -29,7 +29,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "customtkinter>=5.2.0",
     "pywin32>=306",
     "PyPDF2>=3.0.0",
     "pymupdf>=1.23.0",
@@ -58,7 +57,7 @@ Changelog = "https://github.com/yourusername/pdf-merge-system/blob/main/CHANGELO
 pdf-merge = "run_app:main"
 
 [tool.setuptools]
-packages = ["pdf_merge_system"]
+packages = ["shared", "core", "infrastructure", "converters", "gui"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

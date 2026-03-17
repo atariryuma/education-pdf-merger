@@ -11,8 +11,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from config_loader import ConfigLoader
-from constants import AppConstants
+from infrastructure.config_loader import ConfigLoader
+from shared.constants import AppConstants
 from gui.styles import WINDOW, FONTS
 from gui.tabs.pdf_tab import PDFTab
 from gui.tabs.excel_tab import ExcelTab
@@ -210,9 +210,6 @@ class PDFMergeApp:
 
         self.excel_tab = ExcelTab(self.notebook, self.config, self.status_bar)
 
-        # File Management タブは未実装のため非表示
-        # self.file_tab = FileTab(self.notebook, self.config, self.status_bar)
-
         self.settings_tab = SettingsTab(
             self.notebook, self.config, self.status_bar,
             self.year_var, self.year_short_var,
@@ -260,11 +257,9 @@ class PDFMergeApp:
             # タブのconfigを更新
             self.pdf_tab.config = self.config
             self.excel_tab.config = self.config
-            # self.file_tab.config = self.config  # File Tab は非表示
             self.settings_tab.config = self.config
 
             self._update_status("設定を再読み込みしました")
-            messagebox.showinfo("再読み込み完了", "設定を再読み込みしました")
         except Exception as e:
             messagebox.showerror("読み込みエラー", f"設定の再読み込みに失敗しました。\n\n詳細: {e}")
 
@@ -308,7 +303,7 @@ F5 : ファイル状態を確認
     def _check_initial_setup(self) -> None:
         """初回起動時の設定チェックとセットアップウィザード表示"""
         try:
-            from config_validator import ConfigValidator
+            from infrastructure.config_validator import ConfigValidator
             from gui.setup_wizard import SetupWizard
 
             # 設定を検証
@@ -339,9 +334,6 @@ F5 : ファイル状態を確認
                         self.excel_tab.config = self.config
                     if hasattr(self, 'settings_tab'):
                         self.settings_tab.config = self.config
-                    if hasattr(self, 'file_tab'):
-                        self.file_tab.config = self.config
-
                     messagebox.showinfo(
                         "セットアップ完了",
                         "設定が完了しました！\n\nアプリケーションを使い始めることができます。",

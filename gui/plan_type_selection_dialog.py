@@ -6,6 +6,9 @@
 import tkinter as tk
 from typing import Callable, Any
 
+from gui.styles import COLORS, FONTS
+from gui.utils import center_window
+
 
 class PlanTypeSelectionDialog(tk.Toplevel):
     """計画種別選択ダイアログ"""
@@ -36,17 +39,10 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         self.grab_set()
 
         # 中央配置
-        self._center_window()
+        center_window(self)
 
         # UI構築
         self._create_widgets()
-
-    def _center_window(self) -> None:
-        """ウィンドウを画面中央に配置"""
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (550 // 2)
-        y = (self.winfo_screenheight() // 2) - (450 // 2)
-        self.geometry(f"+{x}+{y}")
 
     def _create_widgets(self) -> None:
         """ウィジェット作成"""
@@ -57,8 +53,8 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         title_label = tk.Label(
             main_frame,
             text="計画種別を選択してください",
-            font=("Yu Gothic UI", 14, "bold"),
-            fg="#333333"
+            font=FONTS['dialog_heading'],
+            fg=COLORS['text_primary']
         )
         title_label.pack(pady=(0, 10))
 
@@ -66,9 +62,9 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         message_label = tk.Label(
             main_frame,
             text="フォルダ構造から自動判定できませんでした。\n計画種別を手動で選択してください。",
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             justify=tk.CENTER,
-            fg="#666666"
+            fg=COLORS['text_secondary']
         )
         message_label.pack(pady=(0, 20))
 
@@ -76,7 +72,7 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         info_frame = tk.LabelFrame(
             main_frame,
             text="フォルダ構造の分析結果",
-            font=("Yu Gothic UI", 10, "bold"),
+            font=FONTS['default_bold'],
             padx=15,
             pady=15
         )
@@ -97,7 +93,7 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             label = tk.Label(
                 info_frame,
                 text=f"{label_text}:",
-                font=("Yu Gothic UI", 10),
+                font=FONTS['default'],
                 anchor="w"
             )
             label.grid(row=i, column=0, sticky="w", pady=5)
@@ -105,7 +101,7 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             value = tk.Label(
                 info_frame,
                 text=value_text,
-                font=("Yu Gothic UI", 10, "bold"),
+                font=FONTS['default_bold'],
                 anchor="e"
             )
             value.grid(row=i, column=1, sticky="e", pady=5, padx=(20, 0))
@@ -122,9 +118,9 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             button_frame,
             text="📚 教育計画\n（3層構造）",
             command=lambda: self._on_select("education"),
-            bg="#4CAF50",
+            bg=COLORS['valid'],
             fg="white",
-            font=("Yu Gothic UI", 11, "bold"),
+            font=FONTS['subheading'],
             width=15,
             height=3,
             cursor="hand2"
@@ -136,9 +132,9 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             button_frame,
             text="📅 行事計画\n（2層構造）",
             command=lambda: self._on_select("event"),
-            bg="#2196F3",
+            bg=COLORS['primary'],
             fg="white",
-            font=("Yu Gothic UI", 11, "bold"),
+            font=FONTS['subheading'],
             width=15,
             height=3,
             cursor="hand2"
@@ -150,7 +146,7 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             main_frame,
             text="キャンセル",
             command=self._on_cancel,
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             cursor="hand2"
         )
         cancel_btn.pack()

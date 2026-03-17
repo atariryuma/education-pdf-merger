@@ -17,10 +17,12 @@ from tkinter import ttk, filedialog, messagebox
 from typing import Optional, Callable
 from pathlib import Path
 
-from config_loader import ConfigLoader
-from ghostscript_detector import GhostscriptDetector
-from path_validator import PathValidator
-from year_utils import calculate_next_fiscal_year, calculate_year_short
+from infrastructure.config_loader import ConfigLoader
+from infrastructure.ghostscript import GhostscriptDetector
+from gui.styles import COLORS, FONTS
+from gui.utils import center_window
+from infrastructure.path_validator import PathValidator
+from infrastructure.year_utils import calculate_next_fiscal_year, calculate_year_short
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +80,6 @@ class SetupWizard:
         self.local_temp_var = tk.StringVar(value="")  # デフォルト: temp_pdfs
         # v3.5.0: Excelファイルパスは削除（セッション内管理に変更）
         self.gs_var = tk.StringVar(value="")  # 自動検出
-        self.gs_enabled_var = tk.BooleanVar(value=True)
 
         # 現在のステップ
         self.current_step = 0
@@ -99,19 +100,10 @@ class SetupWizard:
 
         # ウィンドウサイズを内容に合わせて調整してから中央配置
         self.window.update_idletasks()
-        self._center_window()
+        center_window(self.window)
 
         # Ghostscript自動検出（バックグラウンド）
         self.window.after(100, self._detect_ghostscript_async)
-
-    def _center_window(self) -> None:
-        """ウィンドウを画面中央に配置"""
-        self.window.update_idletasks()
-        width = self.window.winfo_width()
-        height = self.window.winfo_height()
-        x = (self.window.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.window.winfo_screenheight() // 2) - (height // 2)
-        self.window.geometry(f'{width}x{height}+{x}+{y}')
 
     def _on_year_changed(self, *args) -> None:
         """年度が変更されたときに和暦を自動更新"""
@@ -123,14 +115,14 @@ class SetupWizard:
     def _create_ui(self) -> None:
         """UI構築"""
         # ヘッダー
-        header_frame = tk.Frame(self.window, bg="#2196F3")
+        header_frame = tk.Frame(self.window, bg=COLORS['primary'])
         header_frame.pack(fill=tk.X)
 
         title_label = tk.Label(
             header_frame,
             text="教育計画PDFマージシステム - 初回セットアップ",
-            font=("Yu Gothic UI", 14, "bold"),
-            bg="#2196F3",
+            font=FONTS['dialog_heading'],
+            bg=COLORS['primary'],
             fg="white"
         )
         title_label.pack(pady=15)
@@ -142,7 +134,7 @@ class SetupWizard:
         self.progress_label = tk.Label(
             progress_frame,
             text=f"ステップ 1 / {self.total_steps}",
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             bg="white"
         )
         self.progress_label.pack(pady=2)
@@ -216,7 +208,7 @@ class SetupWizard:
         title = tk.Label(
             self.content_frame,
             text="ようこそ！",
-            font=("Yu Gothic UI", 18, "bold"),
+            font=FONTS['dialog_title'],
             bg="white"
         )
         title.pack(pady=20)
@@ -230,7 +222,7 @@ class SetupWizard:
                 "必要な基本設定を行います。\n\n"
                 "設定は後から変更することもできます。"
             ),
-            font=("Yu Gothic UI", 11),
+            font=FONTS['default'],
             bg="white",
             justify=tk.LEFT
         )
@@ -240,7 +232,7 @@ class SetupWizard:
         features_frame = tk.LabelFrame(
             self.content_frame,
             text="主な機能",
-            font=("Yu Gothic UI", 10, "bold"),
+            font=FONTS['default_bold'],
             bg="white",
             relief=tk.GROOVE,
             borderwidth=2
@@ -260,7 +252,7 @@ class SetupWizard:
             label = tk.Label(
                 features_frame,
                 text=feature,
-                font=("Yu Gothic UI", 10),
+                font=FONTS['default'],
                 bg="white",
                 anchor=tk.W
             )
@@ -270,7 +262,7 @@ class SetupWizard:
         note = tk.Label(
             self.content_frame,
             text="※ Microsoft Officeがインストールされている必要があります",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             fg="gray"
         )
@@ -282,7 +274,7 @@ class SetupWizard:
         title = tk.Label(
             self.content_frame,
             text="基本設定",
-            font=("Yu Gothic UI", 16, "bold"),
+            font=FONTS['dialog_title'],
             bg="white"
         )
         title.pack(pady=15)
@@ -291,9 +283,9 @@ class SetupWizard:
         year_section = tk.LabelFrame(
             self.content_frame,
             text="📅 年度設定",
-            font=("Yu Gothic UI", 11, "bold"),
+            font=FONTS['subheading'],
             bg="white",
-            fg="#1976D2",
+            fg=COLORS['primary'],
             relief=tk.GROOVE,
             borderwidth=2
         )
@@ -306,7 +298,7 @@ class SetupWizard:
         year_label = tk.Label(
             year_frame,
             text="年度（西暦）:",
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             bg="white",
             width=12,
             anchor=tk.W
@@ -316,28 +308,28 @@ class SetupWizard:
         year_entry = ttk.Entry(
             year_frame,
             textvariable=self.year_var,
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             width=15
         )
         year_entry.pack(side=tk.LEFT, padx=5)
 
         # 和暦は自動計算される旨を表示（読み取り専用・動的更新）
-        arrow_label = tk.Label(year_frame, text="→", font=("Yu Gothic UI", 10), bg="white")
+        arrow_label = tk.Label(year_frame, text="→", font=FONTS['default'], bg="white")
         arrow_label.pack(side=tk.LEFT, padx=5)
 
         year_short_display_label = tk.Label(
             year_frame,
             textvariable=self.year_short_var,
-            font=("Yu Gothic UI", 10, "bold"),
+            font=FONTS['default_bold'],
             bg="white",
-            fg="#1976D2"
+            fg=COLORS['primary']
         )
         year_short_display_label.pack(side=tk.LEFT, padx=5)
 
         hint_label = tk.Label(
             year_section,
             text="💡 和暦（R8など）は自動計算されます",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             fg="gray"
         )
@@ -347,9 +339,9 @@ class SetupWizard:
         folder_section = tk.LabelFrame(
             self.content_frame,
             text="📁 作業フォルダ設定",
-            font=("Yu Gothic UI", 11, "bold"),
+            font=FONTS['subheading'],
             bg="white",
-            fg="#1976D2",
+            fg=COLORS['primary'],
             relief=tk.GROOVE,
             borderwidth=2
         )
@@ -358,7 +350,7 @@ class SetupWizard:
         desc_label = tk.Label(
             folder_section,
             text="教育計画ファイルが保存されているフォルダを指定してください。",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             fg="gray"
         )
@@ -371,7 +363,7 @@ class SetupWizard:
         folder_label = tk.Label(
             folder_frame,
             text="フォルダ:",
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             bg="white",
             width=10,
             anchor=tk.W
@@ -381,7 +373,7 @@ class SetupWizard:
         folder_entry = ttk.Entry(
             folder_frame,
             textvariable=self.gdrive_var,
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             width=35
         )
         folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
@@ -397,7 +389,7 @@ class SetupWizard:
         self.folder_status_label = tk.Label(
             folder_section,
             text="",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             fg="gray"
         )
@@ -409,7 +401,7 @@ class SetupWizard:
         title = tk.Label(
             self.content_frame,
             text="セットアップ完了！",
-            font=("Yu Gothic UI", 18, "bold"),
+            font=FONTS['dialog_title'],
             bg="white"
         )
         title.pack(pady=30)
@@ -418,7 +410,7 @@ class SetupWizard:
         message = tk.Label(
             self.content_frame,
             text="基本設定が完了しました。\nアプリケーションを使い始めることができます。",
-            font=("Yu Gothic UI", 11),
+            font=FONTS['default'],
             bg="white",
             justify=tk.CENTER
         )
@@ -428,7 +420,7 @@ class SetupWizard:
         summary_frame = tk.LabelFrame(
             self.content_frame,
             text="設定内容",
-            font=("Yu Gothic UI", 10, "bold"),
+            font=FONTS['default_bold'],
             bg="white",
             relief=tk.GROOVE,
             borderwidth=2
@@ -439,7 +431,7 @@ class SetupWizard:
         year_label = tk.Label(
             summary_frame,
             text=f"年度: {self.year_var.get()}",
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             bg="white",
             anchor=tk.W
         )
@@ -450,7 +442,7 @@ class SetupWizard:
         folder_label = tk.Label(
             summary_frame,
             text=f"作業フォルダ: {folder_text}",
-            font=("Yu Gothic UI", 10),
+            font=FONTS['default'],
             bg="white",
             anchor=tk.W
         )
@@ -460,9 +452,9 @@ class SetupWizard:
         auto_section = tk.Label(
             self.content_frame,
             text="✨ 自動設定済み",
-            font=("Yu Gothic UI", 12, "bold"),
+            font=FONTS['heading'],
             bg="white",
-            fg="#388E3C"
+            fg=COLORS['success']
         )
         auto_section.pack(pady=(20, 10))
 
@@ -471,7 +463,7 @@ class SetupWizard:
         gs_label = tk.Label(
             self.content_frame,
             text=f"• PDF圧縮機能 (Ghostscript): {gs_text}",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             anchor=tk.W
         )
@@ -481,7 +473,7 @@ class SetupWizard:
         temp_label = tk.Label(
             self.content_frame,
             text="• 一時フォルダ: デフォルト (temp_pdfs)",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             anchor=tk.W
         )
@@ -491,7 +483,7 @@ class SetupWizard:
         excel_label = tk.Label(
             self.content_frame,
             text="• Excel自動転記: 設定タブで後から設定可能",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             anchor=tk.W
         )
@@ -501,7 +493,7 @@ class SetupWizard:
         next_steps = tk.Label(
             self.content_frame,
             text="設定は「⚙️ 設定」タブからいつでも変更できます。",
-            font=("Yu Gothic UI", 9),
+            font=FONTS['small'],
             bg="white",
             fg="gray"
         )
@@ -660,7 +652,6 @@ class SetupWizard:
                         text="✓ Ghostscriptが見つかりました",
                         fg="green"
                     )
-                self.gs_enabled_var.set(True)
                 logger.info(f"Ghostscriptを自動検出: {gs_path}")
             else:
                 if hasattr(self, 'gs_status_label'):
@@ -668,7 +659,6 @@ class SetupWizard:
                         text="⚠ Ghostscriptが見つかりませんでした",
                         fg="orange"
                     )
-                self.gs_enabled_var.set(False)
                 logger.warning("Ghostscriptが見つかりませんでした")
         except Exception as e:
             logger.error(f"Ghostscript検出エラー: {e}", exc_info=True)
@@ -677,12 +667,6 @@ class SetupWizard:
                     text="❌ 検出に失敗しました",
                     fg="red"
                 )
-            self.gs_enabled_var.set(False)
-
-    def _toggle_ghostscript(self) -> None:
-        """Ghostscript有効/無効を切り替え"""
-        # 現時点では何もしない（チェックボックスの状態のみ保持）
-        pass
 
     def _finish(self) -> None:
         """セットアップを完了して設定を保存"""
@@ -700,7 +684,7 @@ class SetupWizard:
             # v3.5.0: Excelファイル設定は削除（セッション内管理に変更）
 
             # Ghostscript設定
-            if self.gs_enabled_var.get() and self.gs_var.get():
+            if self.gs_var.get():
                 self.config.set('ghostscript', 'executable', value=self.gs_var.get())
             else:
                 self.config.set('ghostscript', 'executable', value="")

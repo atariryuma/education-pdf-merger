@@ -29,7 +29,7 @@ repos:
       - id: mypy
         args: [--config-file=mypy.ini, --no-error-summary]
         additional_dependencies: [types-Pillow, types-requests]
-        files: ^(pdf_.*|document_.*|config_.*|path_.*|exceptions|constants|logging_config)\.py$
+        files: ^(core|shared|infrastructure)/.*\.py$
 
   # === Bandit: セキュリティチェック ===
   - repo: https://github.com/PyCQA/bandit
