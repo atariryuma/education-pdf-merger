@@ -163,19 +163,28 @@ pyinstaller build_installer.spec --clean --noconfirm
 ```text
 GUI層 (gui/)
   ↓ 依存
-オーケストレーション層 (pdf_merge_orchestrator.py)
+コア層 (core/)
+  ├─ pdf_merge_orchestrator.py  (全体フロー制御)
+  ├─ document_collector.py      (ディレクトリ走査・目次生成)
+  ├─ pdf_converter.py           (形式変換ファサード)
+  ├─ pdf_processor.py           (PDF操作)
+  ├─ update_excel_files.py      (Excel処理・転記機能)
+  └─ folder_structure_detector.py (フォルダ構造検出)
   ↓ 依存
-ビジネスロジック層
-  ├─ document_collector.py    (ディレクトリ走査・目次生成)
-  ├─ pdf_converter.py          (形式変換ファサード)
-  ├─ pdf_processor.py          (PDF操作)
-  └─ update_excel_files.py     (Excel処理・転記機能)
-  ↓ 依存
-インフラ層
+インフラ層 (infrastructure/)
   ├─ config_loader.py
+  ├─ config_validator.py
   ├─ path_validator.py
   ├─ logging_config.py
-  └─ converters/ (office_converter, image_converter, ichitaro_converter)
+  ├─ ghostscript.py
+  └─ year_utils.py
+変換器層 (converters/)
+  ├─ office_converter.py
+  ├─ image_converter.py
+  └─ ichitaro_converter.py
+共通層 (shared/)
+  ├─ constants.py
+  └─ exceptions.py
 ```
 
 ### 処理フロー（6ステップ）
@@ -195,15 +204,19 @@ GUI層 (gui/)
 
 | モジュール | 責務 | 型ヒント厳密度 |
 | --- | --- | --- |
-| `pdf_merge_orchestrator.py` | 全体フロー制御（依存性注入） | 厳密 |
-| `document_collector.py` | ディレクトリ走査・ファイル収集・目次構造生成 | 厳密 |
-| `pdf_converter.py` | 各種形式→PDF変換のファサード | 厳密 |
-| `pdf_processor.py` | PDF操作（マージ、分割、TOC、ブックマーク、ページ番号） | 厳密 |
-| `folder_structure_detector.py` | 教育計画（3階層）/行事計画（2階層）の検出 | 厳密 |
-| `update_excel_files.py` | Excel転記処理（COM操作・行事名管理） | 厳密 |
-| `config_loader.py` | 設定読み込み・パス解決・デフォルト値マージ | 通常 |
-| `path_validator.py` | パス検証・TOCTOU対策 | 厳密 |
-| `exceptions.py` | カスタム例外階層（9種類） | 厳密 |
+| `core/pdf_merge_orchestrator.py` | 全体フロー制御（依存性注入） | 厳密 |
+| `core/document_collector.py` | ディレクトリ走査・ファイル収集・目次構造生成 | 厳密 |
+| `core/pdf_converter.py` | 各種形式→PDF変換のファサード | 厳密 |
+| `core/pdf_processor.py` | PDF操作（マージ、分割、TOC、ブックマーク、ページ番号） | 厳密 |
+| `core/folder_structure_detector.py` | 教育計画（3階層）/行事計画（2階層）の検出 | 厳密 |
+| `core/update_excel_files.py` | Excel転記処理（COM操作・行事名管理） | 厳密 |
+| `infrastructure/config_loader.py` | 設定読み込み・パス解決・デフォルト値マージ | 通常 |
+| `infrastructure/config_validator.py` | 設定バリデーション | 厳密 |
+| `infrastructure/path_validator.py` | パス検証・TOCTOU対策 | 厳密 |
+| `infrastructure/ghostscript.py` | Ghostscript検出・圧縮ユーティリティ | 厳密 |
+| `infrastructure/year_utils.py` | 年度・和暦変換ユーティリティ | 厳密 |
+| `shared/exceptions.py` | カスタム例外階層（9種類） | 厳密 |
+| `shared/constants.py` | 全層共通の定数定義 | 厳密 |
 | `converters/office_converter.py` | Word/Excel/PPT変換（COM） | 緩和（COM型なし） |
 | `converters/ichitaro_converter.py` | 一太郎変換（pywinauto） | 緩和（UI自動化） |
 | `gui/` | customtkinterベースのGUI | 緩和（tkinter型不完全） |
@@ -249,6 +262,8 @@ def process_file(file_path: str, max_retries: int = 3) -> Optional[str]:
 統一されたカスタム例外とチェーンを使用:
 
 ```python
+from shared.exceptions import PDFProcessingError
+
 try:
     process_data()
 except ValueError as e:
@@ -300,15 +315,20 @@ def merge_pdfs(self, pdf_paths: List[str], output_file: str) -> None:
 
 1つのモジュール/クラスは1つの責務のみ:
 
-- `document_collector.py` → ドキュメント収集
-- `pdf_merge_orchestrator.py` → フロー制御
-- `pdf_processor.py` → PDF操作
+- `core/document_collector.py` → ドキュメント収集
+- `core/pdf_merge_orchestrator.py` → フロー制御
+- `core/pdf_processor.py` → PDF操作
 
 ### 依存性注入
 
 コンストラクタで依存を注入し、テスタビリティを確保:
 
 ```python
+from infrastructure.config_loader import ConfigLoader
+from core.pdf_converter import PDFConverter
+from core.pdf_processor import PDFProcessor
+from core.document_collector import DocumentCollector
+
 class PDFMergeOrchestrator:
     def __init__(
         self,
@@ -334,6 +354,8 @@ class PDFMergeOrchestrator:
 ユーザー入力のパスは必ず検証:
 
 ```python
+from infrastructure.path_validator import PathValidator
+
 is_valid, error_msg, validated_path = PathValidator.validate_directory(
     user_input,
     must_exist=True
@@ -369,7 +391,7 @@ def __init__(self, config, pdf_processor=None):
 
 # ❌ Bad - 毎回インポート
 def create_separator_page(self, folder_name: str) -> Optional[str]:
-    from pdf_processor import PDFProcessor  # 毎回実行される
+    from core.pdf_processor import PDFProcessor  # 毎回実行される
     processor = PDFProcessor(self.config)
 ```
 
@@ -455,8 +477,8 @@ pywinautoベースのUI操作は時間がかかるため、`config.json` でタ�
 
 ### モック推奨箇所
 
-- Win32 COM操作（`office_converter.py`、`update_excel_files.py`）
-- pywinauto UI操作（`ichitaro_converter.py`）
+- Win32 COM操作（`converters/office_converter.py`、`core/update_excel_files.py`）
+- pywinauto UI操作（`converters/ichitaro_converter.py`）
 
 ---
 
@@ -740,7 +762,9 @@ pytest -m unit
 | ファイル | 役割 |
 | --- | --- |
 | [run_app.py](run_app.py) | アプリケーションエントリーポイント |
-| [pdf_merge_orchestrator.py](pdf_merge_orchestrator.py) | メイン処理フロー制御 |
+| [core/pdf_merge_orchestrator.py](core/pdf_merge_orchestrator.py) | メイン処理フロー制御 |
+| [infrastructure/config_loader.py](infrastructure/config_loader.py) | 設定読み込み・マージ |
+| [shared/exceptions.py](shared/exceptions.py) | カスタム例外階層 |
 | [config.json](config.json) | プロジェクト設定（テンプレート） |
 | [requirements-dev.txt](requirements-dev.txt) | 開発用依存関係 |
 | [mypy.ini](mypy.ini) | 型チェック設定 |
