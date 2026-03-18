@@ -119,8 +119,7 @@ class PDFMergeOrchestrator:
             page_offset = current_toc_pages - assumed_toc_pages
             adjusted_toc_entries = self._offset_toc_entries(base_toc_entries, page_offset)
 
-            self.processor.create_toc_pdf(adjusted_toc_entries, toc_pdf)
-            measured_toc_pages = self.processor.get_page_count(toc_pdf)
+            measured_toc_pages = self.processor.create_toc_pdf(adjusted_toc_entries, toc_pdf)
 
             if measured_toc_pages == current_toc_pages:
                 if page_offset != 0:

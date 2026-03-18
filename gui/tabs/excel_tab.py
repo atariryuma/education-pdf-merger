@@ -21,7 +21,6 @@ except ImportError:
 from gui.tabs.base_tab import BaseTab
 from gui.styles import COLORS, FONTS
 from gui.utils import set_button_state, create_hover_button, open_file_or_folder, create_tooltip, thread_safe_call
-from infrastructure.path_validator import PathValidator
 from core.update_excel_files import ExcelTransfer
 
 if TYPE_CHECKING:
@@ -413,14 +412,8 @@ class ExcelTab(BaseTab):
         )
 
         if file_path:
-            # PathValidatorで検証
-            is_valid, error_msg, validated_path = PathValidator.validate_file_path(
-                file_path,
-                must_exist=True
-            )
-
-            if not is_valid or not validated_path:
-                messagebox.showerror("パス検証エラー", error_msg or "ファイルパスが無効です")
+            validated_path = self.validate_path(file_path, "file", error_title="パス検証エラー")
+            if not validated_path:
                 return
 
             # ファイルパスを保存
@@ -463,14 +456,8 @@ class ExcelTab(BaseTab):
             messagebox.showwarning("警告", "ファイルが選択されていません。")
             return
 
-        # PathValidatorでファイルパスを検証
-        is_valid, error_msg, validated_path = PathValidator.validate_file_path(
-            file_path,
-            must_exist=True
-        )
-
-        if not is_valid:
-            messagebox.showerror("パス検証エラー", error_msg or "ファイルパスが無効です")
+        validated_path = self.validate_path(file_path, "file", error_title="パス検証エラー")
+        if not validated_path:
             return
 
         def on_error(error_msg: str) -> None:

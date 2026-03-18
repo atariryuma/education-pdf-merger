@@ -33,6 +33,7 @@ def transfer_with_cancel():
     )
 
 
+@pytest.mark.unit
 class TestExcelTransferInit:
     """初期化のテスト"""
 
@@ -57,6 +58,7 @@ class TestExcelTransferInit:
         cb.assert_called_once_with("test msg")
 
 
+@pytest.mark.unit
 class TestCheckCancelled:
     """キャンセルチェックのテスト"""
 
@@ -68,6 +70,7 @@ class TestCheckCancelled:
         transfer._check_cancelled()  # 例外なし
 
 
+@pytest.mark.unit
 class TestFindWorkbook:
     """_find_workbook のテスト"""
 
@@ -97,6 +100,7 @@ class TestFindWorkbook:
             transfer._find_workbook("missing.xlsx")
 
 
+@pytest.mark.unit
 class TestConnectWorksheet:
     """_connect_worksheet のテスト"""
 
@@ -124,6 +128,7 @@ class TestConnectWorksheet:
             transfer._connect_worksheet(mock_wb, "BadSheet", "test.xlsx")
 
 
+@pytest.mark.unit
 class TestInitComConnection:
     """_init_com_connection のテスト"""
 
@@ -154,6 +159,7 @@ class TestInitComConnection:
         assert transfer.excel is not None
 
 
+@pytest.mark.unit
 class TestCleanupExcel:
     """_cleanup_excel のテスト"""
 
@@ -187,6 +193,7 @@ class TestCleanupExcel:
         mock_pythoncom.CoUninitialize.assert_not_called()
 
 
+@pytest.mark.unit
 class TestCleanEventNames:
     """_clean_event_names のテスト"""
 
@@ -210,6 +217,7 @@ class TestCleanEventNames:
         assert result == ["入学式", "卒業式"]
 
 
+@pytest.mark.unit
 class TestFindValueInSource:
     """_find_value_in_source のテスト"""
 
@@ -253,6 +261,7 @@ class TestFindValueInSource:
         assert result is None
 
 
+@pytest.mark.unit
 class TestReadDataRow:
     """_read_data_row のテスト"""
 

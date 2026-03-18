@@ -92,6 +92,7 @@ def mock_ppt_file(temp_dir: Path) -> Path:
     return ppt_path
 
 
+@pytest.mark.unit
 class TestOfficeConverter:
     """OfficeConverterのテスト"""
 

@@ -259,7 +259,7 @@ class PDFProcessor:
 
             logger.info("PDFアウトライン（しおり）を設定しました")
 
-    def create_toc_pdf(self, toc_entries: List[Tuple[str, int, int]], output_path: str) -> str:
+    def create_toc_pdf(self, toc_entries: List[Tuple[str, int, int]], output_path: str) -> int:
         """
         目次ページのPDFを作成
 
@@ -268,7 +268,7 @@ class PDFProcessor:
             output_path: 出力先PDFパス
 
         Returns:
-            str: 作成したPDFのパス
+            int: 作成したPDFのページ数
         """
         doc = BaseDocTemplate(output_path, pagesize=A4)
         frame = Frame(
@@ -316,8 +316,9 @@ class PDFProcessor:
         story.append(PageBreak())
 
         doc.build(story)
-        logger.info(f"目次PDFを作成しました: {output_path}")
-        return output_path
+        page_count = self.get_page_count(output_path)
+        logger.info(f"目次PDFを作成しました: {output_path} ({page_count}ページ)")
+        return page_count
 
     def create_separator_pdf(self, title: str, output_path: str) -> str:
         """

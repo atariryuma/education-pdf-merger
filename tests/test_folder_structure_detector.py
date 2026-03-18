@@ -14,6 +14,7 @@ def detector():
     return FolderStructureDetector()
 
 
+@pytest.mark.unit
 class TestDetectStructureEducation:
     """教育計画（3層構造）の検出テスト"""
 
@@ -46,6 +47,7 @@ class TestDetectStructureEducation:
         assert result.evidence['education_score'] > result.evidence['event_score']
 
 
+@pytest.mark.unit
 class TestDetectStructureEvent:
     """行事計画（2層構造）の検出テスト"""
 
@@ -77,6 +79,7 @@ class TestDetectStructureEvent:
         assert result.evidence['event_score'] > result.evidence['education_score']
 
 
+@pytest.mark.unit
 class TestDetectStructureEdgeCases:
     """エッジケースのテスト"""
 
@@ -139,6 +142,7 @@ class TestDetectStructureEdgeCases:
         assert len(result.issues) > 0
 
 
+@pytest.mark.unit
 class TestScoreCalculation:
     """スコア計算のテスト"""
 
@@ -193,6 +197,7 @@ class TestScoreCalculation:
         assert score_many > score_few
 
 
+@pytest.mark.unit
 class TestMakeDecision:
     """_make_decision のテスト"""
 

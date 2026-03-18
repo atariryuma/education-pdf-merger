@@ -72,6 +72,7 @@ def mock_png_file(temp_dir: Path) -> Path:
     return png_path
 
 
+@pytest.mark.unit
 class TestImageConverter:
     """ImageConverterのテスト"""
 

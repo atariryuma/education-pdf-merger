@@ -43,6 +43,7 @@ def _page_count_side_effect(temp_dir, toc_pages, default_pages):
     return _side_effect
 
 
+@pytest.mark.unit
 class TestPDFMergeOrchestratorInit:
     """初期化のテスト"""
 
@@ -69,6 +70,7 @@ class TestPDFMergeOrchestratorInit:
         assert orch.is_cancelled() is True
 
 
+@pytest.mark.unit
 class TestCreateMergedPDF:
     """create_merged_pdf の6ステップフローテスト"""
 
@@ -81,6 +83,7 @@ class TestCreateMergedPDF:
             [("Section1", 1, 3)], ["/tmp/a.pdf"]
         )
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 1
         processor.get_page_count.side_effect = _page_count_side_effect(
             config.get_temp_dir.return_value,
             toc_pages=1,
@@ -132,6 +135,7 @@ class TestCreateMergedPDF:
 
         collector.collect_documents.return_value = ([], ["/tmp/a.pdf"])
         processor.split_pdf.return_value = ("/tmp/c.pdf", "/tmp/r.pdf")
+        processor.create_toc_pdf.return_value = 1
         processor.get_page_count.side_effect = _page_count_side_effect(
             config.get_temp_dir.return_value,
             toc_pages=1,
@@ -147,6 +151,7 @@ class TestCreateMergedPDF:
 
         collector.collect_documents.return_value = ([("A", 1, 1)], ["/tmp/a.pdf"])
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 1
         processor.get_page_count.side_effect = _page_count_side_effect(
             config.get_temp_dir.return_value,
             toc_pages=1,
@@ -169,6 +174,7 @@ class TestCreateMergedPDF:
         adjusted_toc_entries = [("Main", 1, 5), ("Sub", 2, 6)]
         collector.collect_documents.return_value = (original_toc_entries, ["/tmp/a.pdf"])
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 3
         processor.get_page_count.side_effect = _page_count_side_effect(
             config.get_temp_dir.return_value,
             toc_pages=3,
@@ -190,6 +196,7 @@ class TestCreateMergedPDF:
         processor.set_pdf_outlines.assert_called_once_with("/output.pdf", adjusted_toc_entries)
 
 
+@pytest.mark.unit
 class TestCleanupTempFiles:
     """一時ファイルクリーンアップのテスト"""
 

@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.pdf_converter import PDFConverter
 
 
+@pytest.mark.unit
 class TestPDFConverter:
     """PDFConverterクラスのテスト"""
 
@@ -129,6 +130,7 @@ class TestPDFConverter:
             pytest.skip("PIL/Pillow not installed")
 
 
+@pytest.mark.unit
 class TestPDFConverterEdgeCases:
     """PDFConverterのエッジケーステスト"""
 

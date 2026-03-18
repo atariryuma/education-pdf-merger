@@ -141,8 +141,10 @@ class DocumentCollector:
         # サブフォルダ内のファイルを処理（ディレクトリは除外）
         all_items = sorted(os.listdir(subfolder_path))
         files = [f for f in all_items if os.path.isfile(os.path.join(subfolder_path, f))]
-        logger.info(f"サブフォルダ内のファイル数: {len(files)} (全アイテム: {len(all_items)})")
-        for filename in files:
+        total_files = len(files)
+        logger.info(f"サブフォルダ内のファイル数: {total_files} (全アイテム: {len(all_items)})")
+        for file_idx, filename in enumerate(files, 1):
+            logger.debug(f"  [{file_idx}/{total_files}] {filename}")
             file_path = os.path.join(subfolder_path, filename)
             current_page = self._convert_and_add_pdf(file_path, content_pdfs, current_page)
 

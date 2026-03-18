@@ -74,6 +74,7 @@ def mock_jtd_file(temp_dir: Path) -> Path:
     return jtd_path
 
 
+@pytest.mark.unit
 class TestIchitaroConverter:
     """IchitaroConverterのテスト"""
 

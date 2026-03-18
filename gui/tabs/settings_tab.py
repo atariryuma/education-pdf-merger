@@ -192,14 +192,10 @@ class SettingsTab(BaseTab):
 
             directory = filedialog.askdirectory(title="フォルダを選択", initialdir=str(initial_dir))
             if directory:
-                is_valid, error_msg, validated_path = PathValidator.validate_directory(
-                    directory, must_exist=True
-                )
-                if is_valid and validated_path:
+                validated_path = self.validate_path(directory, "directory")
+                if validated_path:
                     var.set(str(validated_path))
                     self.update_status(f"フォルダを選択: {validated_path.name}")
-                else:
-                    messagebox.showerror("パスエラー", error_msg or "フォルダが無効です")
         except Exception as e:
             messagebox.showerror("参照エラー", f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}")
 
@@ -229,13 +225,8 @@ class SettingsTab(BaseTab):
                 filetypes=[("実行ファイル", "*.exe"), ("すべて", "*.*")]
             )
             if file_path:
-                # PathValidatorで検証
-                is_valid, error_msg, validated_path = PathValidator.validate_file_path(
-                    file_path,
-                    must_exist=True
-                )
-                if not is_valid:
-                    messagebox.showerror("パス検証エラー", error_msg)
+                validated_path = self.validate_path(file_path, "file", error_title="パス検証エラー")
+                if not validated_path:
                     return
 
                 self.gs_var.set(str(validated_path))
@@ -398,8 +389,8 @@ class SettingsTab(BaseTab):
         text, color = self._check_gs_path(gs_path)
         self.gs_status_label.config(text=text, fg=color)
 
-        # パスが存在する場合は動作確認をバックグラウンドで実行
-        if text == "⏳ 動作確認中...":
+        # パスが存在し未検証の場合は動作確認をバックグラウンドで実行
+        if gs_path and not gs_path.startswith('\\\\') and os.path.exists(gs_path):
             self.tab.after(500, self._verify_gs_async)
 
     def _verify_gs_async(self) -> None:

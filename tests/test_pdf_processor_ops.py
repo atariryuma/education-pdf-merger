@@ -35,6 +35,7 @@ def real_pdf(temp_dir):
     return pdf_path
 
 
+@pytest.mark.unit
 class TestMergePdfs:
     """merge_pdfs のテスト"""
 
@@ -100,6 +101,7 @@ class TestMergePdfs:
         assert os.path.exists(output)
 
 
+@pytest.mark.unit
 class TestGetPageCount:
     """get_page_count のテスト"""
 
@@ -122,6 +124,7 @@ class TestGetPageCount:
             processor.get_page_count("/nonexistent.pdf")
 
 
+@pytest.mark.unit
 class TestSplitPdf:
     """split_pdf のテスト"""
 
@@ -152,6 +155,7 @@ class TestSplitPdf:
             processor.split_pdf("/nonexistent.pdf", temp_dir)
 
 
+@pytest.mark.unit
 class TestAddPageNumbers:
     """add_page_numbers のテスト"""
 
@@ -168,6 +172,7 @@ class TestAddPageNumbers:
             assert doc.page_count == 3  # ページ数は変わらない
 
 
+@pytest.mark.unit
 class TestSetPdfOutlines:
     """set_pdf_outlines のテスト"""
 
@@ -206,6 +211,7 @@ class TestSetPdfOutlines:
             assert toc[0][2] <= doc.page_count
 
 
+@pytest.mark.unit
 class TestCompressPdf:
     """compress_pdf のテスト"""
 

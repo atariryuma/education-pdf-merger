@@ -35,6 +35,7 @@ def collector(mock_converter, mock_processor):
     return DocumentCollector(mock_converter, mock_processor)
 
 
+@pytest.mark.unit
 class TestSanitizeName:
     """_sanitize_name のテスト"""
 
@@ -57,6 +58,7 @@ class TestSanitizeName:
         assert DocumentCollector._sanitize_name("123") == ""
 
 
+@pytest.mark.unit
 class TestCollectDocuments:
     """collect_documents のテスト"""
 
@@ -144,6 +146,7 @@ class TestCollectDocuments:
         assert len(content_pdfs) > 0
 
 
+@pytest.mark.unit
 class TestConvertAndAddPdf:
     """_convert_and_add_pdf のテスト"""
 
@@ -177,6 +180,7 @@ class TestConvertAndAddPdf:
         assert len(content_pdfs) == 0
 
 
+@pytest.mark.unit
 class TestProcessRootFile:
     """_process_root_file のテスト"""
 

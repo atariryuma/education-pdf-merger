@@ -71,6 +71,7 @@ hiddenimports = [
     'gui.ichitaro_dialog',
     'gui.plan_type_selection_dialog',
     'gui.setup_wizard',
+    'gui.event_names_editor',
 
     # 外部ライブラリ
     'PIL._tkinter_finder',
@@ -146,6 +147,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # アイコンファイルがあれば指定
+    icon='app.ico',
     version='version_info.txt',  # バージョン情報ファイル（後で作成）
 )

@@ -12,6 +12,7 @@ from infrastructure.config_loader import ConfigLoader
 from shared.exceptions import ConfigurationError
 
 
+@pytest.mark.unit
 class TestConfigLoader:
     """ConfigLoaderクラスのテスト"""
 

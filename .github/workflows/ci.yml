@@ -31,15 +31,12 @@ jobs:
 
     - name: 型チェック (mypy)
       run: mypy --config-file mypy.ini --no-error-summary .
-      continue-on-error: true
 
     - name: リント (ruff)
       run: ruff check . --output-format=github
-      continue-on-error: true
 
     - name: セキュリティチェック (bandit)
       run: bandit -r . -f screen --skip B101,B601
-      continue-on-error: true
 
   # === ジョブ2: テスト ===
   test:

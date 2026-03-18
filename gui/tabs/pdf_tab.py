@@ -200,21 +200,14 @@ class PDFTab(BaseTab):
             logger.info(f"ダイアログから戻りました: {directory if directory else 'キャンセル'}")
 
             if directory:
-                # 選択されたパスを検証
-                is_valid, error_msg, validated_path = PathValidator.validate_directory(
-                    directory,
-                    must_exist=True
-                )
-
-                if is_valid and validated_path:
+                validated_path = self.validate_path(directory, "directory")
+                if validated_path:
                     self.input_dir_var.set(str(validated_path))
                     self.update_status(f"入力ディレクトリを選択: {validated_path.name}")
                     logger.info(f"入力ディレクトリを選択: {validated_path}")
 
                     # フォルダ構造の自動判定（バックグラウンドで実行してUIフリーズを防止）
                     self._detect_and_set_plan_type_async(validated_path)
-                else:
-                    self._show_validation_error(error_msg)
             else:
                 logger.debug("ディレクトリ選択がキャンセルされました")
 
@@ -246,21 +239,14 @@ class PDFTab(BaseTab):
             logger.info(f"ダイアログから戻りました: {file_path if file_path else 'キャンセル'}")
 
             if file_path:
-                # 選択されたパスを検証
-                is_valid, error_msg, validated_path = PathValidator.validate_file_path(
-                    file_path,
-                    must_exist=False,
-                    allowed_extensions=['.pdf']
+                validated_path = self.validate_path(
+                    file_path, "file", must_exist=False, allowed_extensions=['.pdf']
                 )
-
-                if is_valid and validated_path:
+                if validated_path:
                     self.output_file_var.set(str(validated_path))
                     self.update_status(f"出力ファイルを選択: {validated_path.name}")
                     logger.info(f"出力ファイルを選択: {validated_path}")
-                    # 実行ボタンの状態を更新
                     self._validate_inputs()
-                else:
-                    self._show_validation_error(error_msg)
             else:
                 logger.debug("出力ファイル選択がキャンセルされました")
 
@@ -343,26 +329,15 @@ class PDFTab(BaseTab):
             return
 
         # 入力ディレクトリの検証
-        is_valid_dir, error_msg_dir, input_dir_path = PathValidator.validate_directory(
-            input_dir_str,
-            must_exist=True
-        )
-
-        if not is_valid_dir or not input_dir_path:
-            logger.error(f"入力ディレクトリの検証エラー: {error_msg_dir}")
-            messagebox.showerror("パスエラー", error_msg_dir or "入力ディレクトリが無効です")
+        input_dir_path = self.validate_path(input_dir_str, "directory")
+        if not input_dir_path:
             return
 
         # 出力ファイルの検証
-        is_valid_file, error_msg_file, output_file_path = PathValidator.validate_file_path(
-            output_file_str,
-            must_exist=False,
-            allowed_extensions=['.pdf']
+        output_file_path = self.validate_path(
+            output_file_str, "file", must_exist=False, allowed_extensions=['.pdf']
         )
-
-        if not is_valid_file or not output_file_path:
-            logger.error(f"出力ファイルの検証エラー: {error_msg_file}")
-            messagebox.showerror("パスエラー", error_msg_file or "出力ファイルパスが無効です")
+        if not output_file_path:
             return
 
         logger.info(f"パス検証完了 - 入力: {input_dir_path}, 出力: {output_file_path}")
@@ -657,15 +632,3 @@ class PDFTab(BaseTab):
 
         except Exception as e:
             logger.warning(f"デフォルトパスの読み込みに失敗: {e}", exc_info=True)
-
-    def _show_validation_error(self, error_msg: Optional[str]) -> None:
-        """
-        検証エラーを表示（共通メソッド）
-
-        Args:
-            error_msg: エラーメッセージ（Noneの場合は不明なエラー）
-        """
-        messagebox.showwarning(
-            "検証エラー",
-            error_msg or "不明なエラー"
-        )

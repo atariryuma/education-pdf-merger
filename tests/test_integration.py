@@ -96,6 +96,7 @@ def sample_input_dir(temp_workspace: Path) -> Path:
     return input_dir
 
 
+@pytest.mark.integration
 class TestPDFMergeIntegration:
     """PDF統合の統合テスト"""
 
@@ -188,6 +189,7 @@ class TestPDFMergeIntegration:
         assert output_pdf.stat().st_size > 0
 
 
+@pytest.mark.integration
 class TestPathValidator:
     """PathValidatorの統合テスト"""
 
@@ -245,6 +247,7 @@ class TestPathValidator:
         assert not safe_name.upper().startswith("CON")
 
 
+@pytest.mark.integration
 class TestExceptionHandling:
     """例外処理の統合テスト"""
 

@@ -21,6 +21,7 @@ from shared.exceptions import (
 )
 
 
+@pytest.mark.unit
 class TestPDFMergeError:
     """PDFMergeErrorのテスト"""
 
@@ -38,6 +39,7 @@ class TestPDFMergeError:
         assert "ValueError" in str(error)
 
 
+@pytest.mark.unit
 class TestPDFConversionError:
     """PDFConversionErrorのテスト"""
 
@@ -67,6 +69,7 @@ class TestPDFConversionError:
         assert "Excel変換失敗" in str(error)
 
 
+@pytest.mark.unit
 class TestConfigurationError:
     """ConfigurationErrorのテスト"""
 
@@ -82,6 +85,7 @@ class TestConfigurationError:
         assert not hasattr(error, 'config_key') or error.config_key is None
 
 
+@pytest.mark.unit
 class TestResourceError:
     """ResourceErrorのテスト"""
 
@@ -106,6 +110,7 @@ class TestResourceError:
         assert error.original_error is None
 
 
+@pytest.mark.unit
 class TestFileOperationError:
     """FileOperationErrorのテスト"""
 
@@ -132,6 +137,7 @@ class TestFileOperationError:
         assert "ファイル書き込みエラー" in str(error)
 
 
+@pytest.mark.unit
 class TestPathNotFoundError:
     """PathNotFoundErrorのテスト"""
 
@@ -152,6 +158,7 @@ class TestPathNotFoundError:
         assert "パスが見つかりません" in str(error)
 
 
+@pytest.mark.unit
 class TestPDFProcessingError:
     """PDFProcessingErrorのテスト"""
 
@@ -172,6 +179,7 @@ class TestPDFProcessingError:
         assert error.original_error == original
 
 
+@pytest.mark.unit
 class TestExcelProcessingError:
     """ExcelProcessingErrorのテスト"""
 
@@ -198,6 +206,7 @@ class TestExcelProcessingError:
         assert error.original_error == original
 
 
+@pytest.mark.unit
 class TestCancelledError:
     """CancelledErrorのテスト"""
 
@@ -212,6 +221,7 @@ class TestCancelledError:
         assert "一太郎変換がキャンセルされました" in str(error)
 
 
+@pytest.mark.unit
 class TestExceptionHierarchy:
     """例外の継承関係テスト"""
 

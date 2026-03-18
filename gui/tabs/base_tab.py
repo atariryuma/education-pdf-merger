@@ -6,10 +6,13 @@
 import logging
 import tkinter as tk
 from tkinter import ttk, scrolledtext
-from typing import Any, Optional, Callable, Tuple, TYPE_CHECKING
+from pathlib import Path
+from tkinter import messagebox
+from typing import Any, List, Optional, Callable, Tuple, TYPE_CHECKING
 
 from gui.styles import COLORS, FONTS
 from gui.utils import log_message
+from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
     from infrastructure.config_loader import ConfigLoader
@@ -146,6 +149,42 @@ class BaseTab:
             message: ステータスメッセージ
         """
         self.log(message, "info")
+
+    def validate_path(
+        self,
+        path: str,
+        path_type: str = "directory",
+        must_exist: bool = True,
+        allowed_extensions: Optional[List[str]] = None,
+        error_title: str = "パスエラー"
+    ) -> Optional[Path]:
+        """
+        パスを検証し、無効な場合はエラーダイアログを表示
+
+        Args:
+            path: 検証するパス文字列
+            path_type: "directory" または "file"
+            must_exist: 存在を要求するか
+            allowed_extensions: 許可する拡張子リスト（fileのみ）
+            error_title: エラーダイアログのタイトル
+
+        Returns:
+            Optional[Path]: 検証済みパス。無効な場合はNone（エラーダイアログ表示済み）
+        """
+        if path_type == "directory":
+            is_valid, error_msg, validated_path = PathValidator.validate_directory(
+                path, must_exist=must_exist
+            )
+        else:
+            is_valid, error_msg, validated_path = PathValidator.validate_file_path(
+                path, must_exist=must_exist, allowed_extensions=allowed_extensions
+            )
+
+        if is_valid and validated_path:
+            return validated_path
+
+        messagebox.showerror(error_title, error_msg or "パスが無効です")
+        return None
 
     def create_collapsible_section(
         self,
