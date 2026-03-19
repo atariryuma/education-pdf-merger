@@ -123,7 +123,7 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
 
     # ログディレクトリの作成
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
 
     # ログファイル名（日付入り）
     log_file = os.path.join(log_dir, f"{app_name}_{datetime.now():%Y%m%d}.log")

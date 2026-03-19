@@ -35,8 +35,8 @@ class ImageConverter:
         try:
             # with文でリソースを確実に解放
             with Image.open(file_path) as image:
-                # RGBA/Pモードの場合はRGBに変換（新しいオブジェクトが返る）
-                if image.mode in ("RGBA", "P"):
+                # RGB以外のモード（RGBA, P, CMYK, LAなど）はRGBに変換
+                if image.mode != "RGB":
                     image = image.convert("RGB")
                 image.save(output_path, "PDF")
 

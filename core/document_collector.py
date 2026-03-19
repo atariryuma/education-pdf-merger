@@ -126,6 +126,17 @@ class DocumentCollector:
         sub_heading = self._sanitize_name(subfolder_name)
         logger.info(f"サブフォルダを処理中: {subfolder_name}")
 
+        # サブフォルダ内のファイルを確認（ディレクトリは除外）
+        all_items = sorted(os.listdir(subfolder_path))
+        files = [f for f in all_items if os.path.isfile(os.path.join(subfolder_path, f))]
+        total_files = len(files)
+        logger.info(f"サブフォルダ内のファイル数: {total_files} (全アイテム: {len(all_items)})")
+
+        # 空フォルダの場合は目次エントリもスキップ
+        if total_files == 0:
+            logger.info(f"空フォルダのためスキップ: {subfolder_name}")
+            return current_page
+
         if create_separator:
             # サブフォルダにも区切りページを作成
             logger.info(f"区切りページを作成: {sub_heading}")
@@ -138,11 +149,7 @@ class DocumentCollector:
             # 区切りページなしで目次にのみ登録
             toc_entries.append((sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page))
 
-        # サブフォルダ内のファイルを処理（ディレクトリは除外）
-        all_items = sorted(os.listdir(subfolder_path))
-        files = [f for f in all_items if os.path.isfile(os.path.join(subfolder_path, f))]
-        total_files = len(files)
-        logger.info(f"サブフォルダ内のファイル数: {total_files} (全アイテム: {len(all_items)})")
+        # ファイルを処理
         for file_idx, filename in enumerate(files, 1):
             logger.debug(f"  [{file_idx}/{total_files}] {filename}")
             file_path = os.path.join(subfolder_path, filename)
@@ -173,8 +180,7 @@ class DocumentCollector:
         Returns:
             int: 更新後のページ番号
         """
-        heading = dir_name.strip()
-        heading_for_toc = heading.replace("_", "")
+        heading = self._sanitize_name(dir_name)
         logger.info(f"=== メインディレクトリを処理中: {heading} ===")
 
         # 大見出し用の区切りページを作成
@@ -182,7 +188,7 @@ class DocumentCollector:
         sep_pdf = self.converter.create_separator_page(heading)
         if sep_pdf:
             content_pdfs.append(sep_pdf)
-            toc_entries.append((heading_for_toc, PDFConstants.HEADING_LEVEL_MAIN, current_page))
+            toc_entries.append((heading, PDFConstants.HEADING_LEVEL_MAIN, current_page))
             current_page += 1
 
         # サブディレクトリの処理

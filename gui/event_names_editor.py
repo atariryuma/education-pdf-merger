@@ -175,7 +175,7 @@ class EventNamesEditor:
             return
 
         index = selection[0]
-        event_names = self.config.get_event_names(category)
+        event_names = list(self.config.get_event_names(category))
         old_name = event_names[index]
 
         new_name = simpledialog.askstring(
@@ -213,7 +213,7 @@ class EventNamesEditor:
             return
 
         index = selection[0]
-        event_names = self.config.get_event_names(category)
+        event_names = list(self.config.get_event_names(category))
         name = event_names[index]
 
         # 確認ダイアログ
@@ -253,7 +253,7 @@ class EventNamesEditor:
         if index == 0:
             return
 
-        event_names = self.config.get_event_names(category)
+        event_names = list(self.config.get_event_names(category))
         event_names[index], event_names[index - 1] = event_names[index - 1], event_names[index]
 
         try:
@@ -280,7 +280,7 @@ class EventNamesEditor:
             return
 
         index = selection[0]
-        event_names = self.config.get_event_names(category)
+        event_names = list(self.config.get_event_names(category))
 
         if index == len(event_names) - 1:
             return

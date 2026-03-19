@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 """
-教育計画PDFマージシステム v3.5.6
+教育計画PDFマージシステム v3.5.8
 PyInstaller ビルド設定ファイル
 
 使用方法:

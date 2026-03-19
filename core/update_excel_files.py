@@ -222,11 +222,13 @@ class ExcelTransfer:
         self._row_category_cache: Dict[int, str] = {}  # 行番号→カテゴリ
 
         for row_num, c_value in self._ref_c_cache:
-            # この行のカテゴリを判定（E～AN列を確認）
+            # この行のカテゴリを判定（E～AN列を学年別に分析）
             row_data = self._ref_data_cache.get(row_num, [])
-            category = self._detect_row_category(row_data)
-            if category:
-                self._row_category_cache[row_num] = category
+            primary_category, all_categories = self._detect_row_category(
+                row_data, c_value
+            )
+            if primary_category:
+                self._row_category_cache[row_num] = primary_category
 
             # C列の行事名を正規化
             normalized = self._normalize_text(c_value)
@@ -237,12 +239,9 @@ class ExcelTransfer:
             if normalized not in self._all_events_index:
                 self._all_events_index[normalized] = row_num
 
-            # カテゴリ別インデックスに追加
-            if category:
-                if category not in self._category_index:
-                    self._category_index[category] = {}
-                if normalized not in self._category_index[category]:
-                    self._category_index[category][normalized] = row_num
+            # カテゴリ別インデックスに追加（検出された全カテゴリに登録）
+            for cat in all_categories:
+                self._category_index.setdefault(cat, {}).setdefault(normalized, row_num)
 
             # 複数行セル対応: 各行も個別にインデックスに追加
             for line in self._split_cell_lines(c_value):
@@ -250,54 +249,109 @@ class ExcelTransfer:
                 if norm_line and norm_line != normalized:
                     if norm_line not in self._all_events_index:
                         self._all_events_index[norm_line] = row_num
-                    if category and norm_line not in self._category_index.get(category, {}):
-                        if category not in self._category_index:
-                            self._category_index[category] = {}
-                        self._category_index[category][norm_line] = row_num
+                    for cat in all_categories:
+                        self._category_index.setdefault(cat, {}).setdefault(norm_line, row_num)
 
         # ログ出力
         for cat, events in self._category_index.items():
             logger.info(f"  カテゴリ [{cat}]: {len(events)}件")
         logger.info(f"  全行事インデックス: {len(self._all_events_index)}件")
 
-    def _detect_row_category(self, row_data: list) -> str:
+    def _detect_row_category(
+        self, row_data: list, event_name: str = ""
+    ) -> Tuple[str, List[str]]:
         """
-        E～AN列のデータから行のカテゴリを判定
+        E～AN列のデータから行のカテゴリを判定（学年別3段階フォールバック）
 
-        最も多く出現するEVENT_KEYWORDを返す。
-        行事キーワードがなく欠時のみの場合は「欠時」を返す。
+        同日に複数カテゴリが混在する場合（例: 1年=儀式、2～6年=勤労）に
+        正しいカテゴリを推定するため、以下の順で判定する:
+
+        1. 全学年が同一カテゴリ → そのまま返す（曖昧性なし）
+        2. 行事名パターンマッチ → 行事名に含まれる文字列からカテゴリを推定
+        3. 少数派ヒューリスティック → 参加学年が少ない方が「特別行事」
 
         Args:
             row_data: E～AN列のデータリスト
+            event_name: C列の行事名（パターンマッチに使用）
 
         Returns:
-            str: カテゴリ名。判定不能の場合は空文字
+            Tuple[str, List[str]]: (主カテゴリ, 検出された全カテゴリのリスト)
+            判定不能の場合は ("", [])
         """
         if not row_data:
-            return ""
+            return "", []
 
-        keyword_counts: Dict[str, int] = {}
+        search_str = event_name.strip()
+
+        # 学年ごとの主要カテゴリを判定
+        grade_keywords: Dict[int, str] = {}
         has_absent = False
 
-        for cell in row_data:
-            if cell is None:
+        for grade in range(1, ExcelTransferConstants.GRADES_COUNT + 1):
+            start_idx = (grade - 1) * ExcelTransferConstants.PERIODS_PER_GRADE
+            end_idx = start_idx + ExcelTransferConstants.PERIODS_PER_GRADE
+            if end_idx > len(row_data):
                 continue
-            cell_str = str(cell).strip()
-            if not cell_str:
-                continue
-            if cell_str == ExcelTransferConstants.ABSENT_KEYWORD:
-                has_absent = True
-                continue
-            for kw in ExcelTransferConstants.EVENT_KEYWORDS:
-                if kw in cell_str:
-                    keyword_counts[kw] = keyword_counts.get(kw, 0) + 1
-                    break
 
-        if keyword_counts:
-            return max(keyword_counts, key=keyword_counts.get)  # type: ignore[arg-type]
-        if has_absent:
-            return ExcelTransferConstants.ABSENT_KEYWORD
-        return ""
+            kw_count: Dict[str, int] = {}
+            for cell in row_data[start_idx:end_idx]:
+                if cell is None:
+                    continue
+                cell_str = str(cell).strip()
+                if not cell_str:
+                    continue
+                if cell_str == ExcelTransferConstants.ABSENT_KEYWORD:
+                    has_absent = True
+                    continue
+                for kw in ExcelTransferConstants.EVENT_KEYWORDS:
+                    if kw in cell_str:
+                        kw_count[kw] = kw_count.get(kw, 0) + 1
+                        break
+
+            if kw_count:
+                grade_keywords[grade] = max(kw_count, key=lambda k: kw_count[k])
+
+        unique_keywords = set(grade_keywords.values())
+        all_categories = sorted(unique_keywords)
+
+        # カテゴリが検出されない場合 → 欠時チェック
+        if not unique_keywords:
+            if has_absent:
+                return ExcelTransferConstants.ABSENT_KEYWORD, [ExcelTransferConstants.ABSENT_KEYWORD]
+            return "", []
+
+        # --- ステップ1: 全学年同一カテゴリ → 曖昧性なし ---
+        if len(unique_keywords) == 1:
+            result = unique_keywords.pop()
+            return result, [result]
+
+        # --- ステップ2: 行事名パターンマッチ ---
+        if search_str:
+            for kw, patterns in ExcelTransferConstants.EVENT_NAME_PATTERNS.items():
+                if kw in unique_keywords:
+                    if any(p in search_str for p in patterns):
+                        matched_grades = [
+                            g for g, k in grade_keywords.items() if k == kw
+                        ]
+                        logger.info(
+                            f"    カテゴリ検出(名前パターン): '{search_str}' → '{kw}' "
+                            f"(該当学年: {matched_grades})"
+                        )
+                        return kw, all_categories
+
+        # --- ステップ3: 少数派ヒューリスティック ---
+        # 参加学年が少ないカテゴリ = より特別な行事（入学式=1年のみ等）
+        kw_grade_count: Dict[str, int] = {}
+        for kw in unique_keywords:
+            kw_grade_count[kw] = sum(1 for k in grade_keywords.values() if k == kw)
+
+        result = min(kw_grade_count, key=lambda k: kw_grade_count[k])
+        minority_grades = [g for g, k in grade_keywords.items() if k == result]
+        logger.info(
+            f"    カテゴリ検出(少数派): '{search_str}' → '{result}' "
+            f"(該当学年: {minority_grades}, 全カテゴリ: {dict(kw_grade_count)})"
+        )
+        return result, all_categories
 
     @staticmethod
     def _to_datetime(value: Any) -> 'Optional[Any]':

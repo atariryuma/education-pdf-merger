@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from core.update_excel_files import ExcelTransfer, ExcelTransferError
+from shared.constants import ExcelTransferConstants
 from shared.exceptions import CancelledError
 
 
@@ -259,6 +260,61 @@ class TestFindValueInSource:
 
         result = transfer._find_value_in_source("存在しない値")
         assert result is None
+
+
+@pytest.mark.unit
+class TestDetectRowCategory:
+    """_detect_row_category のテスト（学年別3段階フォールバック）"""
+
+    def test_empty_row_data(self, transfer):
+        """空データの場合は空文字と空リスト"""
+        primary, all_cats = transfer._detect_row_category([])
+        assert primary == ""
+        assert all_cats == []
+
+    def test_all_grades_same_category(self, transfer):
+        """全学年同一カテゴリ → そのまま返す"""
+        # 6学年 × 6校時 = 36セル、全て「儀式」
+        row_data = ["儀式"] * 36
+        primary, all_cats = transfer._detect_row_category(row_data)
+        assert primary == "儀式"
+        assert all_cats == ["儀式"]
+
+    def test_mixed_categories_name_pattern(self, transfer):
+        """複数カテゴリ混在 + 行事名パターンマッチで正しいカテゴリを推定"""
+        # 1年=儀式(6セル), 2-6年=勤労(30セル)
+        row_data = ["儀式"] * 6 + ["勤労"] * 30
+        primary, all_cats = transfer._detect_row_category(row_data, "入学式")
+        assert primary == "儀式"  # 「式」パターンで儀式にマッチ
+        assert sorted(all_cats) == ["儀式", "勤労"]
+
+    def test_mixed_categories_minority_heuristic(self, transfer):
+        """複数カテゴリ混在 + パターン不一致 → 少数派ヒューリスティック"""
+        # 1年=保健(6セル), 2-6年=勤労(30セル)
+        row_data = ["保健"] * 6 + ["勤労"] * 30
+        primary, all_cats = transfer._detect_row_category(row_data, "特別活動")
+        assert primary == "保健"  # 少数派 = 特別行事
+        assert sorted(all_cats) == ["保健", "勤労"]
+
+    def test_absent_only(self, transfer):
+        """欠時のみの場合"""
+        row_data = ["欠時"] * 36
+        primary, all_cats = transfer._detect_row_category(row_data)
+        assert primary == "欠時"
+        assert all_cats == ["欠時"]
+
+    def test_no_keywords_no_absent(self, transfer):
+        """キーワードも欠時もない場合"""
+        row_data = [None] * 36
+        primary, all_cats = transfer._detect_row_category(row_data)
+        assert primary == ""
+        assert all_cats == []
+
+    def test_event_name_patterns_keys_match_event_keywords(self):
+        """EVENT_NAME_PATTERNSのキーがEVENT_KEYWORDSと一致すること"""
+        assert set(ExcelTransferConstants.EVENT_NAME_PATTERNS.keys()) == set(
+            ExcelTransferConstants.EVENT_KEYWORDS
+        )
 
 
 @pytest.mark.unit

@@ -34,7 +34,7 @@ class FolderStructureDetector:
 
     # 設定値
     CONFIDENCE_THRESHOLD = 0.7
-    MIN_MAIN_DIRS_FOR_EDUCATION = 2
+    MIN_MAIN_DIRS_FOR_EDUCATION = 5
     MAX_ROOT_FILE_RATIO_FOR_EDUCATION = 0.3
 
     # パフォーマンス設定
@@ -227,19 +227,23 @@ class FolderStructureDetector:
     def _calculate_education_score(
         self, scan_result: Dict[str, Any]
     ) -> float:
-        """教育計画（3層構造）スコアを計算"""
+        """教育計画（3層構造）スコアを計算
+
+        教育計画の特徴: ルート直下に多数のカテゴリフォルダ（5個以上）、
+        各フォルダの下にはサブフォルダが少数（平均5個以下）
+        """
         score = 0.0
-
-        # メインディレクトリ数（多いほど高スコア）
         main_dir_count = scan_result['main_dir_count']
-        score += main_dir_count * 2.0
 
-        # サブフォルダの平均数
-        if main_dir_count > 0:
+        # メインディレクトリ数（5個以上で教育計画らしい、4個以下は加点なし）
+        if main_dir_count >= self.MIN_MAIN_DIRS_FOR_EDUCATION:
+            score += main_dir_count * 2.0
+            # サブフォルダの平均数（教育計画は多数のカテゴリに少数のサブフォルダ）
             avg_subfolders = sum(
                 d['subfolder_count'] for d in scan_result['main_dirs']
             ) / main_dir_count
-            score += avg_subfolders * 1.5
+            capped_avg = min(avg_subfolders, 5.0)
+            score += capped_avg * 1.5
 
         # 階層の深さ
         if scan_result['max_depth'] >= 3:
@@ -252,14 +256,19 @@ class FolderStructureDetector:
         return score
 
     def _calculate_event_score(self, scan_result: Dict[str, Any]) -> float:
-        """行事計画（2層構造）スコアを計算"""
+        """行事計画（2層構造）スコアを計算
+
+        行事計画の特徴: ルート直下にフォルダが少数（2〜4個、学期単位）、
+        各フォルダの下に多数の行事フォルダがある
+        """
         score = 0.0
+        main_dir_count = scan_result['main_dir_count']
 
         # ルートファイル数（多いほど高スコア）
         score += scan_result['root_file_count'] * 1.0
 
         # サブフォルダがない／少ない
-        if scan_result['main_dir_count'] <= 3:
+        if main_dir_count <= 3:
             score += 1.5
 
         # 階層が浅い
@@ -269,6 +278,19 @@ class FolderStructureDetector:
         # ルートファイル比率が高い
         if scan_result['root_file_ratio'] > 0.5:
             score += 2.0
+
+        # 行事計画パターン: ルート直下のフォルダが少数（2〜4個）で、
+        # その下に多数のフォルダ（行事）がある
+        if 2 <= main_dir_count <= 4:
+            avg_subfolders = sum(
+                d['subfolder_count'] for d in scan_result['main_dirs']
+            ) / main_dir_count
+            if avg_subfolders >= 5:
+                score += 20.0  # 強い行事計画シグナル
+                logger.debug(
+                    f"行事計画パターン検出: ルートフォルダ{main_dir_count}個, "
+                    f"平均サブフォルダ{avg_subfolders:.1f}個"
+                )
 
         return score
 
@@ -280,11 +302,11 @@ class FolderStructureDetector:
     ) -> DetectionResult:
         """スコアから最終判定"""
         score_diff = abs(education_score - event_score)
-        total_score = education_score + event_score
 
-        # 確信度の計算
-        if total_score > 0:
-            confidence = score_diff / total_score
+        # 確信度の計算（勝者スコアに対する差の比率）
+        max_score = max(education_score, event_score)
+        if max_score > 0:
+            confidence = score_diff / max_score
         else:
             confidence = 0.0
 

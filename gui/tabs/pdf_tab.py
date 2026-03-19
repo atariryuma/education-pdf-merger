@@ -231,7 +231,7 @@ class PDFTab(BaseTab):
             file_path = filedialog.asksaveasfilename(
                 title="出力ファイルを選択",
                 initialdir=initial_dir,
-                initialfile="merged_output.pdf",
+                initialfile=Path(self.output_file_var.get()).name if self.output_file_var.get() else "merged_output.pdf",
                 defaultextension=".pdf",
                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
             )
@@ -474,6 +474,7 @@ class PDFTab(BaseTab):
                             # 確定判定の場合は自動設定
                             self.plan_type_var.set(result.plan_type.value)
                             self._update_plan_type_display(result)
+                            self._update_output_filename(result.plan_type.value)
                     except Exception as ui_error:
                         logger.error(f"UI更新エラー: {ui_error}", exc_info=True)
 
@@ -515,6 +516,42 @@ class PDFTab(BaseTab):
         self.status_label.config(text=message, fg="green")
         self.log(message, "info")
 
+    def _update_output_filename(self, plan_type: str) -> None:
+        """
+        計画タイプに応じて出力ファイル名を自動更新
+
+        ユーザーが手動で設定したカスタムファイル名は上書きしない。
+        自動生成パターン（年度_計画名.pdf）またはデフォルト名の場合のみ更新。
+
+        Args:
+            plan_type: "education" or "event"
+        """
+        year_short = self.config.year_short
+        plan_name = "教育計画" if plan_type == "education" else "行事計画"
+        new_filename = f"{year_short}_{plan_name}.pdf"
+
+        current_output = self.output_file_var.get().strip()
+
+        # ユーザーがカスタマイズしたファイル名は上書きしない
+        if current_output:
+            current_name = Path(current_output).name
+            auto_patterns = {
+                f"{year_short}_教育計画.pdf",
+                f"{year_short}_行事計画.pdf",
+                "merged_output.pdf",
+            }
+            if current_name not in auto_patterns:
+                logger.info(f"カスタムファイル名のため更新スキップ: {current_name}")
+                return
+            output_dir = Path(current_output).parent
+        else:
+            desktop = Path.home() / "Desktop"
+            output_dir = desktop if desktop.exists() else Path.home()
+
+        new_path = output_dir / new_filename
+        self.output_file_var.set(str(new_path))
+        logger.info(f"出力ファイル名を更新: {new_path}")
+
     def _show_plan_type_selection_dialog(self, result) -> None:
         """
         判定が曖昧な場合の選択ダイアログを表示
@@ -531,6 +568,7 @@ class PDFTab(BaseTab):
                 plan_name = "教育計画" if plan_type == "education" else "行事計画"
                 self.update_status(f"計画種別を選択: {plan_name}")
                 self.log(f"手動選択: {plan_name}", "info")
+                self._update_output_filename(plan_type)
 
         dialog = PlanTypeSelectionDialog(self.tab, result, on_selection)
         self.tab.wait_window(dialog)

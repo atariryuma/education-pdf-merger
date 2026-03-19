@@ -399,24 +399,26 @@ class ConfigLoader:
         """
         行事名リストを取得（ユーザー設定 > 設定値 > デフォルト値の優先順位）
 
+        防御的コピーを返すため、呼出側で変更しても内部状態に影響しない。
+
         Args:
             category: "school_events", "student_council_events", "other_activities"
 
         Returns:
-            行事名のリスト
+            行事名のリスト（コピー）
         """
         # 1. user_config から取得を試みる
         user_event_names = self.user_config.get("excel_event_names", {}).get(category)
         if user_event_names is not None:
-            return user_event_names
+            return list(user_event_names)
 
         # 2. 現在の設定値（use_user_config=False時の保存先）
         config_event_names = self.config.get("excel_event_names", {}).get(category)
         if config_event_names is not None:
-            return config_event_names
+            return list(config_event_names)
 
         # 3. config.json のデフォルト値を使用
-        return self.config.get("excel_default_event_names", {}).get(category, [])
+        return list(self.config.get("excel_default_event_names", {}).get(category, []))
 
     def save_event_names(self, category: str, event_names: List[str]) -> None:
         """

@@ -169,6 +169,9 @@ class OfficeConverter:
             elif ext in ['.ppt', '.pptx']:
                 logger.info(f"PowerPoint変換開始: {file_name}")
                 self._convert_powerpoint(file_path, output_path)
+            else:
+                logger.warning(f"非対応の拡張子です: {ext} ({file_path})")
+                return None
 
             if os.path.exists(output_path):
                 logger.info(f"変換完了: {file_name}")

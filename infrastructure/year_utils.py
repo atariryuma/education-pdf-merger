@@ -84,5 +84,6 @@ def calculate_year_short(year: str) -> str:
             return year
 
     except ValueError:
-        # 変換失敗時はデフォルト値
-        return "R8"
+        # 変換失敗時は現在の年度から動的に算出
+        current_year = datetime.datetime.now().year
+        return f"R{current_year - 2018}"

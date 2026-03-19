@@ -6,7 +6,10 @@ Ghostscriptの自動検出、パス検証、動作確認、インストール案
 import logging
 import os
 import subprocess
-import winreg
+try:
+    import winreg
+except ImportError:
+    winreg = None  # type: ignore[assignment]
 from pathlib import Path
 from typing import Optional, List, Tuple
 
@@ -38,15 +41,19 @@ class GhostscriptDetector:
         r"C:\Program Files (x86)\gs",
     ]
 
-    # レジストリキー
-    REGISTRY_KEYS = [
-        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\GPL Ghostscript"),
-        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\GPL Ghostscript"),
-        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\AFPL Ghostscript"),
-        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\AFPL Ghostscript"),
-        (winreg.HKEY_CURRENT_USER, r"SOFTWARE\GPL Ghostscript"),
-        (winreg.HKEY_CURRENT_USER, r"SOFTWARE\AFPL Ghostscript"),
-    ]
+    @classmethod
+    def _get_registry_keys(cls) -> list:
+        """レジストリキーのリストを返す（winreg利用可能時のみ）"""
+        if winreg is None:
+            return []
+        return [
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\GPL Ghostscript"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\GPL Ghostscript"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\AFPL Ghostscript"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\AFPL Ghostscript"),
+            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\GPL Ghostscript"),
+            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\AFPL Ghostscript"),
+        ]
 
     @classmethod
     def detect(cls) -> Optional[str]:
@@ -120,9 +127,13 @@ class GhostscriptDetector:
     @classmethod
     def _check_registry(cls) -> Optional[str]:
         """Windowsレジストリから検出"""
+        if winreg is None:
+            logger.debug("winregが利用できないため、レジストリ検索をスキップ")
+            return None
+
         found_versions: List[Tuple[str, str]] = []
 
-        for root, key_path in cls.REGISTRY_KEYS:
+        for root, key_path in cls._get_registry_keys():
             try:
                 with winreg.OpenKey(root, key_path) as key:
                     i = 0

@@ -506,77 +506,81 @@ class ExcelTab(BaseTab):
 
         def task():
             try:
-                set_button_state(self.run_button, False, self.status_label, "🔄 実行中...")
-                self.update_status("🔄 Excelデータ更新を実行中...")
-                self.log("=== Excelデータ更新開始 ===", "info")
+                pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+                try:
+                    set_button_state(self.run_button, False, self.status_label, "🔄 実行中...")
+                    self.update_status("🔄 Excelデータ更新を実行中...")
+                    self.log("=== Excelデータ更新開始 ===", "info")
 
-                # シート名は設定ファイルから取得
-                ref_sheet = self.config.get('files', 'excel_reference_sheet')
-                target_sheet = self.config.get('files', 'excel_target_sheet')
+                    # シート名は設定ファイルから取得
+                    ref_sheet = self.config.get('files', 'excel_reference_sheet')
+                    target_sheet = self.config.get('files', 'excel_target_sheet')
 
-                self.log(f"参照ファイル: {Path(self.ref_file_path).name}", "info")
-                self.log(f"ターゲットファイル: {Path(self.target_file_path).name}", "info")
-                self.log(f"参照シート: {ref_sheet}", "info")
-                self.log(f"ターゲットシート: {target_sheet}", "info")
+                    self.log(f"参照ファイル: {Path(self.ref_file_path).name}", "info")
+                    self.log(f"ターゲットファイル: {Path(self.target_file_path).name}", "info")
+                    self.log(f"参照シート: {ref_sheet}", "info")
+                    self.log(f"ターゲットシート: {target_sheet}", "info")
 
-                # 進捗コールバック関数を定義
-                def progress_callback(message: str) -> None:
-                    """進捗状況をGUIに反映"""
-                    self.log(message, "info")
-                    self.update_status(message)
+                    # 進捗コールバック関数を定義
+                    def progress_callback(message: str) -> None:
+                        """進捗状況をGUIに反映"""
+                        self.log(message, "info")
+                        self.update_status(message)
 
-                # ステップ1: ConfigLoaderから最新の行事名を取得してターゲットExcelに設定
-                self.log("📝 ステップ1: 行事名をターゲットExcelに設定中...", "info")
-                self.update_status("📝 行事名を設定中...")
+                    # ステップ1: ConfigLoaderから最新の行事名を取得してターゲットExcelに設定
+                    self.log("📝 ステップ1: 行事名をターゲットExcelに設定中...", "info")
+                    self.update_status("📝 行事名を設定中...")
 
-                school_events = self.config.get_event_names("school_events")
-                student_council_events = self.config.get_event_names("student_council_events")
-                other_activities = self.config.get_event_names("other_activities")
+                    school_events = self.config.get_event_names("school_events")
+                    student_council_events = self.config.get_event_names("student_council_events")
+                    other_activities = self.config.get_event_names("other_activities")
 
-                # 行事名を設定するための一時的なExcelTransferインスタンス
-                temp_transfer = ExcelTransfer(
-                    ref_filename="",  # 行事名設定では参照ファイル不要
-                    target_filename=self.target_file_path,
-                    ref_sheet=ref_sheet,
-                    target_sheet=target_sheet
-                )
-                counts = temp_transfer.populate_event_names(
-                    school_events=school_events,
-                    student_council_events=student_council_events,
-                    other_activities=other_activities
-                )
+                    # 行事名を設定するための一時的なExcelTransferインスタンス
+                    temp_transfer = ExcelTransfer(
+                        ref_filename="",  # 行事名設定では参照ファイル不要
+                        target_filename=self.target_file_path,
+                        ref_sheet=ref_sheet,
+                        target_sheet=target_sheet
+                    )
+                    counts = temp_transfer.populate_event_names(
+                        school_events=school_events,
+                        student_council_events=student_council_events,
+                        other_activities=other_activities
+                    )
 
-                total_events = sum(counts.values())
-                self.log(
-                    f"✅ 行事名を設定しました（学校行事:{counts['school_events']}件、"
-                    f"児童会行事:{counts['student_council_events']}件、"
-                    f"その他:{counts['other_activities']}件、合計:{total_events}件）",
-                    "success"
-                )
+                    total_events = sum(counts.values())
+                    self.log(
+                        f"✅ 行事名を設定しました（学校行事:{counts['school_events']}件、"
+                        f"児童会行事:{counts['student_council_events']}件、"
+                        f"その他:{counts['other_activities']}件、合計:{total_events}件）",
+                        "success"
+                    )
 
-                # ステップ2: 転記処理を実行
-                self.log("🔄 ステップ2: 転記処理を開始します...", "info")
-                self.update_status("🔄 転記処理を実行中...")
+                    # ステップ2: 転記処理を実行
+                    self.log("🔄 ステップ2: 転記処理を開始します...", "info")
+                    self.update_status("🔄 転記処理を実行中...")
 
-                # ExcelTransferにフルパスを渡す
-                transfer = ExcelTransfer(
-                    ref_filename=self.ref_file_path,
-                    target_filename=self.target_file_path,
-                    ref_sheet=ref_sheet,
-                    target_sheet=target_sheet,
-                    progress_callback=progress_callback,
-                    cancel_check=None
-                )
-                transfer.execute()
+                    # ExcelTransferにフルパスを渡す
+                    transfer = ExcelTransfer(
+                        ref_filename=self.ref_file_path,
+                        target_filename=self.target_file_path,
+                        ref_sheet=ref_sheet,
+                        target_sheet=target_sheet,
+                        progress_callback=progress_callback,
+                        cancel_check=None
+                    )
+                    transfer.execute()
 
-                self.log("✅ === Excelデータ更新完了 ===", "success")
-                set_button_state(self.run_button, True, self.status_label, "")
-                self.update_status("✅ Excelデータ更新が完了しました")
-                thread_safe_call(self.tab, lambda: messagebox.showinfo(
-                    "完了",
-                    "Excelデータ更新が完了しました。\n\n"
-                    "内容を確認して保存してください。"
-                ))
+                    self.log("✅ === Excelデータ更新完了 ===", "success")
+                    set_button_state(self.run_button, True, self.status_label, "")
+                    self.update_status("✅ Excelデータ更新が完了しました")
+                    thread_safe_call(self.tab, lambda: messagebox.showinfo(
+                        "完了",
+                        "Excelデータ更新が完了しました。\n\n"
+                        "内容を確認して保存してください。"
+                    ))
+                finally:
+                    pythoncom.CoUninitialize()
             except Exception as e:
                 self.log(f"❌ エラー: {e}", "error")
                 set_button_state(self.run_button, True, self.status_label, "")
@@ -663,50 +667,52 @@ class ExcelTab(BaseTab):
 
         def task():
             try:
-                # ExcelTransferインスタンス作成（COM管理はExcelTransferに任せる）
-                transfer = ExcelTransfer(
-                    ref_filename="",  # 行事名読み込みでは参照ファイル不要
-                    target_filename=self.target_file_path,
-                    ref_sheet=self.config.get("files", "excel_reference_sheet"),
-                    target_sheet=self.config.get("files", "excel_target_sheet")
-                )
-
-                # Excelから読み込み
-                event_data = transfer.read_event_names_from_excel()
-
-                # ConfigLoaderに保存
-                for category, event_names in event_data.items():
-                    if event_names:  # 空でない場合のみ保存
-                        self.config.save_event_names(category, event_names)
-
-                # 件数を計算
-                counts = {k: len(v) for k, v in event_data.items()}
-                total = sum(counts.values())
-
-                # 成功メッセージ（既存設定の有無で変更）
-                if has_existing:
-                    self.log(
-                        f"✅ 行事名を上書きしました（合計: {total}件）",
-                        "success"
+                pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+                try:
+                    # ExcelTransferインスタンス作成（COM管理はExcelTransferに任せる）
+                    transfer = ExcelTransfer(
+                        ref_filename="",  # 行事名読み込みでは参照ファイル不要
+                        target_filename=self.target_file_path,
+                        ref_sheet=self.config.get("files", "excel_reference_sheet"),
+                        target_sheet=self.config.get("files", "excel_target_sheet")
                     )
-                    self.update_status(f"✅ 行事名を{total}件上書きしました")
-                    dialog_title = "✅ 上書き完了"
-                    dialog_message = (
-                        f"既存の設定を上書きしました。\n\n"
-                        f"学校行事名: {counts['school_events']}件\n"
-                        f"児童会行事名: {counts['student_council_events']}件\n"
-                        f"その他の活動: {counts['other_activities']}件\n"
-                        f"合計: {total}件\n\n"
-                        f"設定タブで確認・編集できます。"
-                    )
-                else:
-                    self.log(
-                        f"✅ 行事名を読み込みました（初回セットアップ完了、合計: {total}件）",
-                        "success"
-                    )
-                    self.update_status(f"✅ 初回セットアップ完了（{total}件）")
-                    dialog_title = "📥 初回セットアップ完了"
-                    dialog_message = (
+
+                    # Excelから読み込み
+                    event_data = transfer.read_event_names_from_excel()
+
+                    # ConfigLoaderに保存
+                    for category, event_names in event_data.items():
+                        if event_names:  # 空でない場合のみ保存
+                            self.config.save_event_names(category, event_names)
+
+                    # 件数を計算
+                    counts = {k: len(v) for k, v in event_data.items()}
+                    total = sum(counts.values())
+
+                    # 成功メッセージ（既存設定の有無で変更）
+                    if has_existing:
+                        self.log(
+                            f"✅ 行事名を上書きしました（合計: {total}件）",
+                            "success"
+                        )
+                        self.update_status(f"✅ 行事名を{total}件上書きしました")
+                        dialog_title = "✅ 上書き完了"
+                        dialog_message = (
+                            f"既存の設定を上書きしました。\n\n"
+                            f"学校行事名: {counts['school_events']}件\n"
+                            f"児童会行事名: {counts['student_council_events']}件\n"
+                            f"その他の活動: {counts['other_activities']}件\n"
+                            f"合計: {total}件\n\n"
+                            f"設定タブで確認・編集できます。"
+                        )
+                    else:
+                        self.log(
+                            f"✅ 行事名を読み込みました（初回セットアップ完了、合計: {total}件）",
+                            "success"
+                        )
+                        self.update_status(f"✅ 初回セットアップ完了（{total}件）")
+                        dialog_title = "📥 初回セットアップ完了"
+                        dialog_message = (
                         f"Excelから行事名を読み込みました。\n\n"
                         f"学校行事名: {counts['school_events']}件\n"
                         f"児童会行事名: {counts['student_council_events']}件\n"
@@ -715,16 +721,18 @@ class ExcelTab(BaseTab):
                         f"設定タブで確認・編集できます。"
                     )
 
-                # 詳細ダイアログ（メインスレッドで表示）
-                thread_safe_call(self.tab, lambda: messagebox.showinfo(dialog_title, dialog_message))
+                    # 詳細ダイアログ（メインスレッドで表示）
+                    thread_safe_call(self.tab, lambda: messagebox.showinfo(dialog_title, dialog_message))
 
-                # 設定タブの行事名リストをリロード（メインスレッドで実行）
-                if self.settings_tab:
-                    self.tab.after(0, self.settings_tab.reload_event_names)
-                    logger.info("設定タブに行事名の更新を通知しました")
+                    # 設定タブの行事名リストをリロード（メインスレッドで実行）
+                    if self.settings_tab:
+                        self.tab.after(0, self.settings_tab.reload_event_names)
+                        logger.info("設定タブに行事名の更新を通知しました")
 
-                # ボタン再有効化
-                set_button_state(self.read_event_button, True, self.status_label, "")
+                    # ボタン再有効化
+                    set_button_state(self.read_event_button, True, self.status_label, "")
+                finally:
+                    pythoncom.CoUninitialize()
 
             except Exception as e:
                 logger.error(f"行事名読み込みエラー: {e}", exc_info=True)

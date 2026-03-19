@@ -63,6 +63,7 @@ class PDFMergeApp:
         self.last_settings_file = os.path.join(settings_dir, ".last_settings.json")
 
         # 設定の読み込み
+        self.init_failed = False
         try:
             self.config = ConfigLoader()
         except Exception as e:
@@ -71,6 +72,7 @@ class PDFMergeApp:
                 f"設定ファイルの読み込みに失敗しました。\n\n詳細: {e}\n\nconfig.jsonを確認してください。"
             )
             self.root.destroy()
+            self.init_failed = True
             return
 
         # 最後の設定を読み込み
@@ -356,8 +358,9 @@ F5 : ファイル状態を確認
 def main() -> None:
     """メイン関数"""
     root = tk.Tk()
-    PDFMergeApp(root)  # appインスタンスは使用しない
-    root.mainloop()
+    app = PDFMergeApp(root)
+    if not app.init_failed:
+        root.mainloop()
 
 
 if __name__ == "__main__":

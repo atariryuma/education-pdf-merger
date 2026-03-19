@@ -17,10 +17,10 @@ jobs:
     - name: チェックアウト
       uses: actions/checkout@v4
 
-    - name: Python 3.8セットアップ
+    - name: Python 3.9セットアップ
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.9'
         cache: 'pip'
 
     - name: 依存関係インストール
@@ -47,10 +47,10 @@ jobs:
     - name: チェックアウト
       uses: actions/checkout@v4
 
-    - name: Python 3.8セットアップ
+    - name: Python 3.9セットアップ
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.9'
         cache: 'pip'
 
     - name: 依存関係インストール
@@ -79,10 +79,10 @@ jobs:
     - name: チェックアウト
       uses: actions/checkout@v4
 
-    - name: Python 3.8セットアップ
+    - name: Python 3.9セットアップ
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.9'
         cache: 'pip'
 
     - name: 依存関係インストール
