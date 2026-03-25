@@ -68,7 +68,7 @@ class BaseTab:
         """タブをNotebookに追加"""
         self.notebook.add(self.tab, text=text)
 
-    def create_log_frame(self, height: int = 10, parent=None) -> None:
+    def create_log_frame(self, height: int = 10, parent: Optional[tk.Widget] = None) -> None:
         """
         ログフレームを作成
 
@@ -86,7 +86,7 @@ class BaseTab:
         )
         self.log_widget.pack(fill="both", expand=True)
 
-    def setup_gui_logging(self, logger_names: list = None) -> None:
+    def setup_gui_logging(self, logger_names: Optional[List[str]] = None) -> None:
         """
         ロガーにGUIハンドラを追加して、ログをGUIに表示する
 

@@ -13,6 +13,7 @@ from converters.office_converter import OfficeConverter
 from converters.image_converter import ImageConverter
 from converters.ichitaro_converter import IchitaroConverter
 from shared.constants import PDFConversionConstants
+from shared.exceptions import PDFConversionError
 from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
@@ -185,4 +186,7 @@ class PDFConverter:
 
         except Exception as e:
             logger.exception(f"区切りページ生成エラー ({folder_name}): {e}")
-            return None
+            raise PDFConversionError(
+                f"区切りページ生成エラー ({folder_name})",
+                original_error=e
+            ) from e

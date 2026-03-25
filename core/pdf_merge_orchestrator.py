@@ -5,6 +5,7 @@ PDF結合オーケストレーター
 """
 import logging
 import os
+import uuid
 from typing import Callable, List, Optional, Tuple
 
 from infrastructure.config_loader import ConfigLoader
@@ -165,10 +166,11 @@ class PDFMergeOrchestrator:
         logger.info(f"出力先: {output_pdf}")
 
         # 一時ファイルのパスを定義（finallyでクリーンアップ用）
-        temp_merged = os.path.join(self.temp_dir, "temp_merged.pdf")
-        toc_pdf = os.path.join(self.temp_dir, "toc.pdf")
-        cover_pdf = ""
-        remainder_pdf = ""
+        unique_id = uuid.uuid4().hex[:8]
+        temp_merged = os.path.join(self.temp_dir, f"temp_merged_{unique_id}.pdf")
+        toc_pdf = os.path.join(self.temp_dir, f"toc_{unique_id}.pdf")
+        cover_pdf: Optional[str] = None
+        remainder_pdf: Optional[str] = None
 
         try:
             # 1. ドキュメント収集とPDF変換

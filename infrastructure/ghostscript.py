@@ -110,17 +110,21 @@ class GhostscriptDetector:
                 if exe_path.exists():
                     return str(exe_path)
 
-        # GS_LIB環境変数
+        # GS_LIB環境変数（セミコロン区切りの複数パスに対応）
         gs_lib = os.environ.get('GS_LIB')
         if gs_lib:
-            lib_dir = Path(gs_lib)
-            if lib_dir.exists():
-                bin_dir = lib_dir.parent / "bin"
-                if bin_dir.exists():
-                    for exe_name in cls.GS_EXECUTABLES:
-                        exe_path = bin_dir / exe_name
-                        if exe_path.exists():
-                            return str(exe_path)
+            for lib_path_str in gs_lib.split(';'):
+                lib_path_str = lib_path_str.strip()
+                if not lib_path_str:
+                    continue
+                lib_dir = Path(lib_path_str)
+                if lib_dir.exists():
+                    bin_dir = lib_dir.parent / "bin"
+                    if bin_dir.exists():
+                        for exe_name in cls.GS_EXECUTABLES:
+                            exe_path = bin_dir / exe_name
+                            if exe_path.exists():
+                                return str(exe_path)
 
         return None
 
@@ -258,6 +262,8 @@ class GhostscriptDetector:
         """
         Ghostscriptが正常に動作するか確認（subprocessで--versionを実行）
 
+        パス検証を事前に実施し、信頼できるパスのみ実行する。
+
         Args:
             gs_path: Ghostscript実行ファイルのパス
 
@@ -265,6 +271,10 @@ class GhostscriptDetector:
             bool: 正常に動作する場合True
         """
         if not gs_path or not os.path.exists(gs_path):
+            return False
+
+        # パスの妥当性を検証（ファイル名が既知のGS実行ファイルであること）
+        if not cls.validate_ghostscript(gs_path):
             return False
 
         try:
@@ -278,7 +288,11 @@ class GhostscriptDetector:
                 version = result.stdout.strip()
                 logger.info(f"Ghostscript バージョン: {version}")
                 return True
-        except Exception as e:
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Ghostscript検証タイムアウト: {gs_path}")
+        except FileNotFoundError:
+            logger.warning(f"Ghostscriptが見つかりません: {gs_path}")
+        except OSError as e:
             logger.warning(f"Ghostscript検証エラー: {e}")
 
         return False

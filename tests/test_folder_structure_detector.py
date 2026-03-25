@@ -84,27 +84,30 @@ class TestDetectStructureEdgeCases:
     """エッジケースのテスト"""
 
     def test_empty_directory(self, detector, temp_dir):
-        """空ディレクトリはEVENT（デフォルト）"""
+        """空ディレクトリはAMBIGUOUS（判定不能）"""
         result = detector.detect_structure(temp_dir)
 
-        assert result.plan_type == PlanType.EVENT
+        assert result.plan_type == PlanType.AMBIGUOUS
         assert result.confidence == 0.0
 
     def test_ambiguous_structure(self, detector, temp_dir):
         """曖昧な構造はAMBIGUOUS"""
-        # 中途半端な構造
-        main_dir = os.path.join(temp_dir, "section")
-        os.makedirs(main_dir)
-        with open(os.path.join(main_dir, "file.docx"), 'w') as f:
-            f.write("dummy")
-        with open(os.path.join(temp_dir, "root_file.docx"), 'w') as f:
-            f.write("dummy")
+        # 教育計画にも行事計画にも見える中途半端な構造
+        # 5つのメインディレクトリ（教育計画寄り）+ ルートファイル多め（行事計画寄り）
+        for i in range(5):
+            main_dir = os.path.join(temp_dir, f"0{i} Section{i}")
+            os.makedirs(main_dir)
+            with open(os.path.join(main_dir, "file.docx"), 'w') as f:
+                f.write("dummy")
+        for i in range(6):
+            with open(os.path.join(temp_dir, f"root_{i}.docx"), 'w') as f:
+                f.write("dummy")
 
         result = detector.detect_structure(temp_dir)
 
-        # スコアが近い場合はAMBIGUOUSの可能性
+        # 曖昧な構造では確信度が閾値未満であること
         assert isinstance(result, DetectionResult)
-        assert result.plan_type in (PlanType.EDUCATION, PlanType.EVENT, PlanType.AMBIGUOUS)
+        assert result.confidence < detector.CONFIDENCE_THRESHOLD
 
     def test_hidden_files_excluded(self, detector, temp_dir):
         """隠しファイルとテンポラリファイルは除外される"""
@@ -133,13 +136,11 @@ class TestDetectStructureEdgeCases:
 
         assert result.evidence['root_file_count'] == 1
 
-    def test_permission_error_returns_event(self, detector):
-        """権限エラー時はEVENTが返される"""
-        result = detector.detect_structure("/nonexistent/path")
-
-        assert result.plan_type == PlanType.EVENT
-        assert result.confidence == 0.0
-        assert len(result.issues) > 0
+    def test_error_raises_folder_structure_error(self, detector):
+        """存在しないパスでFolderStructureErrorが発生する"""
+        from shared.exceptions import FolderStructureError
+        with pytest.raises(FolderStructureError):
+            detector.detect_structure("/nonexistent/path")
 
 
 @pytest.mark.unit
@@ -239,8 +240,8 @@ class TestMakeDecision:
         result = detector._make_decision(scan, 10.0, 10.0)
         assert result.plan_type == PlanType.AMBIGUOUS
 
-    def test_zero_files_returns_event(self, detector):
-        """ファイル0件でEVENT（デフォルト）"""
+    def test_zero_files_returns_ambiguous(self, detector):
+        """ファイル0件でAMBIGUOUS（判定不能）"""
         scan = {
             'total_files': 0,
             'main_dir_count': 0,
@@ -249,5 +250,5 @@ class TestMakeDecision:
             'root_file_ratio': 0.0
         }
         result = detector._make_decision(scan, 0.0, 0.0)
-        assert result.plan_type == PlanType.EVENT
+        assert result.plan_type == PlanType.AMBIGUOUS
         assert result.confidence == 0.0

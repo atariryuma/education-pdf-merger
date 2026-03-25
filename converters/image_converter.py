@@ -37,11 +37,16 @@ class ImageConverter:
             with Image.open(file_path) as image:
                 # RGB以外のモード（RGBA, P, CMYK, LAなど）はRGBに変換
                 if image.mode != "RGB":
-                    image = image.convert("RGB")
-                image.save(output_path, "PDF")
+                    rgb_image = image.convert("RGB")
+                    try:
+                        rgb_image.save(output_path, "PDF")
+                    finally:
+                        rgb_image.close()
+                else:
+                    image.save(output_path, "PDF")
 
             logger.debug(f"画像変換完了: {file_path} -> {output_path}")
             return output_path
-        except IOError as e:
+        except (IOError, ValueError, SyntaxError) as e:
             logger.error(f"画像変換エラー ({file_path}): {e}")
             raise PDFConversionError(f"画像変換に失敗: {file_path}", original_error=e) from e

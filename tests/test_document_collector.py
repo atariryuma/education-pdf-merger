@@ -85,8 +85,8 @@ class TestCollectDocuments:
 
         toc_entries, content_pdfs = collector.collect_documents(temp_dir)
 
-        assert len(content_pdfs) >= 1
-        mock_converter.convert.assert_called()
+        assert len(content_pdfs) == 1
+        mock_converter.convert.assert_called_once()
 
     def test_cover_file_processed_separately(self, collector, temp_dir, mock_converter, mock_processor):
         """表紙ファイルはTOCに含まれずPDFにのみ追加される"""
@@ -142,8 +142,12 @@ class TestCollectDocuments:
         toc_entries, content_pdfs = collector.collect_documents(temp_dir)
 
         # 区切りページが作成される
-        mock_converter.create_separator_page.assert_called()
+        mock_converter.create_separator_page.assert_called_once_with("教育計画")
         assert len(content_pdfs) > 0
+        # サブディレクトリが大見出しとしてTOCエントリに含まれる
+        assert len(toc_entries) == 2
+        toc_names = [entry[0] for entry in toc_entries]
+        assert "教育計画" in toc_names
 
 
 @pytest.mark.unit

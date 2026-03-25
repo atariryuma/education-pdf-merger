@@ -11,17 +11,13 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Dict, List, Optional, Union, TypeVar
+from typing import Any, Dict, List, Optional
 
 from shared.exceptions import ConfigurationError
 from infrastructure.year_utils import calculate_year_short
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
-
-# 型変数定義
-T = TypeVar('T')
-
 
 class ConfigLoader:
     """設定ファイルを読み込み、パスを構築するクラス"""
@@ -113,7 +109,7 @@ class ConfigLoader:
                 logger.info(f"ユーザー設定を読み込みました: {self.user_config_path}")
             except json.JSONDecodeError as e:
                 logger.warning(f"ユーザー設定のJSON形式が不正です: {e}")
-            except (OSError, PermissionError) as e:
+            except OSError as e:
                 logger.warning(f"ユーザー設定ファイルの読み込みに失敗しました: {e}")
             except Exception as e:
                 logger.warning(f"ユーザー設定の読み込み中に予期しないエラー: {e}")
@@ -164,9 +160,11 @@ class ConfigLoader:
             if isinstance(part, str):
                 part = part.replace('{year}', self.year).replace('{year_short}', self.year_short)
             result.append(part)
+        if not result:
+            return ""
         return os.path.join(*result)
 
-    def get(self, *keys: str, default: Optional[T] = None) -> Union[Any, T]:
+    def get(self, *keys: str, default: Any = None) -> Any:
         """
         ネストされた設定値を取得
 
@@ -229,31 +227,25 @@ class ConfigLoader:
 
     def get_education_plan_path(self) -> str:
         """教育計画のディレクトリパスを取得"""
-        # Google Driveパスを取得
         base_path = self.get('base_paths', 'google_drive')
         if not base_path:
             return ""
 
-        return self.build_path(
-            base_path,
-            self.year,
-            self.get('directories', 'education_plan_base'),
-            self.get('directories', 'education_plan')
-        )
+        edu_base = self.get('directories', 'education_plan_base') or ""
+        edu_plan = self.get('directories', 'education_plan') or ""
+
+        return self.build_path(base_path, self.year, edu_base, edu_plan)
 
     def get_event_plan_path(self) -> str:
         """行事計画のディレクトリパスを取得"""
-        # Google Driveパスを取得
         base_path = self.get('base_paths', 'google_drive')
         if not base_path:
             return ""
 
-        return self.build_path(
-            base_path,
-            self.year,
-            self.get('directories', 'education_plan_base'),
-            self.get('directories', 'event_plan')
-        )
+        edu_base = self.get('directories', 'education_plan_base') or ""
+        event_plan = self.get('directories', 'event_plan') or ""
+
+        return self.build_path(base_path, self.year, edu_base, event_plan)
 
     def get_temp_dir(self, cleanup_old: bool = False, max_age_hours: int = 24) -> str:
         """

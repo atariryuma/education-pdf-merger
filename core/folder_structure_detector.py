@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Any
 from pathlib import Path
 
+from shared.exceptions import FolderStructureError
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,15 +75,15 @@ class FolderStructureDetector:
 
             return result
 
+        except PermissionError:
+            raise
         except Exception as e:
             logger.error(f"フォルダ構造分析エラー: {e}", exc_info=True)
-            # エラー時は行事計画（デフォルト）
-            return DetectionResult(
-                plan_type=PlanType.EVENT,
-                confidence=0.0,
-                evidence={"error": str(e)},
-                issues=[f"分析エラー: {e}"]
-            )
+            raise FolderStructureError(
+                f"フォルダ構造の分析中にエラーが発生しました: {e}",
+                directory_path=directory_path,
+                original_error=e
+            ) from e
 
     def _scan_directory(self, directory_path: str) -> Dict[str, Any]:
         """ディレクトリ構造をスキャン"""
@@ -187,8 +189,7 @@ class FolderStructureDetector:
                 'total_files': 0
             }
 
-        # os.scandir()を使用することで、is_symlink()と属性取得が1回のシステムコールで済む
-        # ctypesを使わずPythonネイティブのis_symlink()のみ使用（パフォーマンス大幅改善）
+        # Path.iterdir()を使用してディレクトリを走査
         for item in items_iter:
             if item.name.startswith('.') or item.name.startswith('~'):
                 continue
@@ -328,7 +329,7 @@ class FolderStructureDetector:
         if scan_result['total_files'] == 0:
             issues.append("ディレクトリにファイルが存在しません")
             return DetectionResult(
-                plan_type=PlanType.EVENT,  # デフォルト
+                plan_type=PlanType.AMBIGUOUS,
                 confidence=0.0,
                 evidence=evidence,
                 issues=issues

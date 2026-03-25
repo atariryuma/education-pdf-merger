@@ -149,7 +149,7 @@ class EventNamesEditor:
 
         if new_name and new_name.strip():
             new_name = new_name.strip()
-            event_names = self.config.get_event_names(category)
+            event_names = list(self.config.get_event_names(category))
             event_names.append(new_name)
 
             try:

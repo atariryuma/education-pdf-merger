@@ -5,7 +5,7 @@ PDFMergeOrchestrator のユニットテスト
 """
 import os
 import pytest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 from core.pdf_merge_orchestrator import PDFMergeOrchestrator
 from shared.exceptions import CancelledError
@@ -32,11 +32,11 @@ def orchestrator(mock_deps):
 
 
 def _page_count_side_effect(temp_dir, toc_pages, default_pages):
-    """toc.pdf だけ別のページ数を返す side_effect を作る"""
-    toc_pdf = os.path.join(temp_dir, "toc.pdf")
+    """toc_*.pdf だけ別のページ数を返す side_effect を作る"""
 
     def _side_effect(pdf_path):
-        if pdf_path == toc_pdf:
+        basename = os.path.basename(pdf_path)
+        if basename.startswith("toc_") and basename.endswith(".pdf"):
             return toc_pages
         return default_pages
 
@@ -185,14 +185,12 @@ class TestCreateMergedPDF:
 
         # 1回目は元の目次、2回目は補正後の目次で再生成される
         assert processor.create_toc_pdf.call_count == 2
-        assert processor.create_toc_pdf.call_args_list[0] == call(
-            original_toc_entries,
-            os.path.join(config.get_temp_dir.return_value, "toc.pdf")
-        )
-        assert processor.create_toc_pdf.call_args_list[1] == call(
-            adjusted_toc_entries,
-            os.path.join(config.get_temp_dir.return_value, "toc.pdf")
-        )
+        # 1回目の呼び出し: 元の目次エントリ
+        first_call_entries = processor.create_toc_pdf.call_args_list[0][0][0]
+        assert first_call_entries == original_toc_entries
+        # 2回目の呼び出し: 補正後の目次エントリ
+        second_call_entries = processor.create_toc_pdf.call_args_list[1][0][0]
+        assert second_call_entries == adjusted_toc_entries
         processor.set_pdf_outlines.assert_called_once_with("/output.pdf", adjusted_toc_entries)
 
 
@@ -211,12 +209,19 @@ class TestCleanupTempFiles:
 
     def test_cleanup_ignores_nonexistent_files(self, orchestrator):
         """存在しないファイルは無視される"""
-        orchestrator._cleanup_temp_files("/nonexistent/path.tmp")
-        # 例外が発生しないことを確認
+        # 例外が発生しないことを明示的に確認
+        try:
+            orchestrator._cleanup_temp_files("/nonexistent/path.tmp")
+        except Exception:
+            pytest.fail("_cleanup_temp_files raised an exception for nonexistent file")
 
     def test_cleanup_ignores_empty_paths(self, orchestrator):
         """空文字列パスは無視される"""
-        orchestrator._cleanup_temp_files("", None)
+        # 例外が発生しないことを明示的に確認
+        try:
+            orchestrator._cleanup_temp_files("", None)
+        except Exception:
+            pytest.fail("_cleanup_temp_files raised an exception for empty paths")
 
     def test_cleanup_runs_on_exception(self, mock_deps, temp_dir):
         """処理中の例外でもクリーンアップが実行される"""
@@ -225,7 +230,9 @@ class TestCleanupTempFiles:
 
         collector.collect_documents.side_effect = RuntimeError("test error")
 
-        with pytest.raises(RuntimeError):
-            orch.create_merged_pdf("/target", "/output.pdf")
+        with patch.object(orch, '_cleanup_temp_files') as mock_cleanup:
+            with pytest.raises(RuntimeError):
+                orch.create_merged_pdf("/target", "/output.pdf")
 
-        # finallyブロックが実行されたことはエラーにならないことで確認
+            # finallyブロックでクリーンアップが呼ばれたことを確認
+            mock_cleanup.assert_called()

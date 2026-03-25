@@ -116,6 +116,10 @@ class ExcelTransferConstants:
     TARGET_PROCESS_DATE_COL = "B"   # 処理日列
     TARGET_FILTER_COL = "C"         # フィルターキーワード列（D8～D50用）
 
+    # 反映ファイルのクリア範囲（A～P列 = 16列）
+    TARGET_CLEAR_RANGE = "A{row}:P{row}"
+    TARGET_CLEAR_COL_COUNT = 16
+
 
 class AppConstants:
     """アプリケーション定数"""

@@ -12,7 +12,7 @@ from typing import Optional, Callable, Dict, Any, Tuple
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
 
-from shared.exceptions import CancelledError
+from shared.exceptions import CancelledError, PDFConversionError
 from shared.constants import AppConstants, PDFConversionConstants, IchitaroWaitTimes
 
 logger = logging.getLogger(__name__)
@@ -84,15 +84,19 @@ class IchitaroConverter:
             - } → }}
             - 他の特殊文字（+, ^, %, ~, (, )）→ {文字}
         """
-        # { と } は二重にしてエスケープ（最初に処理）
-        text = text.replace('{', '{{').replace('}', '}}')
-
-        # 他の特殊文字は {文字} でエスケープ
-        special_chars = {'+': '{+}', '^': '{^}', '%': '{%}', '~': '{~}', '(': '{(}', ')': '{)}'}
-        for char, escaped in special_chars.items():
-            text = text.replace(char, escaped)
-
-        return text
+        # 1文字ずつ処理してエスケープの二重適用を防ぐ
+        special_chars = {'+', '^', '%', '~', '(', ')'}
+        result = []
+        for char in text:
+            if char == '{':
+                result.append('{{')
+            elif char == '}':
+                result.append('}}')
+            elif char in special_chars:
+                result.append('{' + char + '}')
+            else:
+                result.append(char)
+        return ''.join(result)
 
     def convert(self, file_path: str, output_path: str) -> Optional[str]:
         """
@@ -153,6 +157,7 @@ class IchitaroConverter:
 
                 app = None
                 main_window = None
+                result = None
 
                 try:
                     # ステップ1: 事前クリーンアップ
@@ -392,7 +397,10 @@ class IchitaroConverter:
                     self._wait_with_cancel_check(retry_delay)
                 else:
                     logger.error(f"プリンター選択が{max_retries}回失敗しました: {select_error}")
-                    raise Exception(f"Microsoft Print to PDFの選択に失敗しました: {select_error}")
+                    raise PDFConversionError(
+                        f"Microsoft Print to PDFの選択に失敗しました: {select_error}",
+                        original_error=select_error
+                    ) from select_error
 
         if self.is_cancelled():
             raise CancelledError("一太郎変換がキャンセルされました")
@@ -608,5 +616,7 @@ class IchitaroConverter:
             self._wait_with_cancel_check(IchitaroWaitTimes.CLEANUP_WAIT)
             logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎プロセスのクリーンアップ完了")
 
+        except CancelledError:
+            raise
         except Exception:
             logger.info("一太郎プロセスなし（クリーンアップ不要）")

@@ -7,13 +7,13 @@ import logging
 import os
 import subprocess
 from contextlib import contextmanager
-from typing import List, Tuple, TYPE_CHECKING, Generator
+from typing import List, Optional, Tuple, TYPE_CHECKING, Generator
 
 import fitz  # PyMuPDF
 from PyPDF2 import PdfMerger
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, PageBreak, Frame, PageTemplate, Table, TableStyle, SimpleDocTemplate
+from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, Frame, PageTemplate, Table, TableStyle, SimpleDocTemplate
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -81,13 +81,21 @@ class PDFProcessor:
                     logger.warning(f"一時ファイル削除失敗: {tmp_file}, エラー: {e}")
 
     def _register_fonts(self) -> None:
-        """フォントを登録"""
+        """フォントを登録
+
+        Raises:
+            PDFProcessingError: フォント登録に失敗した場合
+        """
         font_path = self.config.get('fonts', 'mincho')
         try:
             pdfmetrics.registerFont(TTFont('Mincho', font_path))
             logger.debug("Minchoフォントを登録しました")
         except Exception as e:
-            logger.warning(f"Minchoフォントの登録に失敗しました。フォントファイルを確認してください: {font_path} - {e}")
+            raise PDFProcessingError(
+                f"Minchoフォントの登録に失敗しました。フォントファイルを確認してください: {font_path}",
+                operation="フォント登録",
+                original_error=e
+            ) from e
 
     def merge_pdfs(self, pdf_paths: List[str], output_file: str) -> None:
         """
@@ -108,7 +116,7 @@ class PDFProcessor:
                     if pdf:
                         logger.warning(f"PDFファイルが存在しません（スキップ）: {pdf}")
                     else:
-                        logger.warning("PDFパスがNoneです（変換失敗の可能性）。スキップします。")
+                        logger.warning("PDFパスがNoneまたは空です（スキップ）")
             if skipped_count > 0:
                 logger.warning(f"マージ時に{skipped_count}件のPDFをスキップしました")
             merger.write(output_file)
@@ -250,11 +258,7 @@ class PDFProcessor:
 
                 logger.debug(f"PDFアウトラインを設定: {corrected_outlines}")
 
-                try:
-                    doc.set_toc(corrected_outlines)
-                except Exception as e:
-                    logger.error(f"PDFアウトラインの設定に失敗しました: {e}")
-
+                doc.set_toc(corrected_outlines)
                 doc.save(tmp_file, incremental=False)
 
             logger.info("PDFアウトライン（しおり）を設定しました")
@@ -313,7 +317,6 @@ class PDFProcessor:
         story.append(Paragraph("目次", title_style))
         story.append(Spacer(1, 0.2 * inch))
         story.append(toc_table)
-        story.append(PageBreak())
 
         doc.build(story)
         page_count = self.get_page_count(output_path)
@@ -354,7 +357,7 @@ class PDFProcessor:
         logger.info(f"区切りページを生成: {title}")
         return output_path
 
-    def split_pdf(self, pdf_path: str, output_dir: str) -> Tuple[str, str]:
+    def split_pdf(self, pdf_path: str, output_dir: str) -> Tuple[str, Optional[str]]:
         """
         PDFを表紙と残りのページに分割
 
@@ -378,11 +381,12 @@ class PDFProcessor:
                     cover_doc.insert_pdf(doc, from_page=0, to_page=0)
                     cover_doc.save(cover_pdf)
 
-                # 残りのページ
-                with fitz.open() as remainder_doc:
-                    if doc.page_count > 1:
+                if doc.page_count > 1:
+                    with fitz.open() as remainder_doc:
                         remainder_doc.insert_pdf(doc, from_page=1, to_page=doc.page_count - 1)
-                    remainder_doc.save(remainder_pdf)
+                        remainder_doc.save(remainder_pdf)
+                else:
+                    remainder_pdf = None
 
             logger.debug(f"PDFを分割しました: 表紙={cover_pdf}, 残り={remainder_pdf}")
             return cover_pdf, remainder_pdf

@@ -51,12 +51,14 @@ class TestCalculateYearShort:
         assert calculate_year_short("1925") == "1925"
 
     def test_invalid_string(self):
-        """無効な文字列はデフォルト値"""
-        assert calculate_year_short("invalid") == "R8"
+        """無効な文字列はValueError"""
+        with pytest.raises(ValueError):
+            calculate_year_short("invalid")
 
     def test_empty_string(self):
-        """空文字列はデフォルト値"""
-        assert calculate_year_short("") == "R8"
+        """空文字列はValueError"""
+        with pytest.raises(ValueError):
+            calculate_year_short("")
 
 
 @pytest.mark.unit

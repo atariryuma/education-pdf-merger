@@ -6,6 +6,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+import sys
 import json
 import re
 from datetime import datetime
@@ -14,6 +15,14 @@ from typing import Optional
 
 class StructuredFormatter(logging.Formatter):
     """JSON形式でログを出力するフォーマッター"""
+
+    _INTERNAL_ATTRS = frozenset({
+        'name', 'msg', 'args', 'created', 'filename', 'funcName',
+        'levelname', 'levelno', 'lineno', 'module', 'msecs',
+        'message', 'pathname', 'process', 'processName',
+        'relativeCreated', 'thread', 'threadName', 'exc_info',
+        'exc_text', 'stack_info', 'taskName', 'asctime',
+    })
 
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
@@ -27,26 +36,22 @@ class StructuredFormatter(logging.Formatter):
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
 
-        # カスタム属性を追加
+        # カスタム属性を追加（内部属性を除外）
         for key, value in record.__dict__.items():
-            if key not in ['name', 'msg', 'args', 'created', 'filename', 'funcName',
-                           'levelname', 'levelno', 'lineno', 'module', 'msecs',
-                           'message', 'pathname', 'process', 'processName',
-                           'relativeCreated', 'thread', 'threadName', 'exc_info',
-                           'exc_text', 'stack_info']:
+            if key not in self._INTERNAL_ATTRS:
                 log_data[key] = value
 
-        return json.dumps(log_data, ensure_ascii=False)
+        return json.dumps(log_data, ensure_ascii=False, default=str)
 
 
 class SensitiveDataFilter(logging.Filter):
     """機密情報をマスクするフィルター（最適化版）"""
 
     # 統合パターン（パフォーマンス改善：1つの正規表現に統合）
+    # クレジットカードパターンは誤検出が多いため除外
     _SENSITIVE_PATTERN = re.compile(
         r'(?P<password>password|passwd|pwd)["\']?\s*[:=]\s*["\']?[^"\'}\s,]+'
         r'|(?P<token>token|api[_-]?key|secret|access[_-]?token)["\']?\s*[:=]\s*["\']?[^"\'}\s,]+'
-        r'|(?P<credit>\b\d{13,19}\b)'
         r'|(?P<email>\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b)'
         r'|(?P<phone>\b0\d{1,4}-\d{1,4}-\d{4}\b|\b0\d{9,10}\b)'
         r'|(?P<winpath>(?:C:\\Users\\|/Users/)[^\\\/\s]+)',
@@ -54,7 +59,7 @@ class SensitiveDataFilter(logging.Filter):
     )
 
     @staticmethod
-    def _mask_match(match: re.Match) -> str:
+    def _mask_match(match: re.Match) -> str:  # type: ignore[type-arg]
         """
         マッチした部分に応じてマスク文字列を返す
 
@@ -68,10 +73,7 @@ class SensitiveDataFilter(logging.Filter):
             return 'password=***'
         elif match.lastgroup == 'token':
             return 'token=***'
-        elif match.lastgroup == 'credit':
-            return '****-****-****-****'
         elif match.lastgroup == 'email':
-            # セキュリティ強化: ドメイン部分も完全にマスク
             return '***@***'
         elif match.lastgroup == 'phone':
             return '***-****-****'
@@ -97,8 +99,9 @@ class SensitiveDataFilter(logging.Filter):
                         self._SENSITIVE_PATTERN.sub(self._mask_match, str(arg))
                         for arg in record.args
                     )
-        except Exception:
-            pass  # マスキング失敗時はログ出力を継続
+        except Exception as mask_err:
+            # マスキング失敗時は警告を追記してログ出力を継続
+            record.msg = f"[MASK_ERROR: {mask_err}] {record.msg}"
 
         return True
 
@@ -136,9 +139,10 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
     if root_logger.handlers:
         root_logger.handlers.clear()
 
-    # 機密情報フィルターを追加
-    sensitive_filter = SensitiveDataFilter()
-    root_logger.addFilter(sensitive_filter)
+    # 機密情報フィルターを追加（重複防止）
+    if not any(isinstance(f, SensitiveDataFilter) for f in root_logger.filters):
+        sensitive_filter = SensitiveDataFilter()
+        root_logger.addFilter(sensitive_filter)
 
     # アプリ専用ロガーも設定
     logger = logging.getLogger(app_name)
@@ -165,7 +169,6 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
     root_logger.addHandler(file_handler)
 
     # コンソールハンドラ（UTF-8エンコーディング指定）
-    import sys
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)

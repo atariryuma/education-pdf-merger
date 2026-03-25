@@ -440,9 +440,10 @@ class PDFTab(BaseTab):
                         pass
                 thread_safe_call(self.tab, _cleanup)
 
-                # ダイアログが残っていたら閉じる
-                if ichitaro_dialog:
-                    thread_safe_call(self.tab, lambda: ichitaro_dialog.close())
+                # ダイアログが残っていたら閉じる（変数キャプチャのTOCTOU回避）
+                dialog_ref = ichitaro_dialog
+                if dialog_ref:
+                    thread_safe_call(self.tab, lambda: dialog_ref.close())
 
         thread = threading.Thread(target=task, daemon=True)
         thread.start()

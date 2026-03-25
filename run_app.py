@@ -8,7 +8,7 @@ PyInstallerでのビルド用メインスクリプト
 import sys
 import os
 import logging
-from typing import NoReturn, Type, Optional
+from typing import Type, Optional
 import traceback
 from types import TracebackType
 
@@ -100,7 +100,7 @@ def global_exception_handler(
     print(f"Critical Error: {exc_type.__name__}: {exc_value}", file=sys.stderr)
 
 
-def main() -> NoReturn:
+def main() -> None:
     """
     メインアプリケーションを起動.
 

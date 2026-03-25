@@ -10,6 +10,16 @@ from pathlib import Path
 from typing import Generator
 import pytest
 
+
+def _has_win32com() -> bool:
+    """Check if win32com.client is available."""
+    try:
+        import win32com.client  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 from infrastructure.config_loader import ConfigLoader
 from core.pdf_converter import PDFConverter
 from core.pdf_processor import PDFProcessor
@@ -79,19 +89,30 @@ def sample_input_dir(temp_workspace: Path) -> Path:
     input_dir = temp_workspace / "input"
     input_dir.mkdir(parents=True)
 
-    # 表紙ファイル（ダミーテキストファイル）
-    (input_dir / "表紙.txt").write_text("表紙ページ", encoding='utf-8')
+    # ダミーPDFバイト列（1ページの最小PDF）
+    dummy_pdf = (
+        b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'
+        b'1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'
+        b'2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
+        b'3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n'
+        b'xref\n0 4\n0000000000 65535 f \n'
+        b'0000000015 00000 n \n0000000068 00000 n \n0000000131 00000 n \n'
+        b'trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n214\n%%EOF\n'
+    )
+
+    # 表紙ファイル（ダミーPDF）
+    (input_dir / "表紙.pdf").write_bytes(dummy_pdf)
 
     # メインディレクトリ1
     main_dir1 = input_dir / "01_国語"
     main_dir1.mkdir()
-    (main_dir1 / "01_1年.txt").write_text("1年国語の内容", encoding='utf-8')
-    (main_dir1 / "02_2年.txt").write_text("2年国語の内容", encoding='utf-8')
+    (main_dir1 / "01_1年.pdf").write_bytes(dummy_pdf)
+    (main_dir1 / "02_2年.pdf").write_bytes(dummy_pdf)
 
     # メインディレクトリ2
     main_dir2 = input_dir / "02_算数"
     main_dir2.mkdir()
-    (main_dir2 / "01_1年.txt").write_text("1年算数の内容", encoding='utf-8')
+    (main_dir2 / "01_1年.pdf").write_bytes(dummy_pdf)
 
     return input_dir
 
@@ -149,11 +170,20 @@ class TestPDFMergeIntegration:
     def test_sample_directory_structure(self, sample_input_dir: Path):
         """サンプルディレクトリ構造が正しく作成されることを確認"""
         assert sample_input_dir.exists()
-        assert (sample_input_dir / "表紙.txt").exists()
+        assert (sample_input_dir / "表紙.pdf").exists()
         assert (sample_input_dir / "01_国語").is_dir()
         assert (sample_input_dir / "02_算数").is_dir()
 
-    @pytest.mark.skip(reason="実際のPDF変換には外部依存が必要（Office、一太郎等）")
+        # サブディレクトリ内のファイルも正しく作成されている
+        kokugo_files = list((sample_input_dir / "01_国語").iterdir())
+        assert len(kokugo_files) == 2
+        sansu_files = list((sample_input_dir / "02_算数").iterdir())
+        assert len(sansu_files) == 1
+
+    @pytest.mark.skipif(
+        not _has_win32com(),
+        reason="win32com.client not available (Office not installed)"
+    )
     def test_full_pdf_merge_flow(
         self,
         mock_config: ConfigLoader,

@@ -1,12 +1,7 @@
 """
 カスタム例外クラスのテスト
 """
-import os
 import pytest
-import sys
-
-# プロジェクトルートをパスに追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from shared.exceptions import (
     PDFMergeError,
@@ -17,6 +12,7 @@ from shared.exceptions import (
     PathNotFoundError,
     PDFProcessingError,
     ExcelProcessingError,
+    FolderStructureError,
     CancelledError
 )
 
@@ -235,10 +231,50 @@ class TestExceptionHierarchy:
             PathNotFoundError("path"),
             PDFProcessingError("処理エラー", operation="結合"),
             ExcelProcessingError("Excelエラー", file_path="file.xlsx", operation="更新"),
+            FolderStructureError("構造エラー", directory_path="C:\\test"),
         ]
         for exc in exceptions:
             assert isinstance(exc, PDFMergeError)
             assert isinstance(exc, Exception)
+
+
+@pytest.mark.unit
+class TestFolderStructureError:
+    """FolderStructureErrorのテスト"""
+
+    def test_basic_creation(self):
+        """メッセージとディレクトリパスで作成"""
+        error = FolderStructureError(
+            "フォルダ構造が不正です",
+            directory_path="C:\\Documents\\計画書"
+        )
+        assert error.directory_path == "C:\\Documents\\計画書"
+        assert "フォルダ構造が不正です" in str(error)
+        assert "C:\\Documents\\計画書" in str(error)
+
+    def test_with_original_error(self):
+        """元の例外あり"""
+        original = OSError("アクセス拒否")
+        error = FolderStructureError(
+            "分析に失敗しました",
+            directory_path="C:\\test",
+            original_error=original
+        )
+        assert error.original_error == original
+        assert error.directory_path == "C:\\test"
+
+    def test_directory_path_accessible(self):
+        """directory_path属性がアクセス可能"""
+        error = FolderStructureError(
+            "構造エラー",
+            directory_path="C:\\path\\to\\dir"
+        )
+        assert error.directory_path == "C:\\path\\to\\dir"
+
+
+@pytest.mark.unit
+class TestExceptionCatchability:
+    """例外のキャッチ可能性テスト"""
 
     def test_can_be_caught_by_base(self):
         """基底クラスでキャッチ可能"""

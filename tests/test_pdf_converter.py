@@ -3,10 +3,6 @@ PDFConverterのテスト
 """
 import os
 import pytest
-import sys
-
-# プロジェクトルートをパスに追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.pdf_converter import PDFConverter
 

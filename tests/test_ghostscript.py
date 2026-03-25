@@ -88,7 +88,7 @@ class TestVerify:
         """subprocess例外"""
         gs_exe = tmp_path / "gswin64c.exe"
         gs_exe.write_text("fake")
-        mock_run.side_effect = Exception("timeout")
+        mock_run.side_effect = OSError("connection refused")
 
         assert GhostscriptDetector.verify(str(gs_exe)) is False
 

@@ -51,8 +51,9 @@ class ExcelTab(BaseTab):
         # 設定タブへの参照（後から設定される）
         self.settings_tab: Optional[Any] = None
 
-        # 自動検出の二重実行防止フラグ
+        # 二重実行防止フラグ
         self._detecting = False
+        self._updating = False
 
         self._create_ui()
         self.add_to_notebook("Excel処理")
@@ -261,8 +262,6 @@ class ExcelTab(BaseTab):
             )
             return
 
-        import threading
-
         # config.jsonから自動検出キーワードを取得
         ref_keywords = self.config.get('excel_auto_detect', 'reference_keywords')
         target_keywords = self.config.get('excel_auto_detect', 'target_keywords')
@@ -276,12 +275,12 @@ class ExcelTab(BaseTab):
         # 二重実行防止
         self._detecting = True
 
-        # COM操作を別スレッド(MTA)で実行（メインスレッドはSTA固定のため）
+        # COM操作を別スレッド(STA)で実行（COMスレッドモデルを統一）
         result: Dict[str, list] = {"ref": [], "target": [], "error": []}
 
         def _detect_in_thread() -> None:
             try:
-                pythoncom.CoInitializeEx(pythoncom.COINIT_MULTITHREADED)
+                pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
                 try:
                     excel = win32com.client.Dispatch("Excel.Application")
                     for wb in excel.Workbooks:
@@ -291,8 +290,8 @@ class ExcelTab(BaseTab):
                         try:
                             for ws in wb.Worksheets:
                                 sheet_names.append(ws.Name)
-                        except Exception:
-                            pass
+                        except Exception as ws_err:
+                            logger.debug(f"ワークシート名取得エラー: {ws_err}")
                         search_targets = [filename] + sheet_names
                         if any(kw in t for kw in ref_keywords for t in search_targets):
                             result["ref"].append((filename, full_path))
@@ -470,6 +469,8 @@ class ExcelTab(BaseTab):
 
     def _run_excel_update(self) -> None:
         """Excelデータ更新を実行"""
+        if self._updating:
+            return
         # ファイルが選択されているか確認
         if not self.ref_file_path or not self.target_file_path:
             missing = []
@@ -503,6 +504,8 @@ class ExcelTab(BaseTab):
                 f"ファイルが移動または削除されていないか確認してください。"
             )
             return
+
+        self._updating = True
 
         def task():
             try:
@@ -589,6 +592,8 @@ class ExcelTab(BaseTab):
                 thread_safe_call(self.tab, lambda: messagebox.showerror(
                     "実行エラー", f"エラーが発生しました。\n\n詳細:\n{error_msg}"
                 ))
+            finally:
+                self._updating = False
 
         thread = threading.Thread(target=task, daemon=True)
         thread.start()
@@ -616,17 +621,21 @@ class ExcelTab(BaseTab):
             )
             return
 
-        # 2. 既存設定の有無を確認
-        existing_config = self.config.user_config.get("excel_event_names", {})
-        has_existing = bool(existing_config)
+        # 2. 既存設定の有無を確認（公開APIを使用）
+        existing_counts_data = {
+            "school_events": self.config.get_event_names("school_events"),
+            "student_council_events": self.config.get_event_names("student_council_events"),
+            "other_activities": self.config.get_event_names("other_activities"),
+        }
+        has_existing = any(len(v) > 0 for v in existing_counts_data.values())
 
         # 3. 確認ダイアログ（既存設定の有無で表示を変える）
         if has_existing:
             # 既存設定がある場合：上書き警告を強化
             existing_counts = {
-                "学校行事名": len(existing_config.get("school_events", [])),
-                "児童会行事名": len(existing_config.get("student_council_events", [])),
-                "その他の活動": len(existing_config.get("other_activities", []))
+                "学校行事名": len(existing_counts_data["school_events"]),
+                "児童会行事名": len(existing_counts_data["student_council_events"]),
+                "その他の活動": len(existing_counts_data["other_activities"])
             }
             total_existing = sum(existing_counts.values())
 

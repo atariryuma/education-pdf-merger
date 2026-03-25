@@ -151,7 +151,7 @@ class PDFMergeApp:
         self.root.bind('<Control-q>', lambda e: self._on_closing())
         self.root.bind('<F5>', self._handle_f5)
 
-    def _handle_f5(self, event) -> str:
+    def _handle_f5(self, event: "tk.Event[tk.Misc]") -> str:
         """F5キーの処理（Excel処理タブで自動検出を実行）"""
         if not hasattr(self, 'notebook') or self.notebook is None:
             return 'break'
@@ -245,31 +245,38 @@ class PDFMergeApp:
         """設定を保存"""
         self.settings_tab.save_settings()
 
+    def _apply_config(self) -> None:
+        """ConfigLoaderを再生成し、全UI変数とタブ参照を更新（config_lock下で呼ぶこと）"""
+        self.config = ConfigLoader()
+
+        # 既存のStringVarに値を設定（再生成しない＝タブ参照を維持）
+        self.year_var.set(self.config.year)
+        self.year_short_var.set(self.config.year_short)
+        self.gdrive_var.set(self.config.get('base_paths', 'google_drive') or "")
+        self.temp_var.set(self.config.get('base_paths', 'local_temp') or "")
+        self.gs_var.set(self.config.get('ghostscript', 'executable') or "")
+
+        # タブのconfigを更新
+        if hasattr(self, 'pdf_tab'):
+            self.pdf_tab.config = self.config
+        if hasattr(self, 'excel_tab'):
+            self.excel_tab.config = self.config
+        if hasattr(self, 'settings_tab'):
+            self.settings_tab.config = self.config
+
     def _reload_settings(self) -> None:
         """設定を再読み込み"""
         try:
-            self.config = ConfigLoader()
-            # UI変数を更新
-            self.year_var.set(self.config.year)
-            self.year_short_var.set(self.config.year_short)
-            self.gdrive_var.set(self.config.get('base_paths', 'google_drive'))
-            self.temp_var.set(self.config.get('base_paths', 'local_temp'))
-            self.gs_var.set(self.config.get('ghostscript', 'executable'))
-
-            # タブのconfigを更新
-            self.pdf_tab.config = self.config
-            self.excel_tab.config = self.config
-            self.settings_tab.config = self.config
-
+            with self.config_lock:
+                self._apply_config()
             self._update_status("設定を再読み込みしました")
         except Exception as e:
             messagebox.showerror("読み込みエラー", f"設定の再読み込みに失敗しました。\n\n詳細: {e}")
 
     def _update_status(self, message: str) -> None:
         """ステータスバーを更新"""
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.status_bar.config(text=f"[{timestamp}] {message}")
+        from gui.utils import update_status
+        update_status(self.status_bar, message)
 
     def _show_shortcuts(self) -> None:
         """キーボードショートカットを表示"""
@@ -318,24 +325,8 @@ F5 : ファイル状態を確認
 
                 def on_wizard_complete():
                     """ウィザード完了時のコールバック"""
-                    # 設定を再読み込み
-                    self.config = ConfigLoader()
-                    self._init_variables({})
-
-                    # UIを更新（すべてのタブに反映）
-                    self.year_var.set(self.config.year)
-                    self.year_short_var.set(self.config.year_short)
-                    self.gdrive_var.set(self.config.get('base_paths', 'google_drive') or "")
-                    self.temp_var.set(self.config.get('base_paths', 'local_temp') or "")
-                    self.gs_var.set(self.config.get('ghostscript', 'executable') or "")
-
-                    # 各タブのconfigも更新
-                    if hasattr(self, 'pdf_tab'):
-                        self.pdf_tab.config = self.config
-                    if hasattr(self, 'excel_tab'):
-                        self.excel_tab.config = self.config
-                    if hasattr(self, 'settings_tab'):
-                        self.settings_tab.config = self.config
+                    with self.config_lock:
+                        self._apply_config()
                     messagebox.showinfo(
                         "セットアップ完了",
                         "設定が完了しました！\n\nアプリケーションを使い始めることができます。",
@@ -352,6 +343,8 @@ F5 : ファイル状態を確認
 
         except Exception as e:
             logger.error(f"初回セットアップチェックエラー: {e}", exc_info=True)
+
+
 
 
 

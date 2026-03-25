@@ -8,10 +8,13 @@ import os
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TYPE_CHECKING
 from pathlib import Path
 
 from gui.tabs.base_tab import BaseTab
+
+if TYPE_CHECKING:
+    from infrastructure.config_loader import ConfigLoader
 from gui.event_names_editor import EventNamesEditor
 from gui.styles import COLORS, FONTS
 from gui.utils import create_hover_button, open_file_or_folder, thread_safe_call
@@ -27,7 +30,7 @@ class SettingsTab(BaseTab):
     def __init__(
         self,
         notebook: ttk.Notebook,
-        config: Any,
+        config: "ConfigLoader",
         status_bar: tk.Label,
         year_var: tk.StringVar,
         year_short_var: tk.StringVar,
@@ -50,7 +53,7 @@ class SettingsTab(BaseTab):
         self._create_ui()
         self.add_to_notebook("設定")
 
-    def _on_year_changed(self, *args) -> None:
+    def _on_year_changed(self, *args: Any) -> None:
         """年度が変更されたときに和暦を自動更新"""
         year = self.year_var.get()
         if year.isdigit() and len(year) == 4:
@@ -133,8 +136,10 @@ class SettingsTab(BaseTab):
         ichitaro_frame = tk.LabelFrame(main_container, text="一太郎変換設定", font=FONTS['default_bold'])
         ichitaro_frame.pack(fill="x", pady=(0, 4))
 
-        self.max_retries_var = tk.StringVar(value=str(self.config.get('ichitaro', 'max_retries') or 3))
-        self.save_wait_var = tk.StringVar(value=str(self.config.get('ichitaro', 'save_wait_seconds') or 20))
+        max_retries = self.config.get('ichitaro', 'max_retries')
+        self.max_retries_var = tk.StringVar(value=str(max_retries if max_retries is not None else 3))
+        save_wait = self.config.get('ichitaro', 'save_wait_seconds')
+        self.save_wait_var = tk.StringVar(value=str(save_wait if save_wait is not None else 20))
 
         settings_row = tk.Frame(ichitaro_frame)
         settings_row.pack(fill="x", padx=10, pady=4)
@@ -322,7 +327,7 @@ class SettingsTab(BaseTab):
     def reload_settings(self) -> None:
         """設定を再読み込み"""
         self.on_reload()
-        self._update_gs_status_sync()
+        self._update_gs_status()  # 非同期で検証（UIフリーズ防止）
 
     def open_config_file(self) -> None:
         """config.jsonをテキストエディタで開く"""
@@ -426,7 +431,7 @@ class SettingsTab(BaseTab):
             return
 
         self.ichitaro_status_label.config(text="🔄 テスト実行中...", fg="blue")
-        self.tab.update()
+        self.tab.update_idletasks()
 
         def run_test():
             try:
@@ -459,7 +464,7 @@ class SettingsTab(BaseTab):
                     fd = os.open(output_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                     os.close(fd)  # ファイルディスクリプタを閉じて変換処理に渡す
 
-                    result = converter._convert_ichitaro(file_path, output_path)
+                    result = converter.convert(file_path, output_path)
 
                     if result and os.path.exists(result):
                         thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(

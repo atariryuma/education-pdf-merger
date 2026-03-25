@@ -1,12 +1,9 @@
 """
 ConfigLoaderのテスト
 """
+import json
 import os
 import pytest
-import sys
-
-# プロジェクトルートをパスに追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from infrastructure.config_loader import ConfigLoader
 from shared.exceptions import ConfigurationError
@@ -128,3 +125,56 @@ class TestConfigLoader:
         result = config.get_temp_dir()
         assert result == new_temp
         assert os.path.exists(new_temp)
+
+
+@pytest.mark.unit
+class TestEventNames:
+    """get_event_names / save_event_names のテスト"""
+
+    @pytest.fixture
+    def config_with_events(self, temp_dir, sample_config_data):
+        """デフォルト行事名を含む設定ファイルでConfigLoaderを作成"""
+        data = dict(sample_config_data)
+        data["excel_default_event_names"] = {
+            "school_events": ["入学式", "卒業式", "運動会"],
+            "student_council_events": ["生徒総会", "選挙"],
+            "other_activities": ["遠足"]
+        }
+        config_path = os.path.join(temp_dir, "config_events.json")
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return ConfigLoader(config_path)
+
+    def test_get_event_names_from_default(self, config_with_events):
+        """デフォルト行事名が取得できる"""
+        names = config_with_events.get_event_names("school_events")
+        assert names == ["入学式", "卒業式", "運動会"]
+
+        names = config_with_events.get_event_names("student_council_events")
+        assert names == ["生徒総会", "選挙"]
+
+        names = config_with_events.get_event_names("other_activities")
+        assert names == ["遠足"]
+
+    def test_get_event_names_returns_copy(self, config_with_events):
+        """返されるリストはコピーであり、変更しても内部状態に影響しない"""
+        names = config_with_events.get_event_names("school_events")
+        original_length = len(names)
+        names.append("追加行事")
+
+        # 再取得して変更が影響していないことを確認
+        names_again = config_with_events.get_event_names("school_events")
+        assert len(names_again) == original_length
+        assert "追加行事" not in names_again
+
+    def test_save_and_get_event_names(self, config_with_events):
+        """保存した行事名がgetで取得できる"""
+        new_names = ["文化祭", "体育祭", "合唱コンクール"]
+        config_with_events.save_event_names("school_events", new_names)
+
+        result = config_with_events.get_event_names("school_events")
+        assert result == new_names
+
+        # 他のカテゴリには影響しない
+        other = config_with_events.get_event_names("student_council_events")
+        assert other == ["生徒総会", "選挙"]

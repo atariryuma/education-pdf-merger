@@ -145,60 +145,71 @@ class ExcelTransfer:
         return self._ref_c_cache
 
     def _ensure_ref_cache(self) -> None:
-        """参照Excelのキャッシュを初期化（C列全行マップ、A列日付、E～ANデータ）"""
-        if hasattr(self, '_ref_c_cache'):
+        """参照Excelのキャッシュを初期化（C列全行マップ、A列日付、E～ANデータ）
+
+        ローカル変数で全データを構築し、最後に一括代入することで
+        例外発生時の部分初期化状態を防止する。
+        """
+        if getattr(self, '_ref_cache_initialized', False):
             return
 
         used_range = self.ref_ws.UsedRange
         last_row = used_range.Row + used_range.Rows.Count - 1
 
+        # ローカル変数でキャッシュを構築（アトミックな代入のため）
+        c_cache: List[Tuple[int, str]] = []
+        c_all: Dict[int, str] = {}
+        a_cache: Dict[int, Any] = {}
+        data_cache: Dict[int, list] = {}
+
         # C列を一括取得（非空リスト + 全行マップの両方を作成）
         range_values = self.ref_ws.Range(f"C1:C{last_row}").Value
-        self._ref_c_cache: List[Tuple[int, str]] = []
-        self._ref_c_all: Dict[int, str] = {}  # 行番号→値（空行はキーなし）
-
         if range_values:
             if isinstance(range_values, tuple):
                 for i, row in enumerate(range_values):
                     val = row[0] if isinstance(row, tuple) else row
                     if val is not None and str(val).strip():
-                        self._ref_c_cache.append((i + 1, str(val)))
-                        self._ref_c_all[i + 1] = str(val)
+                        c_cache.append((i + 1, str(val)))
+                        c_all[i + 1] = str(val)
             else:
                 if range_values is not None:
-                    self._ref_c_cache.append((1, str(range_values)))
-                    self._ref_c_all[1] = str(range_values)
+                    c_cache.append((1, str(range_values)))
+                    c_all[1] = str(range_values)
 
         # A列（日付）を一括取得
         a_values = self.ref_ws.Range(f"A1:A{last_row}").Value
-        self._ref_a_cache: Dict[int, Any] = {}
         if a_values:
             if isinstance(a_values, tuple):
                 for i, row in enumerate(a_values):
                     val = row[0] if isinstance(row, tuple) else row
                     if val is not None:
-                        self._ref_a_cache[i + 1] = val
+                        a_cache[i + 1] = val
             else:
                 if a_values is not None:
-                    self._ref_a_cache[1] = a_values
+                    a_cache[1] = a_values
 
         # E～AN列を一括取得（全行）
         data_range = self.ref_ws.Range(
             f"{ExcelTransferConstants.REF_DATA_START_COL}1:"
             f"{ExcelTransferConstants.REF_DATA_END_COL}{last_row}"
         ).Value
-        self._ref_data_cache: Dict[int, list] = {}
         if data_range and isinstance(data_range, tuple):
             for i, row in enumerate(data_range):
                 if row and isinstance(row, tuple):
                     row_data = [str(cell) if cell is not None else "" for cell in row]
                     if any(cell for cell in row_data):  # 全空行は除外
-                        self._ref_data_cache[i + 1] = row_data
+                        data_cache[i + 1] = row_data
 
+        # 全データが揃ったら一括代入（部分初期化を防止）
+        self._ref_c_cache = c_cache
+        self._ref_c_all = c_all
+        self._ref_a_cache = a_cache
+        self._ref_data_cache = data_cache
         self._ref_last_row = last_row
+        self._ref_cache_initialized = True
         logger.info(
-            f"参照Excelキャッシュ完了: C列={len(self._ref_c_cache)}件, "
-            f"データ行={len(self._ref_data_cache)}件, 最終行={last_row}"
+            f"参照Excelキャッシュ完了: C列={len(c_cache)}件, "
+            f"データ行={len(data_cache)}件, 最終行={last_row}"
         )
 
         # カテゴリインデックスを構築
@@ -354,7 +365,7 @@ class ExcelTransfer:
         return result, all_categories
 
     @staticmethod
-    def _to_datetime(value: Any) -> 'Optional[Any]':
+    def _to_datetime(value: Any) -> Optional[dt.datetime]:
         """
         Excel日付値をdatetimeに変換（タイムゾーン除去）
 
@@ -362,7 +373,7 @@ class ExcelTransfer:
             value: datetime、Excelシリアル値(int/float)、または不明な値
 
         Returns:
-            Optional[datetime]: 変換結果。変換不能な場合はNone
+            Optional[datetime.datetime]: 変換結果。変換不能な場合はNone
         """
 
         if isinstance(value, dt.datetime):
@@ -431,7 +442,7 @@ class ExcelTransfer:
 
         # ステップ2: 部分一致（検索値がインデックスのキーに含まれるか）
         best_partial_row: Optional[int] = None
-        best_partial_len: int = float('inf')  # type: ignore[assignment]
+        best_partial_len: float = float('inf')
         best_partial_key: str = ""
 
         for key, row_num in index.items():
@@ -493,10 +504,7 @@ class ExcelTransfer:
             return self._ref_a_cache.get(row)
         if col_upper == "C":
             return self._ref_c_all.get(row)
-        # その他の列はCOM呼び出し（通常は到達しない）
-        if isinstance(col, str) and len(col) == 1:
-            col_num = ord(col_upper) - ord('A') + 1
-            return self.ref_ws.Cells(row, col_num).Value
+        # その他の列はCOM呼び出し（フォールバック）
         return self.ref_ws.Range(f"{col}{row}").Value
 
     def _get_period_base_name(self, text: str) -> Optional[str]:
@@ -861,8 +869,8 @@ class ExcelTransfer:
         if any(kw in search_str for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
             if re.search(r'[②-⑳]', search_str):
                 # ②以降 → A～P列を一括クリア（①に集約）
-                empty_row = [[""] * 16]
-                self.target_ws.Range(f"A{row}:P{row}").Value = empty_row
+                empty_row = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
+                self.target_ws.Range(ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)).Value = empty_row
                 logger.info(f"  - 行{row}: '{search_value}' → ①に集約のためクリア")
                 return
             # ① → 連番サフィックスを除去して名前を整理
@@ -910,7 +918,7 @@ class ExcelTransfer:
             )
             if not has_any_count:
                 # カウントなし → 行全体をクリア（ソートで下に移動）
-                self.target_ws.Range(f"A{row}:P{row}").Value = [[""] * 16]
+                self.target_ws.Range(ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)).Value = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
                 logger.info(
                     f"  - 行{row}: '{search_value}' → 参照あり(行{found_row})だが時数なし、除外"
                 )
@@ -939,7 +947,7 @@ class ExcelTransfer:
             )
         else:
             # 見つからない場合：行全体をクリア（ソートで下に移動）
-            self.target_ws.Range(f"A{row}:P{row}").Value = [[""] * 16]
+            self.target_ws.Range(ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)).Value = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
 
             logger.warning(
                 f"  ✗ 行{row}: '{search_value}' → 参照Excelに該当なし、除外"
@@ -1140,12 +1148,28 @@ class ExcelTransfer:
             pythoncom.CoInitialize()
             self._com_initialized = True
             logger.debug("COM初期化完了")
-        except Exception as e:
-            logger.debug(f"COM初期化スキップ（既に初期化済み）: {e}")
+        except pythoncom.com_error:
+            # 既に初期化済みの場合はスキップ（正常なケース）
+            logger.debug("COM初期化スキップ（既に初期化済み）")
             self._com_initialized = False
+        except Exception as e:
+            logger.error(f"COM初期化に失敗しました: {e}")
+            raise ExcelTransferError(
+                f"COM初期化に失敗しました: {e}",
+                operation="COM初期化",
+                original_error=e
+            ) from e
 
-        self.excel = win32com.client.Dispatch("Excel.Application")
-        logger.debug("Excelインスタンスに接続しました")
+        try:
+            self.excel = win32com.client.Dispatch("Excel.Application")
+            logger.debug("Excelインスタンスに接続しました")
+        except Exception as e:
+            logger.error(f"Excelインスタンスへの接続に失敗しました: {e}")
+            raise ExcelTransferError(
+                f"Excelへの接続に失敗しました。Excelが起動しているか確認してください。\n詳細: {e}",
+                operation="Excel接続",
+                original_error=e
+            ) from e
 
     def _find_workbook(self, filename: str) -> Any:
         """
@@ -1167,7 +1191,8 @@ class ExcelTransfer:
                 return wb
         raise ExcelTransferError(
             f"ファイルが開かれていません: {basename}\n\n"
-            "Excelで該当ファイルを開いてから実行してください。"
+            "Excelで該当ファイルを開いてから実行してください。",
+            operation="ワークブック検索"
         )
 
     def _connect_worksheet(self, workbook: Any, sheet_name: str, filename: str) -> Any:
@@ -1299,7 +1324,9 @@ class ExcelTransfer:
         Excel COMオブジェクトをクリーンアップ
 
         Note:
-            参照ファイルとターゲットファイルの両方のCOMオブジェクトを解放
+            参照ファイルとターゲットファイルの両方のCOMオブジェクトを解放。
+            Excelアプリケーションは他のユーザーが使用している可能性があるため、
+            Quit()は呼ばない（Dispatchで取得した既存インスタンスへの参照を解放するのみ）。
         """
         logger.debug("Excel COMオブジェクトをクリーンアップ中...")
 
@@ -1311,13 +1338,8 @@ class ExcelTransfer:
         self.ref_wb = None
         self.target_wb = None
 
-        # Excelアプリケーション参照を解放
-        if self.excel is not None:
-            try:
-                del self.excel
-            except Exception as e:
-                logger.warning(f"Excel COMオブジェクト解放エラー: {e}")
-            self.excel = None
+        # Excelアプリケーション参照を解放（Quit()は呼ばない）
+        self.excel = None
 
         # COM終了処理
         if self._com_initialized:
@@ -1433,12 +1455,12 @@ class ExcelTransfer:
                     counts["student_council_events"] += 1
             logger.info(f"児童会行事名を{counts['student_council_events']}件設定しました")
 
-            # カテゴリ3: その他の教育活動名 (C67~C96)
+            # カテゴリ3: その他の教育活動名 (C67~C95) ※96行目は小計行
             logger.info("その他の教育活動名を設定中...")
             for i, event_name in enumerate(other_activities):
                 row = 67 + i
-                if row > 96:
-                    logger.warning(f"その他の教育活動名が多すぎます（最大30件）: {len(other_activities)}件")
+                if row > 95:
+                    logger.warning(f"その他の教育活動名が多すぎます（最大29件）: {len(other_activities)}件")
                     break
                 if event_name:  # 空文字列をスキップ
                     self.target_ws.Range(f"C{row}").Value = event_name
@@ -1503,8 +1525,8 @@ class ExcelTransfer:
             student_council_events = self._clean_event_names(council_range)
             logger.info(f"児童会行事名を{len(student_council_events)}件読み込みました")
 
-            # カテゴリ3: その他の教育活動名 (C67~C96) を一括取得
-            other_range = self.target_ws.Range("C67:C96").Value
+            # カテゴリ3: その他の教育活動名 (C67~C95) を一括取得 ※96行目は小計行
+            other_range = self.target_ws.Range("C67:C95").Value
             other_activities = self._clean_event_names(other_range)
             logger.info(f"その他の教育活動名を{len(other_activities)}件読み込みました")
 

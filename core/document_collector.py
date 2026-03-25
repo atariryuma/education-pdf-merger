@@ -9,7 +9,7 @@ from typing import List, Tuple, Callable, Optional
 
 from core.pdf_converter import PDFConverter
 from core.pdf_processor import PDFProcessor
-from shared.exceptions import CancelledError
+from shared.exceptions import CancelledError, PDFProcessingError
 from shared.constants import PDFConstants
 
 # ロガーの設定
@@ -151,6 +151,8 @@ class DocumentCollector:
 
         # ファイルを処理
         for file_idx, filename in enumerate(files, 1):
+            if self.is_cancelled():
+                raise CancelledError("ドキュメント収集がキャンセルされました")
             logger.debug(f"  [{file_idx}/{total_files}] {filename}")
             file_path = os.path.join(subfolder_path, filename)
             current_page = self._convert_and_add_pdf(file_path, content_pdfs, current_page)
@@ -190,11 +192,17 @@ class DocumentCollector:
             content_pdfs.append(sep_pdf)
             toc_entries.append((heading, PDFConstants.HEADING_LEVEL_MAIN, current_page))
             current_page += 1
+        else:
+            logger.warning(f"区切りページの生成に失敗しました: {heading}")
+            # 区切りページなしでも目次には登録
+            toc_entries.append((heading, PDFConstants.HEADING_LEVEL_MAIN, current_page))
 
         # サブディレクトリの処理
         subitems = sorted(os.listdir(dir_path))
         logger.info(f"ディレクトリ内のアイテム数: {len(subitems)}")
         for subitem in subitems:
+            if self.is_cancelled():
+                raise CancelledError("ドキュメント収集がキャンセルされました")
             subitem_path = os.path.join(dir_path, subitem)
 
             if os.path.isdir(subitem_path):
@@ -271,8 +279,8 @@ class DocumentCollector:
             item_path = os.path.join(target_dir, item)
             logger.info(f"--- 処理中 [{idx}/{total_items}]: {item} ---")
 
-            # 表紙ファイルの処理
-            if os.path.isfile(item_path) and PDFConstants.COVER_FILE_KEYWORD in item:
+            # 表紙ファイルの処理（ファイル名の先頭にキーワードが含まれるもの）
+            if os.path.isfile(item_path) and item.startswith(PDFConstants.COVER_FILE_KEYWORD):
                 current_page = self._process_cover_file(item_path, content_pdfs, current_page)
                 continue
 
@@ -292,7 +300,6 @@ class DocumentCollector:
 
         # 空ディレクトリチェック
         if not content_pdfs:
-            from shared.exceptions import PDFProcessingError
             raise PDFProcessingError(
                 f"処理可能なドキュメントが見つかりませんでした。\n\n"
                 f"ディレクトリ: {target_dir}\n"
