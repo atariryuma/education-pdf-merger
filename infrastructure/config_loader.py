@@ -14,7 +14,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from shared.exceptions import ConfigurationError
-from infrastructure.year_utils import calculate_year_short
+from infrastructure.year_utils import calculate_year_short, calculate_next_fiscal_year
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -64,9 +64,15 @@ class ConfigLoader:
         self.user_config: Dict[str, Any] = {}
 
         self.config: Dict[str, Any] = self._load_config()
-        self.year: str = self.config['year']
-        # year_shortは自動計算（設定ファイルの値は無視）
-        self.year_short: str = calculate_year_short(self.year)
+        self.year: str = self.config.get('year', '')
+        if not self.year:
+            # yearが空の場合（初回起動時など）は次年度を自動計算
+            self.year, self.year_short = calculate_next_fiscal_year()
+            self.config['year'] = self.year
+            self.config['year_short'] = self.year_short
+        else:
+            # year_shortは自動計算（設定ファイルの値は無視）
+            self.year_short = calculate_year_short(self.year)
 
     def _load_config(self) -> Dict[str, Any]:
         """

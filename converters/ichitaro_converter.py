@@ -379,15 +379,20 @@ class IchitaroConverter:
                 logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} select()メソッドで'Microsoft Print to PDF'を選択")
                 self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
 
-                # 印刷ボタンにフォーカスを設定
+                # 印刷ボタン（OK）をクリックして印刷実行
+                # send_keys("{ENTER}")だと、ダイアログが閉じた後に
+                # 2回目のEnterが文書本体に改行として入力されるバグがあるため、
+                # pywinautoのclick()で確実にボタンを操作する
                 try:
                     ok_button = print_dialog.child_window(title="OK", control_type="Button")
-                    ok_button.set_focus()
-                    logger.info("印刷ボタン（OK）にフォーカスを設定")
-                    self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_A_WAIT)
-                except Exception as focus_error:
-                    logger.debug(f"印刷ボタンへのフォーカス設定をスキップ: {focus_error}")
+                    ok_button.click()
+                    logger.info("印刷ボタン（OK）をクリックして印刷実行")
+                except Exception as click_error:
+                    # クリック失敗時はEnterキーにフォールバック（1回のみ）
+                    logger.warning(f"OKボタンのクリックに失敗、Enterキーで代替: {click_error}")
+                    send_keys("{ENTER}")
 
+                self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
                 break
 
             except Exception as select_error:
@@ -404,13 +409,6 @@ class IchitaroConverter:
 
         if self.is_cancelled():
             raise CancelledError("一太郎変換がキャンセルされました")
-
-        # Enter で印刷実行（2回押す）
-        logger.debug("印刷ダイアログでEnterキーを2回押します")
-        send_keys("{ENTER}")
-        self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
-        send_keys("{ENTER}")
-        logger.debug("Enterキー2回送信完了")
 
         # 保存ダイアログ検出と入力
         self._handle_save_dialog(app, output_path)

@@ -254,7 +254,7 @@ class GhostscriptDetector:
             logger.warning(f"Ghostscript実行ファイル名が不正です: {path.name}")
             return False
 
-        logger.info(f"Ghostscriptパスが有効です: {gs_path}")
+        logger.debug(f"Ghostscriptパス検証OK: {gs_path}")
         return True
 
     @classmethod

@@ -126,9 +126,11 @@ class DocumentCollector:
         sub_heading = self._sanitize_name(subfolder_name)
         logger.info(f"サブフォルダを処理中: {subfolder_name}")
 
-        # サブフォルダ内のファイルを確認（ディレクトリは除外）
+        # サブフォルダ内のファイルを確認（ディレクトリ・一時ファイルは除外）
         all_items = sorted(os.listdir(subfolder_path))
-        files = [f for f in all_items if os.path.isfile(os.path.join(subfolder_path, f))]
+        files = [f for f in all_items
+                 if os.path.isfile(os.path.join(subfolder_path, f))
+                 and not PDFConverter._is_temporary_file(f)]
         total_files = len(files)
         logger.info(f"サブフォルダ内のファイル数: {total_files} (全アイテム: {len(all_items)})")
 
@@ -266,7 +268,11 @@ class DocumentCollector:
         content_pdfs: List[str] = []
         current_page = PDFConstants.CONTENT_START_PAGE
 
-        items = sorted(os.listdir(target_dir))
+        all_items = sorted(os.listdir(target_dir))
+        # 一時ファイル（~$, .$td, .$$$等）を収集段階で除外
+        items = [item for item in all_items if not PDFConverter._is_temporary_file(item)]
+        if len(items) < len(all_items):
+            logger.debug(f"一時ファイルを除外: {len(all_items) - len(items)}件")
         total_items = len(items)
         logger.info(f"ドキュメント収集を開始: {target_dir}")
         logger.info(f"処理対象アイテム数: {total_items}")

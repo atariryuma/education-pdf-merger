@@ -110,13 +110,12 @@ class PDFMergeApp:
 
         self.gdrive_var = tk.StringVar(value=gdrive_path)
 
-        # 一時フォルダ：空の場合はデフォルトパスを設定してconfig.jsonに保存
+        # 一時フォルダ：空の場合はデフォルトパスを設定（メモリ上のみ、保存は明示操作時）
         temp_path = self.config.get('base_paths', 'local_temp')
         if not temp_path:
             appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
             temp_path = os.path.join(appdata, 'PDFMergeSystem', 'temp')
             self.config.set('base_paths', 'local_temp', value=temp_path)
-            self.config.save_config()
         self.temp_var = tk.StringVar(value=temp_path)
 
         self.gs_var = tk.StringVar(value=self.config.get('ghostscript', 'executable'))

@@ -231,7 +231,7 @@ class PDFTab(BaseTab):
             file_path = filedialog.asksaveasfilename(
                 title="出力ファイルを選択",
                 initialdir=initial_dir,
-                initialfile=Path(self.output_file_var.get()).name if self.output_file_var.get() else "merged_output.pdf",
+                initialfile=Path(self.output_file_var.get()).name if self.output_file_var.get() else "",
                 defaultextension=".pdf",
                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
             )
@@ -539,7 +539,6 @@ class PDFTab(BaseTab):
             auto_patterns = {
                 f"{year_short}_教育計画.pdf",
                 f"{year_short}_行事計画.pdf",
-                "merged_output.pdf",
             }
             if current_name not in auto_patterns:
                 logger.info(f"カスタムファイル名のため更新スキップ: {current_name}")
@@ -658,16 +657,8 @@ class PDFTab(BaseTab):
                             self.input_dir_var.set(str(default_input_path))
                             logger.info(f"デフォルト入力ディレクトリを設定: {default_input_path}")
 
-            # 出力ファイルが未設定の場合、デスクトップのデフォルトファイル名を設定
-            if not self.output_file_var.get() or self.output_file_var.get() == _PLACEHOLDER_FILE:
-                desktop_path = Path.home() / "Desktop"
-                output_config = self.config.get("output") or {}
-                default_output_file = output_config.get("merged_pdf", "merged_output.pdf")
-
-                if desktop_path.exists():
-                    default_output_path = desktop_path / default_output_file
-                    self.output_file_var.set(str(default_output_path))
-                    logger.info(f"デフォルト出力ファイルを設定: {default_output_path}")
+            # 出力ファイルは入力ディレクトリ選択時に自動設定されるため、
+            # ここでは設定しない（merged_output.pdfの無意味なデフォルト値を排除）
 
         except Exception as e:
             logger.warning(f"デフォルトパスの読み込みに失敗: {e}", exc_info=True)
