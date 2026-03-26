@@ -20,6 +20,7 @@ from core.pdf_processor import PDFProcessor
 from core.document_collector import DocumentCollector
 from core.pdf_merge_orchestrator import PDFMergeOrchestrator
 from shared.exceptions import CancelledError
+from shared.constants import PDFConstants
 from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
@@ -145,6 +146,18 @@ class PDFTab(BaseTab):
         self.plan_type_label.grid(row=2, column=1, sticky="w", padx=5, pady=6)
         create_tooltip(self.plan_type_label, "入力フォルダから自動判定されます")
 
+        # PDF圧縮オプション
+        tk.Label(form_frame, text="オプション:", width=LABEL_WIDTH, anchor="e").grid(row=3, column=0, sticky="e", padx=(15, 5), pady=6)
+        self.compress_var = tk.BooleanVar(value=True)
+        compress_check = tk.Checkbutton(
+            form_frame,
+            text="Ghostscriptで圧縮する",
+            variable=self.compress_var,
+            font=FONTS['default']
+        )
+        compress_check.grid(row=3, column=1, sticky="w", padx=5, pady=6)
+        create_tooltip(compress_check, "Ghostscriptが利用可能な場合、最終PDFを圧縮します")
+
         form_frame.columnconfigure(1, weight=1)
 
         # 実行ボタン
@@ -180,7 +193,7 @@ class PDFTab(BaseTab):
         self.status_label.pack()
 
         # プログレスバー
-        self.progress = ttk.Progressbar(main_container, mode='determinate', maximum=6)
+        self.progress = ttk.Progressbar(main_container, mode='determinate', maximum=PDFConstants.MERGE_STEPS_WITH_COMPRESS)
         self.progress.pack(fill="x", padx=20, pady=5)
 
         # ログ表示（タブ直下に配置し、ウィンドウリサイズに追従させる）
@@ -384,7 +397,7 @@ class PDFTab(BaseTab):
                 input_dir_str_final = str(input_dir_path)
                 output_file_str_final = str(output_file_path)
 
-                temp_dir = self.config.get_temp_dir()
+                temp_dir = self.config.get_temp_dir(cleanup_old=True)
                 ichitaro_settings = self.config.get('ichitaro')
 
                 converter = PDFConverter(
@@ -399,8 +412,13 @@ class PDFTab(BaseTab):
                     cancel_check=self._is_cancelled
                 )
 
+                use_compress = self.compress_var.get()
+                total_steps = PDFConstants.MERGE_STEPS_WITH_COMPRESS if use_compress else PDFConstants.MERGE_STEPS
+
                 def on_progress(step: int, total: int, message: str) -> None:
                     thread_safe_call(self.tab, lambda: self.progress.configure(value=step))
+
+                thread_safe_call(self.tab, lambda: self.progress.configure(maximum=total_steps))
 
                 orchestrator = PDFMergeOrchestrator(
                     self.config, converter, processor, collector,
@@ -408,9 +426,12 @@ class PDFTab(BaseTab):
                     progress_callback=on_progress
                 )
                 create_separators = (plan_type == "education")
-                orchestrator.create_merged_pdf(input_dir_str_final, output_file_str_final, create_separators)
+                orchestrator.create_merged_pdf(
+                    input_dir_str_final, output_file_str_final,
+                    create_separators, compress=use_compress
+                )
 
-                thread_safe_call(self.tab, lambda: self.progress.configure(value=6))
+                thread_safe_call(self.tab, lambda: self.progress.configure(value=total_steps))
                 self.log("=== PDF統合完了 ===", "success")
                 set_button_state(self.run_button, True, self.status_label, "✅ 完了")
                 self.update_status("PDF統合が完了しました")

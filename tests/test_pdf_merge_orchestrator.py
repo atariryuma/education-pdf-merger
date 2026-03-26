@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, call, patch
 
 from core.pdf_merge_orchestrator import PDFMergeOrchestrator
 from shared.exceptions import CancelledError
+from infrastructure.ghostscript import GhostscriptDetector
 
 
 @pytest.fixture
@@ -193,6 +194,59 @@ class TestCreateMergedPDF:
         assert second_call_entries == adjusted_toc_entries
         processor.set_pdf_outlines.assert_called_once_with("/output.pdf", adjusted_toc_entries)
 
+    def test_compress_calls_ghostscript(self, mock_deps, temp_dir):
+        """compress=Trueの場合、圧縮ステップが呼ばれる"""
+        config, _, processor, collector = mock_deps
+        orch = PDFMergeOrchestrator(config, MagicMock(), processor, collector)
+
+        collector.collect_documents.return_value = ([("A", 1, 3)], ["/tmp/a.pdf"])
+        processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 1
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=5
+        )
+        processor.compress_pdf.return_value = True
+
+        with patch.object(GhostscriptDetector, 'detect', return_value="/usr/bin/gs"), \
+             patch.object(GhostscriptDetector, 'validate_ghostscript', return_value=True), \
+             patch('core.pdf_merge_orchestrator.os.path.getsize', return_value=1_000_000):
+            orch.create_merged_pdf("/target", "/output.pdf", compress=True)
+
+        processor.compress_pdf.assert_called_once_with("/output.pdf")
+
+    def test_compress_skipped_when_gs_not_found(self, mock_deps, temp_dir):
+        """Ghostscriptが見つからない場合、圧縮はスキップされる"""
+        config, _, processor, collector = mock_deps
+        config.get.return_value = ""
+        orch = PDFMergeOrchestrator(config, MagicMock(), processor, collector)
+
+        collector.collect_documents.return_value = ([("A", 1, 3)], ["/tmp/a.pdf"])
+        processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 1
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=5
+        )
+
+        with patch.object(GhostscriptDetector, 'detect', return_value=None):
+            orch.create_merged_pdf("/target", "/output.pdf", compress=True)
+
+        processor.compress_pdf.assert_not_called()
+
+    def test_no_compress_by_default(self, orchestrator, mock_deps):
+        """デフォルトでは圧縮されない"""
+        config, _, processor, collector = mock_deps
+
+        collector.collect_documents.return_value = ([("A", 1, 3)], ["/tmp/a.pdf"])
+        processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 1
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=5
+        )
+
+        orchestrator.create_merged_pdf("/target", "/output.pdf")
+
+        processor.compress_pdf.assert_not_called()
+
 
 @pytest.mark.unit
 class TestCleanupTempFiles:
@@ -236,3 +290,51 @@ class TestCleanupTempFiles:
 
             # finallyブロックでクリーンアップが呼ばれたことを確認
             mock_cleanup.assert_called()
+
+    def test_cleanup_includes_partial_content_pdfs_on_exception(self, mock_deps, temp_dir):
+        """collect_documentsが途中で例外を投げても、収集済みPDFがクリーンアップされる"""
+        config, converter, processor, collector = mock_deps
+        orch = PDFMergeOrchestrator(config, converter, processor, collector)
+
+        # get_collected_pdfs() が部分結果を返す状態をシミュレート
+        partial_pdf = os.path.join(temp_dir, "partial.pdf")
+        with open(partial_pdf, 'w') as f:
+            f.write("dummy")
+
+        def raise_with_partial(*args, **kwargs):
+            collector.get_collected_pdfs.return_value = [partial_pdf]
+            raise RuntimeError("変換途中でエラー")
+
+        collector.collect_documents.side_effect = raise_with_partial
+
+        with pytest.raises(RuntimeError):
+            orch.create_merged_pdf("/target", "/output.pdf")
+
+        # 部分結果のPDFがクリーンアップされたことを確認
+        assert not os.path.exists(partial_pdf)
+
+
+@pytest.mark.unit
+class TestIsTempFile:
+    """_is_temp_file のテスト"""
+
+    def test_file_inside_temp_dir(self, orchestrator, temp_dir):
+        """一時ディレクトリ内のファイルはTrueを返す"""
+        file_path = os.path.join(temp_dir, "test.pdf")
+        assert orchestrator._is_temp_file(file_path) is True
+
+    def test_file_inside_temp_subdir(self, orchestrator, temp_dir):
+        """一時ディレクトリのサブディレクトリ内のファイルもTrueを返す"""
+        file_path = os.path.join(temp_dir, "sub", "test.pdf")
+        assert orchestrator._is_temp_file(file_path) is True
+
+    def test_file_outside_temp_dir(self, orchestrator):
+        """一時ディレクトリ外のファイルはFalseを返す"""
+        assert orchestrator._is_temp_file("/some/other/path.pdf") is False
+
+    def test_case_insensitive_on_windows(self, orchestrator, temp_dir):
+        """Windowsではパスの大文字小文字を区別しない"""
+        file_path = os.path.join(temp_dir.upper(), "test.pdf")
+        # Windowsでは True、他OSでは temp_dir.upper() が存在しないため結果は環境依存
+        if os.name == 'nt':
+            assert orchestrator._is_temp_file(file_path) is True

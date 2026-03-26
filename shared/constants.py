@@ -187,7 +187,11 @@ class PDFConstants:
     # Ghostscript圧縮設定
     GS_COMPATIBILITY_LEVEL = "1.4"     # PDF互換性レベル
     GS_PDF_SETTINGS = "/ebook"         # 品質設定
-    GS_TIMEOUT_SECONDS = 30            # タイムアウト（秒）
+    GS_TIMEOUT_SECONDS = 180           # タイムアウト（秒）
+
+    # マージ処理ステップ数
+    MERGE_STEPS = 6                    # 圧縮なし
+    MERGE_STEPS_WITH_COMPRESS = 7      # 圧縮あり
 
     # ファイル名キーワード
     COVER_FILE_KEYWORD = "表紙"        # 表紙ファイルを識別するキーワード

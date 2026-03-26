@@ -38,6 +38,11 @@ class DocumentCollector:
         self.converter = pdf_converter
         self.processor = pdf_processor
         self._cancel_check = cancel_check or (lambda: False)
+        self._collected_pdfs: List[str] = []
+
+    def get_collected_pdfs(self) -> List[str]:
+        """収集済みPDFのリストを返す（部分的な失敗回復用）"""
+        return list(self._collected_pdfs)
 
     def is_cancelled(self) -> bool:
         """キャンセルされたかどうかを確認"""
@@ -265,7 +270,8 @@ class DocumentCollector:
             tuple: (目次エントリのリスト, 変換済みPDFパスのリスト)
         """
         toc_entries: List[Tuple[str, int, int]] = []
-        content_pdfs: List[str] = []
+        self._collected_pdfs = []
+        content_pdfs = self._collected_pdfs  # 同一リスト参照: 例外時に部分結果を回収可能にする
         current_page = PDFConstants.CONTENT_START_PAGE
 
         all_items = sorted(os.listdir(target_dir))
