@@ -234,11 +234,10 @@ class IchitaroConverter:
                         f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎変換が{max_attempts}回失敗しました。スキップします: {file_name}"
                     )
 
-            # ループを抜けた = 全試行失敗
-            logger.warning(
-                f"一太郎変換が全{max_attempts}回の試行で失敗しました: {file_name}"
+            # ループを抜けた = 全試行失敗 → 例外で処理全体を停止
+            raise PDFConversionError(
+                f"一太郎変換が{max_attempts}回失敗しました: {file_name}",
             )
-            return None
 
         except CancelledError:
             logger.info("一太郎変換がキャンセルされました")
