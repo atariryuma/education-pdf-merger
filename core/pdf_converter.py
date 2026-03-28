@@ -123,6 +123,8 @@ class PDFConverter:
         # 出力パスの決定（UUID付きで衝突回避）
         if output_path is None:
             base_name = os.path.splitext(os.path.basename(file_path))[0]
+            # ファイル名中のピリオドを除去（保存ダイアログが拡張子と誤認するため）
+            base_name = base_name.replace(".", "_")
             unique_id = uuid.uuid4().hex[:8]
             output_path = os.path.join(self.temp_dir, f"{base_name}_{unique_id}.pdf")
 
