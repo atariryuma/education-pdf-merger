@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 fitz = pytest.importorskip("fitz", reason="PyMuPDF not installed")
 pytest.importorskip("reportlab", reason="reportlab not installed")
 
-from shared.exceptions import PDFProcessingError
-from core.pdf_processor import PDFProcessor
+from shared.exceptions import PDFProcessingError  # noqa: E402
+from core.pdf_processor import PDFProcessor  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
