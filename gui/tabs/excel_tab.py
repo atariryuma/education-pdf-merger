@@ -122,14 +122,6 @@ class ExcelTab(BaseTab):
             width=14
         ).pack(side="left", padx=2)
 
-        tk.Button(
-            ref_btn_frame,
-            text="📂",
-            command=lambda: self._open_selected_file(self.ref_file_path),
-            width=3,
-            font=FONTS['small']
-        ).pack(side="left", padx=2)
-
         # 対象ファイル
         target_frame = tk.Frame(file_frame)
         target_frame.pack(fill="x", padx=15, pady=8)
@@ -160,14 +152,6 @@ class ExcelTab(BaseTab):
             command=lambda: self._select_file("target"),
             font=FONTS['tiny'],
             width=14
-        ).pack(side="left", padx=2)
-
-        tk.Button(
-            target_btn_frame,
-            text="📂",
-            command=lambda: self._open_selected_file(self.target_file_path),
-            width=3,
-            font=FONTS['small']
         ).pack(side="left", padx=2)
 
         # セパレーター（視覚的な区切り）

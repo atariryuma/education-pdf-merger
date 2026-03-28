@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 from gui.tabs.base_tab import BaseTab
-from gui.utils import set_button_state, create_hover_button, thread_safe_call, open_file_or_folder, create_tooltip
+from gui.utils import set_button_state, create_hover_button, thread_safe_call, create_tooltip
 from gui.ichitaro_dialog import IchitaroConversionDialog
 from gui.styles import COLORS, FONTS
 from core.pdf_converter import PDFConverter
@@ -105,10 +105,6 @@ class PDFTab(BaseTab):
         input_select_btn.pack(side="left", padx=1)
         create_tooltip(input_select_btn, "フォルダ選択ダイアログを開きます")
 
-        input_open_btn = tk.Button(input_btn_frame, text="📂", command=self._open_input_dir, width=3)
-        input_open_btn.pack(side="left", padx=1)
-        create_tooltip(input_open_btn, "エクスプローラーで開きます")
-
         # 検証インジケーター
         self.input_validation_label = tk.Label(form_frame, text="", font=FONTS['default'], width=2)
         self.input_validation_label.grid(row=0, column=3, padx=(5, 15), pady=6)
@@ -125,10 +121,6 @@ class PDFTab(BaseTab):
         output_select_btn = tk.Button(output_btn_frame, text="💾", command=self._select_output_file, width=3)
         output_select_btn.pack(side="left", padx=1)
         create_tooltip(output_select_btn, "ファイル選択ダイアログを開きます")
-
-        output_open_btn = tk.Button(output_btn_frame, text="📂", command=self._open_output_dir, width=3)
-        output_open_btn.pack(side="left", padx=1)
-        create_tooltip(output_open_btn, "エクスプローラーで開きます")
 
         # 検証インジケーター
         self.output_validation_label = tk.Label(form_frame, text="", font=FONTS['default'], width=2)
@@ -269,50 +261,6 @@ class PDFTab(BaseTab):
                 "参照エラー",
                 f"出力ファイルの参照中にエラーが発生しました。\n\n詳細: {e}"
             )
-
-    def _open_input_dir(self) -> None:
-        """入力ディレクトリをエクスプローラーで開く"""
-        dir_path = self.input_dir_var.get().strip()
-        if not dir_path:
-            messagebox.showwarning(
-                "フォルダが未選択",
-                "まず「📁」ボタンでフォルダを選択してください。"
-            )
-            return
-
-        def on_error(error_msg: str):
-            messagebox.showerror(
-                "フォルダが見つかりません",
-                "指定されたフォルダが存在しません。\n\n"
-                "「📁」ボタンをクリックして、正しいフォルダを選択し直してください。"
-            )
-
-        if open_file_or_folder(dir_path, on_error):
-            self.update_status(f"フォルダを開きました: {Path(dir_path).name}")
-            logger.info(f"入力ディレクトリを開きました: {dir_path}")
-
-    def _open_output_dir(self) -> None:
-        """出力ファイルの親フォルダをエクスプローラーで開く"""
-        file_path = self.output_file_var.get().strip()
-        if not file_path:
-            messagebox.showwarning(
-                "保存先が未設定",
-                "まず「💾」ボタンで保存先を指定してください。"
-            )
-            return
-
-        dir_path = str(Path(file_path).parent)
-
-        def on_error(error_msg: str):
-            messagebox.showerror(
-                "フォルダが見つかりません",
-                "保存先のフォルダが存在しません。\n\n"
-                "「💾」ボタンをクリックして、正しい保存先を選択し直してください。"
-            )
-
-        if open_file_or_folder(dir_path, on_error):
-            self.update_status(f"フォルダを開きました: {Path(dir_path).name}")
-            logger.info(f"出力ディレクトリを開きました: {dir_path}")
 
     def _cancel_operation(self) -> None:
         """処理をキャンセル"""

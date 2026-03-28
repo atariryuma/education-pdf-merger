@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from infrastructure.config_loader import ConfigLoader
 from gui.event_names_editor import EventNamesEditor
 from gui.styles import COLORS, FONTS
-from gui.utils import create_hover_button, open_file_or_folder, thread_safe_call
+from gui.utils import create_hover_button, thread_safe_call
 from infrastructure.path_validator import PathValidator
 from infrastructure.year_utils import calculate_year_short
 
@@ -60,15 +60,6 @@ class SettingsTab(BaseTab):
             year_short = calculate_year_short(year)
             self.year_short_var.set(year_short)
 
-    def _show_file_open_error(self, error_msg: str) -> None:
-        """
-        ファイル/フォルダを開く際のエラーを表示（共通処理）
-
-        Args:
-            error_msg: エラーメッセージ
-        """
-        messagebox.showerror("エラー", error_msg)
-
     def _create_ui(self) -> None:
         """UIを構築"""
         # ボタンを先に下部に固定（行事名展開時も常に見える）
@@ -101,7 +92,6 @@ class SettingsTab(BaseTab):
         gdrive_btn_frame = tk.Frame(path_frame)
         gdrive_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
         tk.Button(gdrive_btn_frame, text="📁", command=lambda: self._browse_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
-        tk.Button(gdrive_btn_frame, text="📂", command=lambda: self._open_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
 
         tk.Label(path_frame, text="一時フォルダ:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
         tk.Entry(path_frame, textvariable=self.temp_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
@@ -109,7 +99,6 @@ class SettingsTab(BaseTab):
         temp_btn_frame = tk.Frame(path_frame)
         temp_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
         tk.Button(temp_btn_frame, text="📁", command=lambda: self._browse_folder(self.temp_var), width=3).pack(side="left", padx=1)
-        tk.Button(temp_btn_frame, text="📂", command=self._open_temp_folder, width=3).pack(side="left", padx=1)
 
         path_frame.columnconfigure(1, weight=1)
 
@@ -181,11 +170,6 @@ class SettingsTab(BaseTab):
             font=FONTS['small'], width=18, height=1, cursor="hand2"
         ).pack(side="left", padx=5)
 
-        tk.Button(
-            inner, text="📝 config.json編集", command=self.open_config_file,
-            font=FONTS['small'], width=16, height=1, cursor="hand2"
-        ).pack(side="left", padx=5)
-
     def reload_event_names(self) -> None:
         """すべてのカテゴリの行事名をリロード（後方互換性のための委譲メソッド）"""
         self.event_names_editor.reload_event_names()
@@ -241,42 +225,6 @@ class SettingsTab(BaseTab):
         except Exception as e:
             messagebox.showerror("参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
 
-    def _open_folder(self, var: tk.StringVar) -> None:
-        """フォルダをエクスプローラーで開く"""
-        folder_path_str = var.get().strip()
-
-        if not folder_path_str:
-            messagebox.showwarning("警告", "フォルダパスが設定されていません。")
-            return
-
-        if open_file_or_folder(folder_path_str, self._show_file_open_error):
-            self.update_status(f"フォルダを開きました: {Path(folder_path_str).name}")
-
-    def _open_temp_folder(self) -> None:
-        """一時フォルダをエクスプローラーで開く（フリーズ防止版）"""
-        temp_path_str = self.temp_var.get().strip()
-
-        # パスが空の場合はデフォルトパスを使用
-        if not temp_path_str:
-            appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-            temp_path_str = os.path.join(appdata, 'PDFMergeSystem', 'temp')
-
-        temp_path = Path(temp_path_str)
-
-        # フォルダが存在しない場合は作成（os.path経由でフリーズ防止）
-        temp_path_str_final = str(temp_path)
-        if not os.path.exists(temp_path_str_final):
-            try:
-                temp_path.mkdir(parents=True, exist_ok=True)
-                self.update_status(f"一時フォルダを作成しました: {temp_path.name}")
-            except Exception as e:
-                messagebox.showerror("エラー", f"一時フォルダの作成に失敗しました。\n\n{e}")
-                return
-
-        # エクスプローラーで開く（非同期）
-        if open_file_or_folder(str(temp_path), self._show_file_open_error):
-            self.update_status("一時フォルダを開きました")
-
     def save_settings(self) -> None:
         """設定を保存（入力検証付き - ベストプラクティス準拠）"""
         year = self.year_var.get().strip()
@@ -329,13 +277,6 @@ class SettingsTab(BaseTab):
         """設定を再読み込み"""
         self.on_reload()
         self._update_gs_status()  # 非同期で検証（UIフリーズ防止）
-
-    def open_config_file(self) -> None:
-        """config.jsonをテキストエディタで開く"""
-        config_path = self.config.config_path
-
-        if open_file_or_folder(config_path, self._show_file_open_error):
-            self.update_status("config.jsonを開きました")
 
     def _auto_detect_ghostscript(self) -> None:
         """Ghostscriptを自動検出（バックグラウンド実行でUIフリーズを防止）"""
