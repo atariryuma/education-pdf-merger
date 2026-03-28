@@ -37,7 +37,7 @@ class SettingsTab(BaseTab):
         gdrive_var: tk.StringVar,
         temp_var: tk.StringVar,
         gs_var: tk.StringVar,
-        on_reload: Callable[[], None]
+        on_reload: Callable[[], None],
     ) -> None:
         super().__init__(notebook, config, status_bar)
         self.year_var = year_var
@@ -48,7 +48,7 @@ class SettingsTab(BaseTab):
         self.on_reload = on_reload
 
         # 年度変更時に自動でyear_shortを更新
-        self.year_var.trace_add('write', self._on_year_changed)
+        self.year_var.trace_add("write", self._on_year_changed)
 
         self._create_ui()
         self.add_to_notebook("設定")
@@ -73,78 +73,154 @@ class SettingsTab(BaseTab):
         PAD_Y = 3
 
         # --- 年度情報 ---
-        year_frame = tk.LabelFrame(main_container, text="年度情報", font=FONTS['default_bold'])
+        year_frame = tk.LabelFrame(
+            main_container, text="年度情報", font=FONTS["default_bold"]
+        )
         year_frame.pack(fill="x", pady=(0, 4))
 
-        tk.Label(year_frame, text="年度（西暦）:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(year_frame, textvariable=self.year_var, width=15).grid(row=0, column=1, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, text="→", font=FONTS['default']).grid(row=0, column=2, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, textvariable=self.year_short_var, font=FONTS['default_bold'], fg=COLORS['primary']).grid(row=0, column=3, sticky="w", padx=3, pady=PAD_Y)
-        tk.Label(year_frame, text="(自動計算)", font=FONTS['tiny'], fg="gray").grid(row=0, column=4, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, text="年度（西暦）:", width=LABEL_WIDTH, anchor="e").grid(
+            row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y
+        )
+        tk.Entry(year_frame, textvariable=self.year_var, width=15).grid(
+            row=0, column=1, sticky="w", padx=3, pady=PAD_Y
+        )
+        tk.Label(year_frame, text="→", font=FONTS["default"]).grid(
+            row=0, column=2, sticky="w", padx=3, pady=PAD_Y
+        )
+        tk.Label(
+            year_frame,
+            textvariable=self.year_short_var,
+            font=FONTS["default_bold"],
+            fg=COLORS["primary"],
+        ).grid(row=0, column=3, sticky="w", padx=3, pady=PAD_Y)
+        tk.Label(year_frame, text="(自動計算)", font=FONTS["tiny"], fg="gray").grid(
+            row=0, column=4, sticky="w", padx=3, pady=PAD_Y
+        )
 
         # --- パス設定 ---
-        path_frame = tk.LabelFrame(main_container, text="パス設定", font=FONTS['default_bold'])
+        path_frame = tk.LabelFrame(
+            main_container, text="パス設定", font=FONTS["default_bold"]
+        )
         path_frame.pack(fill="x", pady=4)
 
-        tk.Label(path_frame, text="Google Drive:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(path_frame, textvariable=self.gdrive_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
+        tk.Label(path_frame, text="Google Drive:", width=LABEL_WIDTH, anchor="e").grid(
+            row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y
+        )
+        tk.Entry(path_frame, textvariable=self.gdrive_var).grid(
+            row=0, column=1, sticky="ew", padx=3, pady=PAD_Y
+        )
 
         gdrive_btn_frame = tk.Frame(path_frame)
         gdrive_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
-        tk.Button(gdrive_btn_frame, text="📁", command=lambda: self._browse_folder(self.gdrive_var), width=3).pack(side="left", padx=1)
+        tk.Button(
+            gdrive_btn_frame,
+            text="📁",
+            command=lambda: self._browse_folder(self.gdrive_var),
+            width=3,
+        ).pack(side="left", padx=1)
 
-        tk.Label(path_frame, text="一時フォルダ:", width=LABEL_WIDTH, anchor="e").grid(row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(path_frame, textvariable=self.temp_var).grid(row=1, column=1, sticky="ew", padx=3, pady=PAD_Y)
+        tk.Label(path_frame, text="一時フォルダ:", width=LABEL_WIDTH, anchor="e").grid(
+            row=1, column=0, sticky="e", padx=(10, 3), pady=PAD_Y
+        )
+        tk.Entry(path_frame, textvariable=self.temp_var).grid(
+            row=1, column=1, sticky="ew", padx=3, pady=PAD_Y
+        )
 
         temp_btn_frame = tk.Frame(path_frame)
         temp_btn_frame.grid(row=1, column=2, padx=(3, 10), pady=PAD_Y)
-        tk.Button(temp_btn_frame, text="📁", command=lambda: self._browse_folder(self.temp_var), width=3).pack(side="left", padx=1)
+        tk.Button(
+            temp_btn_frame,
+            text="📁",
+            command=lambda: self._browse_folder(self.temp_var),
+            width=3,
+        ).pack(side="left", padx=1)
 
         path_frame.columnconfigure(1, weight=1)
 
         # --- ツール設定 ---
-        tool_frame = tk.LabelFrame(main_container, text="ツール設定", font=FONTS['default_bold'])
+        tool_frame = tk.LabelFrame(
+            main_container, text="ツール設定", font=FONTS["default_bold"]
+        )
         tool_frame.pack(fill="x", pady=4)
 
-        tk.Label(tool_frame, text="Ghostscript:", width=LABEL_WIDTH, anchor="e").grid(row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y)
-        tk.Entry(tool_frame, textvariable=self.gs_var).grid(row=0, column=1, sticky="ew", padx=3, pady=PAD_Y)
+        tk.Label(tool_frame, text="Ghostscript:", width=LABEL_WIDTH, anchor="e").grid(
+            row=0, column=0, sticky="e", padx=(10, 3), pady=PAD_Y
+        )
+        tk.Entry(tool_frame, textvariable=self.gs_var).grid(
+            row=0, column=1, sticky="ew", padx=3, pady=PAD_Y
+        )
 
         gs_btn_frame = tk.Frame(tool_frame)
         gs_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
-        tk.Button(gs_btn_frame, text="📄", command=self._browse_gs_file, width=3).pack(side="left", padx=1)
-        tk.Button(gs_btn_frame, text="🔍 自動検出", command=self._auto_detect_ghostscript, font=FONTS['tiny']).pack(side="left", padx=1)
-        tk.Button(gs_btn_frame, text="⬇ インストール", command=self._install_ghostscript, font=FONTS['tiny']).pack(side="left", padx=1)
+        tk.Button(gs_btn_frame, text="📄", command=self._browse_gs_file, width=3).pack(
+            side="left", padx=1
+        )
+        tk.Button(
+            gs_btn_frame,
+            text="🔍 自動検出",
+            command=self._auto_detect_ghostscript,
+            font=FONTS["tiny"],
+        ).pack(side="left", padx=1)
+        tk.Button(
+            gs_btn_frame,
+            text="⬇ インストール",
+            command=self._install_ghostscript,
+            font=FONTS["tiny"],
+        ).pack(side="left", padx=1)
 
         # Ghostscriptステータス表示
-        self.gs_status_label = tk.Label(tool_frame, text="", fg="gray", font=FONTS['tiny'])
-        self.gs_status_label.grid(row=1, column=1, columnspan=2, sticky="w", padx=3, pady=(0, 3))
+        self.gs_status_label = tk.Label(
+            tool_frame, text="", fg="gray", font=FONTS["tiny"]
+        )
+        self.gs_status_label.grid(
+            row=1, column=1, columnspan=2, sticky="w", padx=3, pady=(0, 3)
+        )
         self._update_gs_status()
 
         tool_frame.columnconfigure(1, weight=1)
 
         # --- 一太郎設定 ---
-        ichitaro_frame = tk.LabelFrame(main_container, text="一太郎変換設定", font=FONTS['default_bold'])
+        ichitaro_frame = tk.LabelFrame(
+            main_container, text="一太郎変換設定", font=FONTS["default_bold"]
+        )
         ichitaro_frame.pack(fill="x", pady=(0, 4))
 
-        max_retries = self.config.get('ichitaro', 'max_retries')
-        self.max_retries_var = tk.StringVar(value=str(max_retries if max_retries is not None else 3))
-        save_wait = self.config.get('ichitaro', 'save_wait_seconds')
-        self.save_wait_var = tk.StringVar(value=str(save_wait if save_wait is not None else 20))
+        max_retries = self.config.get("ichitaro", "max_retries")
+        self.max_retries_var = tk.StringVar(
+            value=str(max_retries if max_retries is not None else 3)
+        )
+        save_wait = self.config.get("ichitaro", "save_wait_seconds")
+        self.save_wait_var = tk.StringVar(
+            value=str(save_wait if save_wait is not None else 20)
+        )
 
         settings_row = tk.Frame(ichitaro_frame)
         settings_row.pack(fill="x", padx=10, pady=4)
         tk.Label(settings_row, text="リトライ:").pack(side="left")
-        tk.Entry(settings_row, textvariable=self.max_retries_var, width=3).pack(side="left", padx=(3, 0))
+        tk.Entry(settings_row, textvariable=self.max_retries_var, width=3).pack(
+            side="left", padx=(3, 0)
+        )
         tk.Label(settings_row, text="回").pack(side="left", padx=(2, 15))
         tk.Label(settings_row, text="保存待機:").pack(side="left")
-        tk.Entry(settings_row, textvariable=self.save_wait_var, width=3).pack(side="left", padx=(3, 0))
+        tk.Entry(settings_row, textvariable=self.save_wait_var, width=3).pack(
+            side="left", padx=(3, 0)
+        )
         tk.Label(settings_row, text="秒").pack(side="left", padx=(2, 15))
-        tk.Button(settings_row, text="テスト", command=self._test_ichitaro_conversion, font=FONTS['tiny']).pack(side="left", padx=5)
-        self.ichitaro_status_label = tk.Label(settings_row, text="", fg="gray", font=FONTS['tiny'])
+        tk.Button(
+            settings_row,
+            text="テスト",
+            command=self._test_ichitaro_conversion,
+            font=FONTS["tiny"],
+        ).pack(side="left", padx=5)
+        self.ichitaro_status_label = tk.Label(
+            settings_row, text="", fg="gray", font=FONTS["tiny"]
+        )
         self.ichitaro_status_label.pack(side="left", padx=5)
 
         # --- 行事名設定 ---
-        event_frame = tk.LabelFrame(main_container, text="行事名設定（Excel転記用）", font=FONTS['default_bold'])
+        event_frame = tk.LabelFrame(
+            main_container, text="行事名設定（Excel転記用）", font=FONTS["default_bold"]
+        )
         event_frame.pack(fill="both", expand=True, pady=4)
 
         self.event_names_editor = EventNamesEditor(
@@ -161,13 +237,23 @@ class SettingsTab(BaseTab):
         inner.pack()
 
         create_hover_button(
-            inner, text="💾 保存 (Ctrl+S)", command=self.save_settings,
-            color="primary", font=FONTS['small_bold'], width=14, height=1
+            inner,
+            text="💾 保存 (Ctrl+S)",
+            command=self.save_settings,
+            color="primary",
+            font=FONTS["small_bold"],
+            width=14,
+            height=1,
         ).pack(side="left", padx=5)
 
         tk.Button(
-            inner, text="🔄 再読み込み (Ctrl+R)", command=self.reload_settings,
-            font=FONTS['small'], width=18, height=1, cursor="hand2"
+            inner,
+            text="🔄 再読み込み (Ctrl+R)",
+            command=self.reload_settings,
+            font=FONTS["small"],
+            width=18,
+            height=1,
+            cursor="hand2",
         ).pack(side="left", padx=5)
 
     def reload_event_names(self) -> None:
@@ -178,16 +264,22 @@ class SettingsTab(BaseTab):
         """フォルダを参照（PathValidatorベース）"""
         try:
             current_path_str = var.get().strip()
-            initial_dir = PathValidator.get_safe_initial_dir(current_path_str, Path.home())
+            initial_dir = PathValidator.get_safe_initial_dir(
+                current_path_str, Path.home()
+            )
 
-            directory = filedialog.askdirectory(title="フォルダを選択", initialdir=str(initial_dir))
+            directory = filedialog.askdirectory(
+                title="フォルダを選択", initialdir=str(initial_dir)
+            )
             if directory:
                 validated_path = self.validate_path(directory, "directory")
                 if validated_path:
                     var.set(str(validated_path))
                     self.update_status(f"フォルダを選択: {validated_path.name}")
         except Exception as e:
-            messagebox.showerror("参照エラー", f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "参照エラー", f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}"
+            )
 
     def _browse_gs_file(self) -> None:
         """Ghostscript実行ファイルを参照（フリーズ防止版）"""
@@ -196,9 +288,17 @@ class SettingsTab(BaseTab):
             # ローカルパス（C:ドライブ）のみチェック（フリーズ防止）
             if current_path:
                 # ネットワークパスかチェック
-                if not current_path.startswith('\\\\') and len(current_path) >= 3 and current_path[1] == ':':
+                if (
+                    not current_path.startswith("\\\\")
+                    and len(current_path) >= 3
+                    and current_path[1] == ":"
+                ):
                     drive = current_path[0].upper()
-                    if drive in ['C', 'D', 'E'] and os.path.exists(current_path) and os.path.isfile(current_path):
+                    if (
+                        drive in ["C", "D", "E"]
+                        and os.path.exists(current_path)
+                        and os.path.isfile(current_path)
+                    ):
                         initial_dir = os.path.dirname(current_path)
                     else:
                         initial_dir = "C:\\Program Files"
@@ -212,10 +312,12 @@ class SettingsTab(BaseTab):
             file_path = filedialog.askopenfilename(
                 title="Ghostscript実行ファイルを選択",
                 initialdir=initial_dir,
-                filetypes=[("実行ファイル", "*.exe"), ("すべて", "*.*")]
+                filetypes=[("実行ファイル", "*.exe"), ("すべて", "*.*")],
             )
             if file_path:
-                validated_path = self.validate_path(file_path, "file", error_title="パス検証エラー")
+                validated_path = self.validate_path(
+                    file_path, "file", error_title="パス検証エラー"
+                )
                 if not validated_path:
                     return
 
@@ -223,7 +325,9 @@ class SettingsTab(BaseTab):
                 self._update_gs_status_sync()
                 self.update_status(f"Ghostscript: {validated_path.name}")
         except Exception as e:
-            messagebox.showerror("参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}"
+            )
 
     def save_settings(self) -> None:
         """設定を保存（入力検証付き - ベストプラクティス準拠）"""
@@ -235,9 +339,9 @@ class SettingsTab(BaseTab):
 
         # year_shortは自動計算（update_yearに渡さない）
         self.config.update_year(year)
-        self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get())
-        self.config.set('base_paths', 'local_temp', value=self.temp_var.get())
-        self.config.set('ghostscript', 'executable', value=self.gs_var.get())
+        self.config.set("base_paths", "google_drive", value=self.gdrive_var.get())
+        self.config.set("base_paths", "local_temp", value=self.temp_var.get())
+        self.config.set("ghostscript", "executable", value=self.gs_var.get())
 
         # 一太郎設定の保存（入力検証付き）
         validation_errors = []
@@ -245,18 +349,22 @@ class SettingsTab(BaseTab):
         try:
             retry_value = int(self.max_retries_var.get())
             if retry_value < 0 or retry_value > 10:
-                validation_errors.append("• リトライ回数は0～10の範囲で入力してください")
+                validation_errors.append(
+                    "• リトライ回数は0～10の範囲で入力してください"
+                )
             else:
-                self.config.set('ichitaro', 'max_retries', value=retry_value)
+                self.config.set("ichitaro", "max_retries", value=retry_value)
         except ValueError:
             validation_errors.append("• リトライ回数は整数で入力してください")
 
         try:
             wait_value = int(self.save_wait_var.get())
             if wait_value < 5 or wait_value > 120:
-                validation_errors.append("• 保存待機時間は5～120秒の範囲で入力してください")
+                validation_errors.append(
+                    "• 保存待機時間は5～120秒の範囲で入力してください"
+                )
             else:
-                self.config.set('ichitaro', 'save_wait_seconds', value=wait_value)
+                self.config.set("ichitaro", "save_wait_seconds", value=wait_value)
         except ValueError:
             validation_errors.append("• 保存待機時間は整数で入力してください")
 
@@ -271,7 +379,9 @@ class SettingsTab(BaseTab):
             self.update_status("設定を保存しました")
         except Exception as e:
             logger.error(f"設定保存エラー: {e}", exc_info=True)
-            messagebox.showerror("保存エラー", f"設定の保存に失敗しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "保存エラー", f"設定の保存に失敗しました。\n\n詳細: {e}"
+            )
 
     def reload_settings(self) -> None:
         """設定を再読み込み"""
@@ -360,7 +470,7 @@ class SettingsTab(BaseTab):
         """
         if not gs_path:
             return ("⚠️ 未設定（PDF圧縮機能は使用できません）", "orange")
-        if gs_path.startswith('\\\\'):
+        if gs_path.startswith("\\\\"):
             return ("⚠️ ネットワークパスは推奨されません", "orange")
         if not os.path.exists(gs_path):
             return ("❌ ファイルが存在しません", "red")
@@ -377,18 +487,22 @@ class SettingsTab(BaseTab):
         self.gs_status_label.config(text=text, fg=color)
 
         # パスが存在し未検証の場合は動作確認をバックグラウンドで実行
-        if gs_path and not gs_path.startswith('\\\\') and os.path.exists(gs_path):
+        if gs_path and not gs_path.startswith("\\\\") and os.path.exists(gs_path):
             self.tab.after(500, self._verify_gs_async)
 
     def _verify_gs_async(self) -> None:
         """Ghostscriptの動作確認をバックグラウンドで実行"""
+
         def verify_task() -> None:
             from infrastructure.ghostscript import GhostscriptDetector
+
             gs_path = self.gs_var.get().strip()
             verified = gs_path and GhostscriptDetector.verify(gs_path)
             text, color = self._check_gs_path(gs_path, verified)
 
-            thread_safe_call(self.tab, lambda: self.gs_status_label.config(text=text, fg=color))
+            thread_safe_call(
+                self.tab, lambda: self.gs_status_label.config(text=text, fg=color)
+            )
 
         thread = threading.Thread(target=verify_task, daemon=True)
         thread.start()
@@ -396,8 +510,13 @@ class SettingsTab(BaseTab):
     def _update_gs_status_sync(self) -> None:
         """Ghostscriptのステータスを同期的に更新（ユーザー操作後の即時反映用）"""
         from infrastructure.ghostscript import GhostscriptDetector
+
         gs_path = self.gs_var.get().strip()
-        verified = GhostscriptDetector.verify(gs_path) if os.path.exists(gs_path) and gs_path else None
+        verified = (
+            GhostscriptDetector.verify(gs_path)
+            if os.path.exists(gs_path) and gs_path
+            else None
+        )
         text, color = self._check_gs_path(gs_path, verified)
         self.gs_status_label.config(text=text, fg=color)
 
@@ -407,7 +526,7 @@ class SettingsTab(BaseTab):
         # jtdファイルを選択
         file_path = filedialog.askopenfilename(
             title="テスト用の一太郎ファイルを選択",
-            filetypes=[("一太郎ファイル", "*.jtd"), ("すべて", "*.*")]
+            filetypes=[("一太郎ファイル", "*.jtd"), ("すべて", "*.*")],
         )
         if not file_path:
             return
@@ -421,13 +540,15 @@ class SettingsTab(BaseTab):
                 import tempfile
 
                 # 現在の設定を使用
-                ichitaro_settings = self.config.get('ichitaro') or {}
+                ichitaro_settings = self.config.get("ichitaro") or {}
                 try:
-                    ichitaro_settings['max_retries'] = int(self.max_retries_var.get())
+                    ichitaro_settings["max_retries"] = int(self.max_retries_var.get())
                 except ValueError:
                     pass
                 try:
-                    ichitaro_settings['save_wait_seconds'] = int(self.save_wait_var.get())
+                    ichitaro_settings["save_wait_seconds"] = int(
+                        self.save_wait_var.get()
+                    )
                 except ValueError:
                     pass
 
@@ -443,26 +564,42 @@ class SettingsTab(BaseTab):
 
                 try:
                     # 一時ファイルをプレースホルダとして作成（排他的作成）
-                    fd = os.open(output_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                    fd = os.open(
+                        output_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600
+                    )
                     os.close(fd)  # ファイルディスクリプタを閉じて変換処理に渡す
 
                     result = converter.convert(file_path, output_path)
 
                     if result and os.path.exists(result):
-                        thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(
-                            text="✅ 変換成功！", fg="green"))
-                        thread_safe_call(self.tab, lambda: messagebox.showinfo(
-                            "テスト成功",
-                            f"一太郎変換が成功しました。\n\n出力ファイル:\n{result}"
-                        ))
+                        thread_safe_call(
+                            self.tab,
+                            lambda: self.ichitaro_status_label.config(
+                                text="✅ 変換成功！", fg="green"
+                            ),
+                        )
+                        thread_safe_call(
+                            self.tab,
+                            lambda: messagebox.showinfo(
+                                "テスト成功",
+                                f"一太郎変換が成功しました。\n\n出力ファイル:\n{result}",
+                            ),
+                        )
                     else:
-                        thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(
-                            text="❌ 変換失敗", fg="red"))
-                        thread_safe_call(self.tab, lambda: messagebox.showwarning(
-                            "テスト失敗",
-                            "一太郎変換に失敗しました。\n\n"
-                            "リトライ回数の設定を調整してください。"
-                        ))
+                        thread_safe_call(
+                            self.tab,
+                            lambda: self.ichitaro_status_label.config(
+                                text="❌ 変換失敗", fg="red"
+                            ),
+                        )
+                        thread_safe_call(
+                            self.tab,
+                            lambda: messagebox.showwarning(
+                                "テスト失敗",
+                                "一太郎変換に失敗しました。\n\n"
+                                "リトライ回数の設定を調整してください。",
+                            ),
+                        )
                 finally:
                     # 一時ファイルのクリーンアップ
                     try:
@@ -475,12 +612,19 @@ class SettingsTab(BaseTab):
             except Exception as test_error:
                 error_msg = str(test_error)
                 error_preview = error_msg[:50]
-                thread_safe_call(self.tab, lambda: self.ichitaro_status_label.config(
-                    text=f"❌ エラー: {error_preview}", fg="red"))
-                thread_safe_call(self.tab, lambda: messagebox.showerror(
-                    "テストエラー", f"テスト中にエラーが発生しました。\n\n{error_msg}"
-                ))
+                thread_safe_call(
+                    self.tab,
+                    lambda: self.ichitaro_status_label.config(
+                        text=f"❌ エラー: {error_preview}", fg="red"
+                    ),
+                )
+                thread_safe_call(
+                    self.tab,
+                    lambda: messagebox.showerror(
+                        "テストエラー",
+                        f"テスト中にエラーが発生しました。\n\n{error_msg}",
+                    ),
+                )
 
         thread = threading.Thread(target=run_test, daemon=True)
         thread.start()
-

@@ -27,7 +27,7 @@ class DocumentCollector:
         self,
         pdf_converter: PDFConverter,
         pdf_processor: PDFProcessor,
-        cancel_check: Optional[Callable[[], bool]] = None
+        cancel_check: Optional[Callable[[], bool]] = None,
     ) -> None:
         """
         Args:
@@ -54,10 +54,7 @@ class DocumentCollector:
         return name.lstrip("0123456789 ").strip().replace("_", "")
 
     def _convert_and_add_pdf(
-        self,
-        file_path: str,
-        content_pdfs: List[str],
-        current_page: int
+        self, file_path: str, content_pdfs: List[str], current_page: int
     ) -> int:
         """
         ファイルをPDFに変換してリストに追加し、更新されたページ番号を返す
@@ -86,10 +83,7 @@ class DocumentCollector:
         return current_page
 
     def _process_cover_file(
-        self,
-        file_path: str,
-        content_pdfs: List[str],
-        current_page: int
+        self, file_path: str, content_pdfs: List[str], current_page: int
     ) -> int:
         """
         表紙ファイルを処理
@@ -112,7 +106,7 @@ class DocumentCollector:
         create_separator: bool,
         toc_entries: List[Tuple[str, int, int]],
         content_pdfs: List[str],
-        current_page: int
+        current_page: int,
     ) -> int:
         """
         サブフォルダを処理
@@ -133,11 +127,16 @@ class DocumentCollector:
 
         # サブフォルダ内のファイルを確認（ディレクトリ・一時ファイルは除外）
         all_items = sorted(os.listdir(subfolder_path))
-        files = [f for f in all_items
-                 if os.path.isfile(os.path.join(subfolder_path, f))
-                 and not PDFConverter._is_temporary_file(f)]
+        files = [
+            f
+            for f in all_items
+            if os.path.isfile(os.path.join(subfolder_path, f))
+            and not PDFConverter._is_temporary_file(f)
+        ]
         total_files = len(files)
-        logger.info(f"サブフォルダ内のファイル数: {total_files} (全アイテム: {len(all_items)})")
+        logger.info(
+            f"サブフォルダ内のファイル数: {total_files} (全アイテム: {len(all_items)})"
+        )
 
         # 空フォルダの場合は目次エントリもスキップ
         if total_files == 0:
@@ -150,11 +149,15 @@ class DocumentCollector:
             sep_pdf = self.converter.create_separator_page(sub_heading)
             if sep_pdf:
                 content_pdfs.append(sep_pdf)
-                toc_entries.append((sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page))
+                toc_entries.append(
+                    (sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page)
+                )
                 current_page += 1
         else:
             # 区切りページなしで目次にのみ登録
-            toc_entries.append((sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page))
+            toc_entries.append(
+                (sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page)
+            )
 
         # ファイルを処理
         for file_idx, filename in enumerate(files, 1):
@@ -162,7 +165,9 @@ class DocumentCollector:
                 raise CancelledError("ドキュメント収集がキャンセルされました")
             logger.debug(f"  [{file_idx}/{total_files}] {filename}")
             file_path = os.path.join(subfolder_path, filename)
-            current_page = self._convert_and_add_pdf(file_path, content_pdfs, current_page)
+            current_page = self._convert_and_add_pdf(
+                file_path, content_pdfs, current_page
+            )
 
         return current_page
 
@@ -173,7 +178,7 @@ class DocumentCollector:
         create_separator_for_subfolder: bool,
         toc_entries: List[Tuple[str, int, int]],
         content_pdfs: List[str],
-        current_page: int
+        current_page: int,
     ) -> int:
         """
         メインディレクトリ（大見出し）を処理
@@ -214,8 +219,12 @@ class DocumentCollector:
 
             if os.path.isdir(subitem_path):
                 current_page = self._process_subfolder(
-                    subitem_path, subitem, create_separator_for_subfolder,
-                    toc_entries, content_pdfs, current_page
+                    subitem_path,
+                    subitem,
+                    create_separator_for_subfolder,
+                    toc_entries,
+                    content_pdfs,
+                    current_page,
                 )
             else:
                 # ディレクトリ直下のファイル
@@ -231,7 +240,7 @@ class DocumentCollector:
         file_name: str,
         toc_entries: List[Tuple[str, int, int]],
         content_pdfs: List[str],
-        current_page: int
+        current_page: int,
     ) -> int:
         """
         ルートディレクトリ直下のファイルを処理
@@ -255,9 +264,7 @@ class DocumentCollector:
         return current_page
 
     def collect_documents(
-        self,
-        target_dir: str,
-        create_separator_for_subfolder: bool = True
+        self, target_dir: str, create_separator_for_subfolder: bool = True
     ) -> Tuple[List[Tuple[str, int, int]], List[str]]:
         """
         ディレクトリを再帰的に探索し、ドキュメントを収集
@@ -271,12 +278,16 @@ class DocumentCollector:
         """
         toc_entries: List[Tuple[str, int, int]] = []
         self._collected_pdfs = []
-        content_pdfs = self._collected_pdfs  # 同一リスト参照: 例外時に部分結果を回収可能にする
+        content_pdfs = (
+            self._collected_pdfs
+        )  # 同一リスト参照: 例外時に部分結果を回収可能にする
         current_page = PDFConstants.CONTENT_START_PAGE
 
         all_items = sorted(os.listdir(target_dir))
         # 一時ファイル（~$, .$td, .$$$等）を収集段階で除外
-        items = [item for item in all_items if not PDFConverter._is_temporary_file(item)]
+        items = [
+            item for item in all_items if not PDFConverter._is_temporary_file(item)
+        ]
         if len(items) < len(all_items):
             logger.debug(f"一時ファイルを除外: {len(all_items) - len(items)}件")
         total_items = len(items)
@@ -292,15 +303,23 @@ class DocumentCollector:
             logger.info(f"--- 処理中 [{idx}/{total_items}]: {item} ---")
 
             # 表紙ファイルの処理（ファイル名の先頭にキーワードが含まれるもの）
-            if os.path.isfile(item_path) and item.startswith(PDFConstants.COVER_FILE_KEYWORD):
-                current_page = self._process_cover_file(item_path, content_pdfs, current_page)
+            if os.path.isfile(item_path) and item.startswith(
+                PDFConstants.COVER_FILE_KEYWORD
+            ):
+                current_page = self._process_cover_file(
+                    item_path, content_pdfs, current_page
+                )
                 continue
 
             # ディレクトリの処理
             if os.path.isdir(item_path):
                 current_page = self._process_directory(
-                    item_path, item, create_separator_for_subfolder,
-                    toc_entries, content_pdfs, current_page
+                    item_path,
+                    item,
+                    create_separator_for_subfolder,
+                    toc_entries,
+                    content_pdfs,
+                    current_page,
                 )
             else:
                 # ルートディレクトリ直下のファイル（表紙以外）
@@ -308,7 +327,9 @@ class DocumentCollector:
                     item_path, item, toc_entries, content_pdfs, current_page
                 )
 
-        logger.info(f"ドキュメント収集完了: {len(content_pdfs)}ファイル, {len(toc_entries)}目次エントリ")
+        logger.info(
+            f"ドキュメント収集完了: {len(content_pdfs)}ファイル, {len(toc_entries)}目次エントリ"
+        )
 
         # 空ディレクトリチェック
         if not content_pdfs:
@@ -320,7 +341,7 @@ class DocumentCollector:
                 f"  - PDF: .pdf\n"
                 f"  - 画像: .jpg, .jpeg, .png\n"
                 f"  - 一太郎: .jtd",
-                operation="ドキュメント収集"
+                operation="ドキュメント収集",
             )
 
         return toc_entries, content_pdfs

@@ -22,7 +22,12 @@ except ImportError as e:
     ) from e
 
 from shared.exceptions import PDFMergeError, CancelledError
-from shared.constants import ExcelSortOrder, ExcelSortHeader, ExcelTransferConstants, PDFConversionConstants
+from shared.constants import (
+    ExcelSortOrder,
+    ExcelSortHeader,
+    ExcelTransferConstants,
+    PDFConversionConstants,
+)
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -30,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 class ExcelTransferError(PDFMergeError):
     """Excel転記処理エラー"""
+
     pass
 
 
@@ -43,7 +49,7 @@ class ExcelTransfer:
         ref_sheet: str,
         target_sheet: str,
         progress_callback: Optional[Callable[[str], None]] = None,
-        cancel_check: Optional[Callable[[], bool]] = None
+        cancel_check: Optional[Callable[[], bool]] = None,
     ) -> None:
         """
         初期化
@@ -107,8 +113,10 @@ class ExcelTransfer:
         """
         self._ensure_ref_cache()
         # E～AN列のキャッシュから取得
-        if (start_col == ExcelTransferConstants.REF_DATA_START_COL
-                and end_col == ExcelTransferConstants.REF_DATA_END_COL):
+        if (
+            start_col == ExcelTransferConstants.REF_DATA_START_COL
+            and end_col == ExcelTransferConstants.REF_DATA_END_COL
+        ):
             return self._ref_data_cache.get(found_row, [])
 
         # キャッシュ外の範囲はCOMで取得（フォールバック）
@@ -132,7 +140,7 @@ class ExcelTransfer:
         """
         if not text:
             return ""
-        return re.sub(r'[\s　]+', ' ', str(text).strip())
+        return re.sub(r"[\s　]+", " ", str(text).strip())
 
     def _get_ref_column_data(self) -> List[Tuple[int, str]]:
         """
@@ -150,7 +158,7 @@ class ExcelTransfer:
         ローカル変数で全データを構築し、最後に一括代入することで
         例外発生時の部分初期化状態を防止する。
         """
-        if getattr(self, '_ref_cache_initialized', False):
+        if getattr(self, "_ref_cache_initialized", False):
             return
 
         used_range = self.ref_ws.UsedRange
@@ -261,7 +269,9 @@ class ExcelTransfer:
                     if norm_line not in self._all_events_index:
                         self._all_events_index[norm_line] = row_num
                     for cat in all_categories:
-                        self._category_index.setdefault(cat, {}).setdefault(norm_line, row_num)
+                        self._category_index.setdefault(cat, {}).setdefault(
+                            norm_line, row_num
+                        )
 
         # ログ出力
         for cat, events in self._category_index.items():
@@ -328,7 +338,9 @@ class ExcelTransfer:
         # カテゴリが検出されない場合 → 欠時チェック
         if not unique_keywords:
             if has_absent:
-                return ExcelTransferConstants.ABSENT_KEYWORD, [ExcelTransferConstants.ABSENT_KEYWORD]
+                return ExcelTransferConstants.ABSENT_KEYWORD, [
+                    ExcelTransferConstants.ABSENT_KEYWORD
+                ]
             return "", []
 
         # --- ステップ1: 全学年同一カテゴリ → 曖昧性なし ---
@@ -396,8 +408,8 @@ class ExcelTransfer:
             List[str]: 分割された行リスト（空行除外）
         """
         # 改行、「・」「※」で分割
-        lines = re.split(r'[\n\r]+|(?=[・※])', cell_value)
-        return [line.strip().lstrip('・※') for line in lines if line.strip()]
+        lines = re.split(r"[\n\r]+|(?=[・※])", cell_value)
+        return [line.strip().lstrip("・※") for line in lines if line.strip()]
 
     def _find_value_in_source(
         self, search_value: str, category: Optional[str] = None
@@ -435,14 +447,12 @@ class ExcelTransfer:
         # ステップ1: 完全一致（辞書引き O(1)）
         if normalized_search in index:
             row = index[normalized_search]
-            logger.info(
-                f"    完全一致: '{search_value}' → 行{row} ({search_scope})"
-            )
+            logger.info(f"    完全一致: '{search_value}' → 行{row} ({search_scope})")
             return row
 
         # ステップ2: 部分一致（検索値がインデックスのキーに含まれるか）
         best_partial_row: Optional[int] = None
-        best_partial_len: float = float('inf')
+        best_partial_len: float = float("inf")
         best_partial_key: str = ""
 
         for key, row_num in index.items():
@@ -453,7 +463,11 @@ class ExcelTransfer:
                     best_partial_key = key
 
         if best_partial_row is not None:
-            display = best_partial_key[:50] + '...' if len(best_partial_key) > 50 else best_partial_key
+            display = (
+                best_partial_key[:50] + "..."
+                if len(best_partial_key) > 50
+                else best_partial_key
+            )
             logger.info(
                 f"    部分一致: '{search_value}' ⊂ '{display}' → 行{best_partial_row} ({search_scope})"
             )
@@ -525,9 +539,9 @@ class ExcelTransfer:
         for line in self._split_cell_lines(text):
             if any(kw in line for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
                 # 末尾の日付範囲サフィックス（～24日、～10月9日）を除去
-                line = re.sub(r'～\d{1,2}月?\d{1,2}日$', '', line).strip()
+                line = re.sub(r"～\d{1,2}月?\d{1,2}日$", "", line).strip()
                 # 末尾の連番記号（①②③...、(1)(2)、１２３...）を除去してベース名を取得
-                return re.sub(r'[①-⑳⓪-⓴\(（]\d*[\)）]?|\d+$', '', line).strip()
+                return re.sub(r"[①-⑳⓪-⓴\(（]\d*[\)）]?|\d+$", "", line).strip()
         return None
 
     def _parse_date_range_suffix(self, text: str) -> Optional[Tuple[int, int]]:
@@ -541,11 +555,11 @@ class ExcelTransfer:
             Optional[Tuple[int, int]]: (月, 日) のタプル。該当なしはNone
         """
         # ～10月9日 のような月またぎパターン
-        m = re.search(r'～(\d{1,2})月(\d{1,2})日', text)
+        m = re.search(r"～(\d{1,2})月(\d{1,2})日", text)
         if m:
             return (int(m.group(1)), int(m.group(2)))
         # ～24日 のような同月パターン（月は起点行のA列から取得）
-        m = re.search(r'～(\d{1,2})日', text)
+        m = re.search(r"～(\d{1,2})日", text)
         if m:
             return (0, int(m.group(1)))  # 月=0は「起点行と同月」を意味
         return None
@@ -583,7 +597,10 @@ class ExcelTransfer:
             # C列の「期間」「週間」を含む行から日付範囲を検出
             if any(kw in c_text for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
                 for line_stripped in self._split_cell_lines(c_text):
-                    if any(kw in line_stripped for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
+                    if any(
+                        kw in line_stripped
+                        for kw in ExcelTransferConstants.PERIOD_KEYWORDS
+                    ):
                         ref_date_suffix = self._parse_date_range_suffix(line_stripped)
                         if ref_date_suffix is not None:
                             logger.info(
@@ -628,7 +645,9 @@ class ExcelTransfer:
 
         start_date = self._to_datetime(start_date_raw)
         if start_date is None:
-            logger.warning(f"    期間収集: 起点行{found_row}の日付変換失敗: {start_date_raw}")
+            logger.warning(
+                f"    期間収集: 起点行{found_row}の日付変換失敗: {start_date_raw}"
+            )
             return [found_row]
 
         # 終了日を決定
@@ -643,7 +662,9 @@ class ExcelTransfer:
                 end_year += 1
             end_date = dt.datetime(end_year, end_month, end_day)
         except ValueError as e:
-            logger.warning(f"    期間収集: 終了日の生成失敗 ({end_month}月{end_day}日): {e}")
+            logger.warning(
+                f"    期間収集: 終了日の生成失敗 ({end_month}月{end_day}日): {e}"
+            )
             return [found_row]
 
         logger.info(
@@ -665,7 +686,8 @@ class ExcelTransfer:
                     row_data = self._ref_data_cache[row_num]
                     has_absent = any(
                         str(cell).strip() == ExcelTransferConstants.ABSENT_KEYWORD
-                        for cell in row_data if cell is not None
+                        for cell in row_data
+                        if cell is not None
                     )
                     if has_absent:
                         rows.append(row_num)
@@ -706,7 +728,7 @@ class ExcelTransfer:
         self,
         found_row: int,
         category: Optional[str] = None,
-        search_value: Optional[str] = None
+        search_value: Optional[str] = None,
     ) -> Dict[int, Tuple[int, int]]:
         """
         参照Excelの found_row の【E～AN】列を一括で取得し、学年毎にカウント
@@ -727,7 +749,9 @@ class ExcelTransfer:
         try:
             # ターゲットの検索値から期間/週間を判定（参照C列ではなく検索値で判定）
             search_str = str(search_value).strip() if search_value else ""
-            is_period = any(kw in search_str for kw in ExcelTransferConstants.PERIOD_KEYWORDS)
+            is_period = any(
+                kw in search_str for kw in ExcelTransferConstants.PERIOD_KEYWORDS
+            )
 
             # 期間/週間の場合は関連行を全て収集
             if is_period:
@@ -741,7 +765,7 @@ class ExcelTransfer:
                 row_data = self._read_data_row(
                     row,
                     ExcelTransferConstants.REF_DATA_START_COL,
-                    ExcelTransferConstants.REF_DATA_END_COL
+                    ExcelTransferConstants.REF_DATA_END_COL,
                 )
                 if row_data:
                     all_row_data.append(row_data)
@@ -795,8 +819,10 @@ class ExcelTransfer:
                     else:
                         # ループ2,3用（通常行事）：行事時数のみカウント
                         total_event += sum(
-                            1 for cell in group
-                            if cell is not None and any(
+                            1
+                            for cell in group
+                            if cell is not None
+                            and any(
                                 keyword in str(cell)
                                 for keyword in ExcelTransferConstants.EVENT_KEYWORDS
                             )
@@ -807,7 +833,8 @@ class ExcelTransfer:
             # 計算過程をログ出力
             if is_period:
                 grade_details = ", ".join(
-                    f"{g}年={counts[g][1]}欠時" for g in range(1, ExcelTransferConstants.GRADES_COUNT + 1)
+                    f"{g}年={counts[g][1]}欠時"
+                    for g in range(1, ExcelTransferConstants.GRADES_COUNT + 1)
                 )
                 logger.info(
                     f"    計算結果: '{search_str}' ({len(target_rows)}行合算) → {grade_details}"
@@ -833,14 +860,11 @@ class ExcelTransfer:
                 f"データに問題がある可能性があります。\n"
                 f"詳細: {e}",
                 operation="データカウント",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _process_row(
-        self,
-        row: int,
-        search_col: str,
-        category: Optional[str] = None
+        self, row: int, search_col: str, category: Optional[str] = None
     ) -> None:
         """
         1行分の転記処理（参照Excel → ターゲットExcel）
@@ -867,14 +891,16 @@ class ExcelTransfer:
         # original_search_value: 日付範囲サフィックス付きの元値（_get_period_rowsに渡す）
         original_search_value = search_str
         if any(kw in search_str for kw in ExcelTransferConstants.PERIOD_KEYWORDS):
-            if re.search(r'[②-⑳]', search_str):
+            if re.search(r"[②-⑳]", search_str):
                 # ②以降 → A～P列を一括クリア（①に集約）
                 empty_row = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
-                self.target_ws.Range(ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)).Value = empty_row
+                self.target_ws.Range(
+                    ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)
+                ).Value = empty_row
                 logger.info(f"  - 行{row}: '{search_value}' → ①に集約のためクリア")
                 return
             # ① → 連番サフィックスを除去して名前を整理
-            clean_name = re.sub(r'[①-⑳]', '', search_str).strip()
+            clean_name = re.sub(r"[①-⑳]", "", search_str).strip()
             if clean_name != search_str:
                 self.target_ws.Range(f"{search_col}{row}").Value = clean_name
                 logger.info(f"  - 行{row}: '{search_str}' → '{clean_name}' に整理")
@@ -883,7 +909,9 @@ class ExcelTransfer:
 
             # ～XX日 / ～X月X日 サフィックスを検索値から除去（検索用）
             # 元の値はoriginal_search_valueに保持（日付範囲パターンで使用）
-            search_for_lookup = re.sub(r'～\d{1,2}月?\d{1,2}日', '', str(search_value)).strip()
+            search_for_lookup = re.sub(
+                r"～\d{1,2}月?\d{1,2}日", "", str(search_value)
+            ).strip()
             if search_for_lookup != str(search_value):
                 logger.info(
                     f"  - 行{row}: 検索用に '～' サフィックス除去: "
@@ -891,7 +919,9 @@ class ExcelTransfer:
                 )
                 search_value = search_for_lookup
 
-        logger.info(f"  > 行{row}: '{search_value}' を検索中 (カテゴリ: {category or '全体'})...")
+        logger.info(
+            f"  > 行{row}: '{search_value}' を検索中 (カテゴリ: {category or '全体'})..."
+        )
 
         # インデックスから検索（カテゴリで安全に絞り込み）
         found_row = self._find_value_in_source(search_value, category)
@@ -899,8 +929,7 @@ class ExcelTransfer:
         if found_row is not None:
             # 日付を取得（キャッシュから）
             ref_date = self._read_cell_value(
-                found_row,
-                ExcelTransferConstants.TARGET_DATE_COL
+                found_row, ExcelTransferConstants.TARGET_DATE_COL
             )
 
             # カテゴリが未指定の場合（ループ2,3）、キャッシュから取得
@@ -909,7 +938,9 @@ class ExcelTransfer:
                 filter_keyword = self._row_category_cache.get(found_row)
 
             # 行事時数・欠時数をカウント（日付範囲サフィックス付きの元値を渡す）
-            counts = self._count_events_in_found_row(found_row, filter_keyword, original_search_value)
+            counts = self._count_events_in_found_row(
+                found_row, filter_keyword, original_search_value
+            )
 
             # 全学年で行事時数・欠時数ともに0の場合は転記から除外
             has_any_count = any(
@@ -918,7 +949,9 @@ class ExcelTransfer:
             )
             if not has_any_count:
                 # カウントなし → 行全体をクリア（ソートで下に移動）
-                self.target_ws.Range(ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)).Value = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
+                self.target_ws.Range(
+                    ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)
+                ).Value = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
                 logger.info(
                     f"  - 行{row}: '{search_value}' → 参照あり(行{found_row})だが時数なし、除外"
                 )
@@ -947,11 +980,11 @@ class ExcelTransfer:
             )
         else:
             # 見つからない場合：行全体をクリア（ソートで下に移動）
-            self.target_ws.Range(ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)).Value = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
+            self.target_ws.Range(
+                ExcelTransferConstants.TARGET_CLEAR_RANGE.format(row=row)
+            ).Value = [[""] * ExcelTransferConstants.TARGET_CLEAR_COL_COUNT]
 
-            logger.warning(
-                f"  ✗ 行{row}: '{search_value}' → 参照Excelに該当なし、除外"
-            )
+            logger.warning(f"  ✗ 行{row}: '{search_value}' → 参照Excelに該当なし、除外")
 
     def _collect_merge_areas(self, range_str: str) -> List[str]:
         """
@@ -1025,13 +1058,13 @@ class ExcelTransfer:
                     Order1=ExcelSortOrder.ASCENDING,
                     Key2=self.target_ws.Range(key_cell2),
                     Order2=ExcelSortOrder.ASCENDING,
-                    Header=ExcelSortHeader.NO
+                    Header=ExcelSortHeader.NO,
                 )
             else:
                 sort_range.Sort(
                     Key1=self.target_ws.Range(key_cell),
                     Order1=ExcelSortOrder.ASCENDING,
-                    Header=ExcelSortHeader.NO
+                    Header=ExcelSortHeader.NO,
                 )
 
             if merge_addresses:
@@ -1049,7 +1082,7 @@ class ExcelTransfer:
                 f"詳細: {e}\n\n"
                 f"結合セルまたはデータ形式に問題がある可能性があります。",
                 operation="並び替え",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _execute_transfer_loops(self) -> None:
@@ -1068,7 +1101,9 @@ class ExcelTransfer:
         start_row = ExcelTransferConstants.LOOP1_START_ROW
         end_row = ExcelTransferConstants.LOOP1_END_ROW
         total_rows = end_row - start_row
-        logger.info(f"【ループ1】D{start_row}～D{end_row - 1} の処理を開始（全{total_rows}行）")
+        logger.info(
+            f"【ループ1】D{start_row}～D{end_row - 1} の処理を開始（全{total_rows}行）"
+        )
         self._report_progress("ループ1: カテゴリ付き転記を実行中...")
 
         # C列のカテゴリを一括取得（インデックス絞り込みに使用）
@@ -1084,7 +1119,9 @@ class ExcelTransfer:
                     for row in category_range
                 ]
             else:
-                category_list = [str(category_range).strip() if category_range else None]
+                category_list = [
+                    str(category_range).strip() if category_range else None
+                ]
 
         for i, row in enumerate(range(start_row, end_row)):
             category = category_list[i] if i < len(category_list) else None
@@ -1096,7 +1133,7 @@ class ExcelTransfer:
         self._sort_range(
             ExcelTransferConstants.LOOP1_SORT_RANGE,
             ExcelTransferConstants.LOOP1_SORT_KEY,
-            "A8"
+            "A8",
         )
         logger.info("【ループ1】完了")
 
@@ -1105,7 +1142,9 @@ class ExcelTransfer:
         start_row = ExcelTransferConstants.LOOP2_START_ROW
         end_row = ExcelTransferConstants.LOOP2_END_ROW
         total_rows = end_row - start_row
-        logger.info(f"【ループ2】C{start_row}～C{end_row - 1} の処理を開始（全{total_rows}行）")
+        logger.info(
+            f"【ループ2】C{start_row}～C{end_row - 1} の処理を開始（全{total_rows}行）"
+        )
         self._report_progress("ループ2: 転記を実行中...")
 
         for i, row in enumerate(range(start_row, end_row)):
@@ -1115,7 +1154,7 @@ class ExcelTransfer:
         self._report_progress("ループ2: 並び替え中...")
         self._sort_range(
             ExcelTransferConstants.LOOP2_SORT_RANGE,
-            ExcelTransferConstants.LOOP2_SORT_KEY
+            ExcelTransferConstants.LOOP2_SORT_KEY,
         )
         logger.info("【ループ2】完了")
 
@@ -1124,7 +1163,9 @@ class ExcelTransfer:
         start_row = ExcelTransferConstants.LOOP3_START_ROW
         end_row = ExcelTransferConstants.LOOP3_END_ROW
         total_rows = end_row - start_row
-        logger.info(f"【ループ3】C{start_row}～C{end_row - 1} の処理を開始（全{total_rows}行）")
+        logger.info(
+            f"【ループ3】C{start_row}～C{end_row - 1} の処理を開始（全{total_rows}行）"
+        )
         self._report_progress("ループ3: 転記を実行中...")
 
         for i, row in enumerate(range(start_row, end_row)):
@@ -1133,7 +1174,7 @@ class ExcelTransfer:
 
         self._sort_range(
             ExcelTransferConstants.LOOP3_SORT_RANGE,
-            ExcelTransferConstants.LOOP3_SORT_KEY
+            ExcelTransferConstants.LOOP3_SORT_KEY,
         )
         logger.info("【ループ3】完了")
 
@@ -1155,9 +1196,7 @@ class ExcelTransfer:
         except Exception as e:
             logger.error(f"COM初期化に失敗しました: {e}")
             raise ExcelTransferError(
-                f"COM初期化に失敗しました: {e}",
-                operation="COM初期化",
-                original_error=e
+                f"COM初期化に失敗しました: {e}", operation="COM初期化", original_error=e
             ) from e
 
         try:
@@ -1168,7 +1207,7 @@ class ExcelTransfer:
             raise ExcelTransferError(
                 f"Excelへの接続に失敗しました。Excelが起動しているか確認してください。\n詳細: {e}",
                 operation="Excel接続",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _find_workbook(self, filename: str) -> Any:
@@ -1192,7 +1231,7 @@ class ExcelTransfer:
         raise ExcelTransferError(
             f"ファイルが開かれていません: {basename}\n\n"
             "Excelで該当ファイルを開いてから実行してください。",
-            operation="ワークブック検索"
+            operation="ワークブック検索",
         )
 
     def _connect_worksheet(self, workbook: Any, sheet_name: str, filename: str) -> Any:
@@ -1225,7 +1264,7 @@ class ExcelTransfer:
                 f"ファイル: {filename}\n"
                 f"利用可能なシート: {sheet_names}",
                 operation="Excel接続",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _log_target_sample_data(self) -> None:
@@ -1234,7 +1273,9 @@ class ExcelTransfer:
         sample_d8 = self.target_ws.Range("D8").Value
         sample_c55 = self.target_ws.Range("C55").Value
         sample_c67 = self.target_ws.Range("C67").Value
-        logger.info(f"サンプル値: D8='{sample_d8}', C55='{sample_c55}', C67='{sample_c67}'")
+        logger.info(
+            f"サンプル値: D8='{sample_d8}', C55='{sample_c55}', C67='{sample_c67}'"
+        )
 
     def _connect_to_excel(self) -> None:
         """
@@ -1266,7 +1307,7 @@ class ExcelTransfer:
             raise ExcelTransferError(
                 f"Excelへの接続に失敗しました: {e}",
                 operation="Excel接続",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _save_target_workbook(self) -> None:
@@ -1287,7 +1328,7 @@ class ExcelTransfer:
                 raise ExcelTransferError(
                     f"Excelファイルの保存に失敗しました: {e}",
                     operation="ファイル保存",
-                    original_error=e
+                    original_error=e,
                 ) from e
 
     def _connect_to_target_only(self) -> None:
@@ -1316,7 +1357,7 @@ class ExcelTransfer:
             raise ExcelTransferError(
                 f"Excelへの接続に失敗しました: {e}",
                 operation="Excel接続",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _cleanup_excel(self) -> None:
@@ -1393,7 +1434,7 @@ class ExcelTransfer:
                 f"対象: {self.target_filename} ({self.target_sheet})\n"
                 f"エラー: {e}",
                 operation="転記処理",
-                original_error=e
+                original_error=e,
             ) from e
         finally:
             # 必ずクリーンアップを実行
@@ -1403,7 +1444,7 @@ class ExcelTransfer:
         self,
         school_events: List[str],
         student_council_events: List[str],
-        other_activities: List[str]
+        other_activities: List[str],
     ) -> Dict[str, int]:
         """
         行事名をターゲットExcelファイルに設定
@@ -1429,14 +1470,20 @@ class ExcelTransfer:
             self._connect_to_target_only()
             logger.info("Excelファイルに接続しました")
 
-            counts = {"school_events": 0, "student_council_events": 0, "other_activities": 0}
+            counts = {
+                "school_events": 0,
+                "student_council_events": 0,
+                "other_activities": 0,
+            }
 
             # カテゴリ1: 学校行事名 (D8~D50)
             logger.info("学校行事名を設定中...")
             for i, event_name in enumerate(school_events):
                 row = 8 + i
                 if row > 50:
-                    logger.warning(f"学校行事名が多すぎます（最大43件）: {len(school_events)}件")
+                    logger.warning(
+                        f"学校行事名が多すぎます（最大43件）: {len(school_events)}件"
+                    )
                     break
                 if event_name:  # 空文字列をスキップ
                     self.target_ws.Range(f"D{row}").Value = event_name
@@ -1448,24 +1495,32 @@ class ExcelTransfer:
             for i, event_name in enumerate(student_council_events):
                 row = 55 + i
                 if row > 62:
-                    logger.warning(f"児童会行事名が多すぎます（最大8件）: {len(student_council_events)}件")
+                    logger.warning(
+                        f"児童会行事名が多すぎます（最大8件）: {len(student_council_events)}件"
+                    )
                     break
                 if event_name:  # 空文字列をスキップ
                     self.target_ws.Range(f"C{row}").Value = event_name
                     counts["student_council_events"] += 1
-            logger.info(f"児童会行事名を{counts['student_council_events']}件設定しました")
+            logger.info(
+                f"児童会行事名を{counts['student_council_events']}件設定しました"
+            )
 
             # カテゴリ3: その他の教育活動名 (C67~C95) ※96行目は小計行
             logger.info("その他の教育活動名を設定中...")
             for i, event_name in enumerate(other_activities):
                 row = 67 + i
                 if row > 95:
-                    logger.warning(f"その他の教育活動名が多すぎます（最大29件）: {len(other_activities)}件")
+                    logger.warning(
+                        f"その他の教育活動名が多すぎます（最大29件）: {len(other_activities)}件"
+                    )
                     break
                 if event_name:  # 空文字列をスキップ
                     self.target_ws.Range(f"C{row}").Value = event_name
                     counts["other_activities"] += 1
-            logger.info(f"その他の教育活動名を{counts['other_activities']}件設定しました")
+            logger.info(
+                f"その他の教育活動名を{counts['other_activities']}件設定しました"
+            )
 
             # 変更を保存
             self._save_target_workbook()
@@ -1485,7 +1540,7 @@ class ExcelTransfer:
                 f"対象: {self.target_filename} ({self.target_sheet})\n"
                 f"エラー: {e}",
                 operation="行事名設定",
-                original_error=e
+                original_error=e,
             ) from e
         finally:
             # 必ずクリーンアップを実行
@@ -1531,12 +1586,14 @@ class ExcelTransfer:
             logger.info(f"その他の教育活動名を{len(other_activities)}件読み込みました")
 
             # データが全て空の場合はエラー
-            total = len(school_events) + len(student_council_events) + len(other_activities)
+            total = (
+                len(school_events) + len(student_council_events) + len(other_activities)
+            )
             if total == 0:
                 raise ExcelTransferError(
                     "Excelファイルに行事名が見つかりませんでした。\n\n"
                     "D8~D50、C55~C62、C67~C96 列にデータが入力されているか確認してください。",
-                    operation="行事名読み込み"
+                    operation="行事名読み込み",
                 )
 
             logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
@@ -1546,7 +1603,7 @@ class ExcelTransfer:
             return {
                 "school_events": school_events,
                 "student_council_events": student_council_events,
-                "other_activities": other_activities
+                "other_activities": other_activities,
             }
 
         except ExcelTransferError:
@@ -1558,7 +1615,7 @@ class ExcelTransfer:
                 f"対象: {self.target_filename} ({self.target_sheet})\n"
                 f"エラー: {e}",
                 operation="行事名読み込み",
-                original_error=e
+                original_error=e,
             ) from e
         finally:
             # 必ずクリーンアップを実行
@@ -1594,7 +1651,9 @@ class ExcelTransfer:
                 continue
 
             # 文字列化して前後の空白を削除、改行文字も除去
-            event_name = str(v).strip().replace('\n', '').replace('\r', '').replace('\t', ' ')
+            event_name = (
+                str(v).strip().replace("\n", "").replace("\r", "").replace("\t", " ")
+            )
 
             # 空文字列をスキップ
             if not event_name:
@@ -1623,8 +1682,12 @@ def main() -> None:
     from infrastructure.config_loader import ConfigLoader
 
     if len(sys.argv) < 3:
-        print("使用方法: python update_excel_files.py <参照ファイルパス> <対象ファイルパス>")
-        print("例: python update_excel_files.py \"C:\\Downloads\\編集用.xlsx\" \"C:\\Desktop\\様式4.xlsx\"")
+        print(
+            "使用方法: python update_excel_files.py <参照ファイルパス> <対象ファイルパス>"
+        )
+        print(
+            '例: python update_excel_files.py "C:\\Downloads\\編集用.xlsx" "C:\\Desktop\\様式4.xlsx"'
+        )
         sys.exit(1)
 
     ref_filename = sys.argv[1]
@@ -1632,8 +1695,8 @@ def main() -> None:
 
     # 設定ファイルからシート名のみ取得
     config = ConfigLoader()
-    ref_sheet = config.get('files', 'excel_reference_sheet')
-    target_sheet = config.get('files', 'excel_target_sheet')
+    ref_sheet = config.get("files", "excel_reference_sheet")
+    target_sheet = config.get("files", "excel_target_sheet")
 
     logger.info(f"参照ファイル: {ref_filename}")
     logger.info(f"反映ファイル: {target_filename}")
@@ -1648,7 +1711,7 @@ if __name__ == "__main__":
     # ログ設定
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     main()

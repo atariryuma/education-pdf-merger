@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def get_app_dir() -> str:
     """アプリケーションのディレクトリを取得（PyInstaller対応）"""
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # PyInstallerでビルドされた場合
         return os.path.dirname(sys.executable)
     else:
@@ -38,15 +38,15 @@ class PDFMergeApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(f"{AppConstants.APP_NAME} v{AppConstants.VERSION}")
-        self.root.geometry(WINDOW['geometry'])
-        self.root.minsize(WINDOW['min_width'], WINDOW['min_height'])
+        self.root.geometry(WINDOW["geometry"])
+        self.root.minsize(WINDOW["min_width"], WINDOW["min_height"])
 
         # スレッドセーフティのためのロック
         self.config_lock = threading.RLock()
 
         # 最後の設定を保存するファイル（AppData内に保存）
-        appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-        settings_dir = os.path.join(appdata, 'PDFMergeSystem')
+        appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        settings_dir = os.path.join(appdata, "PDFMergeSystem")
         if not os.path.exists(settings_dir):
             try:
                 os.makedirs(settings_dir, exist_ok=True)
@@ -57,7 +57,7 @@ class PDFMergeApp:
                     f"設定ディレクトリの作成に失敗しました。\n\n"
                     f"パス: {settings_dir}\n"
                     f"エラー: {e}\n\n"
-                    f"管理者権限で実行するか、アプリケーションを再インストールしてください。"
+                    f"管理者権限で実行するか、アプリケーションを再インストールしてください。",
                 )
                 raise
         self.last_settings_file = os.path.join(settings_dir, ".last_settings.json")
@@ -69,7 +69,7 @@ class PDFMergeApp:
         except Exception as e:
             messagebox.showerror(
                 "設定エラー",
-                f"設定ファイルの読み込みに失敗しました。\n\n詳細: {e}\n\nconfig.jsonを確認してください。"
+                f"設定ファイルの読み込みに失敗しました。\n\n詳細: {e}\n\nconfig.jsonを確認してください。",
             )
             self.root.destroy()
             self.init_failed = True
@@ -99,32 +99,34 @@ class PDFMergeApp:
         # ネットワークパスはアクセスに時間がかかるため、起動時は空にする
         self.input_dir_var = tk.StringVar(value="")
         self.output_file_var = tk.StringVar(value="")
-        self.plan_type_var = tk.StringVar(value=last_settings.get('plan_type', 'education'))
+        self.plan_type_var = tk.StringVar(
+            value=last_settings.get("plan_type", "education")
+        )
 
         # 設定タブ用
         self.year_var = tk.StringVar(value=self.config.year)
         self.year_short_var = tk.StringVar(value=self.config.year_short)
 
         # Google Driveパスのデフォルト値を設定
-        gdrive_path = self.config.get('base_paths', 'google_drive') or ""
+        gdrive_path = self.config.get("base_paths", "google_drive") or ""
 
         self.gdrive_var = tk.StringVar(value=gdrive_path)
 
         # 一時フォルダ：空の場合はデフォルトパスを設定（メモリ上のみ、保存は明示操作時）
-        temp_path = self.config.get('base_paths', 'local_temp')
+        temp_path = self.config.get("base_paths", "local_temp")
         if not temp_path:
-            appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-            temp_path = os.path.join(appdata, 'PDFMergeSystem', 'temp')
-            self.config.set('base_paths', 'local_temp', value=temp_path)
+            appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+            temp_path = os.path.join(appdata, "PDFMergeSystem", "temp")
+            self.config.set("base_paths", "local_temp", value=temp_path)
         self.temp_var = tk.StringVar(value=temp_path)
 
-        self.gs_var = tk.StringVar(value=self.config.get('ghostscript', 'executable'))
+        self.gs_var = tk.StringVar(value=self.config.get("ghostscript", "executable"))
 
     def _load_last_settings(self) -> dict:
         """最後の設定を読み込み"""
         try:
             if os.path.exists(self.last_settings_file):
-                with open(self.last_settings_file, 'r', encoding='utf-8') as f:
+                with open(self.last_settings_file, "r", encoding="utf-8") as f:
                     return json.load(f)
         except (IOError, json.JSONDecodeError, OSError):
             pass
@@ -134,26 +136,26 @@ class PDFMergeApp:
         """最後の設定を保存"""
         try:
             settings = {
-                'input_dir': self.input_dir_var.get(),
-                'output_file': self.output_file_var.get(),
-                'plan_type': self.plan_type_var.get()
+                "input_dir": self.input_dir_var.get(),
+                "output_file": self.output_file_var.get(),
+                "plan_type": self.plan_type_var.get(),
             }
-            with open(self.last_settings_file, 'w', encoding='utf-8') as f:
+            with open(self.last_settings_file, "w", encoding="utf-8") as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
         except (IOError, OSError):
             pass
 
     def _setup_keyboard_shortcuts(self) -> None:
         """キーボードショートカット設定"""
-        self.root.bind('<Control-s>', lambda e: self._save_settings())
-        self.root.bind('<Control-r>', lambda e: self._reload_settings())
-        self.root.bind('<Control-q>', lambda e: self._on_closing())
-        self.root.bind('<F5>', self._handle_f5)
+        self.root.bind("<Control-s>", lambda e: self._save_settings())
+        self.root.bind("<Control-r>", lambda e: self._reload_settings())
+        self.root.bind("<Control-q>", lambda e: self._on_closing())
+        self.root.bind("<F5>", self._handle_f5)
 
     def _handle_f5(self, event: "tk.Event[tk.Misc]") -> str:
         """F5キーの処理（Excel処理タブで自動検出を実行）"""
-        if not hasattr(self, 'notebook') or self.notebook is None:
-            return 'break'
+        if not hasattr(self, "notebook") or self.notebook is None:
+            return "break"
         try:
             current_tab = self.notebook.index(self.notebook.select())
             if current_tab == 1:  # Excel処理タブ
@@ -161,13 +163,14 @@ class PDFMergeApp:
                 self.excel_tab._auto_detect_files()
         except Exception as e:
             logger.debug(f"F5キー処理でエラー: {e}")
-        return 'break'
+        return "break"
 
     def _on_closing(self) -> None:
         """終了時の処理（バックグラウンドスレッド確認付き）"""
         # デーモンスレッド以外のバックグラウンドスレッドが動作中かチェック
         active_threads = [
-            t for t in threading.enumerate()
+            t
+            for t in threading.enumerate()
             if t != threading.main_thread() and t.is_alive() and not t.daemon
         ]
         if active_threads:
@@ -176,7 +179,7 @@ class PDFMergeApp:
                 "バックグラウンド処理が実行中です。\n\n"
                 "終了すると処理が中断され、一時ファイルが残る可能性があります。\n"
                 "終了しますか？",
-                parent=self.root
+                parent=self.root,
             )
             if not result:
                 return
@@ -195,7 +198,7 @@ class PDFMergeApp:
             text="準備完了",
             relief=tk.SUNKEN,
             anchor="w",
-            font=FONTS['small']
+            font=FONTS["small"],
         )
         self.status_bar.pack(side="bottom", fill="x")
 
@@ -205,17 +208,26 @@ class PDFMergeApp:
 
         # 各タブを作成
         self.pdf_tab = PDFTab(
-            self.notebook, self.config, self.status_bar,
-            self.input_dir_var, self.output_file_var, self.plan_type_var
+            self.notebook,
+            self.config,
+            self.status_bar,
+            self.input_dir_var,
+            self.output_file_var,
+            self.plan_type_var,
         )
 
         self.excel_tab = ExcelTab(self.notebook, self.config, self.status_bar)
 
         self.settings_tab = SettingsTab(
-            self.notebook, self.config, self.status_bar,
-            self.year_var, self.year_short_var,
-            self.gdrive_var, self.temp_var, self.gs_var,
-            on_reload=self._reload_settings
+            self.notebook,
+            self.config,
+            self.status_bar,
+            self.year_var,
+            self.year_short_var,
+            self.gdrive_var,
+            self.temp_var,
+            self.gs_var,
+            on_reload=self._reload_settings,
         )
 
         # ExcelTabに設定タブへの参照を設定
@@ -230,14 +242,18 @@ class PDFMergeApp:
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="ファイル", menu=file_menu)
         file_menu.add_command(label="設定を保存 (Ctrl+S)", command=self._save_settings)
-        file_menu.add_command(label="設定を再読み込み (Ctrl+R)", command=self._reload_settings)
+        file_menu.add_command(
+            label="設定を再読み込み (Ctrl+R)", command=self._reload_settings
+        )
         file_menu.add_separator()
         file_menu.add_command(label="終了 (Ctrl+Q)", command=self._on_closing)
 
         # ヘルプメニュー
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="ヘルプ", menu=help_menu)
-        help_menu.add_command(label="キーボードショートカット", command=self._show_shortcuts)
+        help_menu.add_command(
+            label="キーボードショートカット", command=self._show_shortcuts
+        )
         help_menu.add_command(label="バージョン情報", command=self._show_version)
 
     def _save_settings(self) -> None:
@@ -251,16 +267,16 @@ class PDFMergeApp:
         # 既存のStringVarに値を設定（再生成しない＝タブ参照を維持）
         self.year_var.set(self.config.year)
         self.year_short_var.set(self.config.year_short)
-        self.gdrive_var.set(self.config.get('base_paths', 'google_drive') or "")
-        self.temp_var.set(self.config.get('base_paths', 'local_temp') or "")
-        self.gs_var.set(self.config.get('ghostscript', 'executable') or "")
+        self.gdrive_var.set(self.config.get("base_paths", "google_drive") or "")
+        self.temp_var.set(self.config.get("base_paths", "local_temp") or "")
+        self.gs_var.set(self.config.get("ghostscript", "executable") or "")
 
         # タブのconfigを更新
-        if hasattr(self, 'pdf_tab'):
+        if hasattr(self, "pdf_tab"):
             self.pdf_tab.config = self.config
-        if hasattr(self, 'excel_tab'):
+        if hasattr(self, "excel_tab"):
             self.excel_tab.config = self.config
-        if hasattr(self, 'settings_tab'):
+        if hasattr(self, "settings_tab"):
             self.settings_tab.config = self.config
 
     def _reload_settings(self) -> None:
@@ -270,11 +286,14 @@ class PDFMergeApp:
                 self._apply_config()
             self._update_status("設定を再読み込みしました")
         except Exception as e:
-            messagebox.showerror("読み込みエラー", f"設定の再読み込みに失敗しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "読み込みエラー", f"設定の再読み込みに失敗しました。\n\n詳細: {e}"
+            )
 
     def _update_status(self, message: str) -> None:
         """ステータスバーを更新"""
         from gui.utils import update_status
+
         update_status(self.status_bar, message)
 
     def _show_shortcuts(self) -> None:
@@ -320,7 +339,9 @@ F5 : ファイル状態を確認
 
             # エラーレベルの問題がある場合、セットアップウィザードを表示
             if validator.has_errors():
-                logger.info("必須設定が不足しています。セットアップウィザードを起動します。")
+                logger.info(
+                    "必須設定が不足しています。セットアップウィザードを起動します。"
+                )
 
                 def on_wizard_complete():
                     """ウィザード完了時のコールバック"""
@@ -329,7 +350,7 @@ F5 : ファイル状態を確認
                     messagebox.showinfo(
                         "セットアップ完了",
                         "設定が完了しました！\n\nアプリケーションを使い始めることができます。",
-                        parent=self.root
+                        parent=self.root,
                     )
                     logger.info("セットアップウィザードが完了しました")
 
@@ -342,9 +363,6 @@ F5 : ファイル状態を確認
 
         except Exception as e:
             logger.error(f"初回セットアップチェックエラー: {e}", exc_info=True)
-
-
-
 
 
 def main() -> None:

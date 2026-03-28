@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ImageConverter:
     """画像ファイルをPDFに変換するクラス"""
 
-    IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
+    IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tiff")
 
     def convert(self, file_path: str, output_path: str) -> Optional[str]:
         """
@@ -49,4 +49,6 @@ class ImageConverter:
             return output_path
         except (IOError, ValueError, SyntaxError) as e:
             logger.error(f"画像変換エラー ({file_path}): {e}")
-            raise PDFConversionError(f"画像変換に失敗: {file_path}", original_error=e) from e
+            raise PDFConversionError(
+                f"画像変換に失敗: {file_path}", original_error=e
+            ) from e

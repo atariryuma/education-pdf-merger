@@ -16,13 +16,33 @@ from typing import Optional
 class StructuredFormatter(logging.Formatter):
     """JSON形式でログを出力するフォーマッター"""
 
-    _INTERNAL_ATTRS = frozenset({
-        'name', 'msg', 'args', 'created', 'filename', 'funcName',
-        'levelname', 'levelno', 'lineno', 'module', 'msecs',
-        'message', 'pathname', 'process', 'processName',
-        'relativeCreated', 'thread', 'threadName', 'exc_info',
-        'exc_text', 'stack_info', 'taskName', 'asctime',
-    })
+    _INTERNAL_ATTRS = frozenset(
+        {
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "message",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "taskName",
+            "asctime",
+        }
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
@@ -52,10 +72,10 @@ class SensitiveDataFilter(logging.Filter):
     _SENSITIVE_PATTERN = re.compile(
         r'(?P<password>password|passwd|pwd)["\']?\s*[:=]\s*["\']?[^"\'}\s,]+'
         r'|(?P<token>token|api[_-]?key|secret|access[_-]?token)["\']?\s*[:=]\s*["\']?[^"\'}\s,]+'
-        r'|(?P<email>\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b)'
-        r'|(?P<phone>\b0\d{1,4}-\d{1,4}-\d{4}\b|\b0\d{9,10}\b)'
-        r'|(?P<winpath>(?:C:\\Users\\|/Users/)[^\\\/\s]+)',
-        re.I
+        r"|(?P<email>\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b)"
+        r"|(?P<phone>\b0\d{1,4}-\d{1,4}-\d{4}\b|\b0\d{9,10}\b)"
+        r"|(?P<winpath>(?:C:\\Users\\|/Users/)[^\\\/\s]+)",
+        re.I,
     )
 
     @staticmethod
@@ -69,26 +89,28 @@ class SensitiveDataFilter(logging.Filter):
         Returns:
             str: マスク処理された文字列
         """
-        if match.lastgroup == 'password':
-            return 'password=***'
-        elif match.lastgroup == 'token':
-            return 'token=***'
-        elif match.lastgroup == 'email':
-            return '***@***'
-        elif match.lastgroup == 'phone':
-            return '***-****-****'
-        elif match.lastgroup == 'winpath':
-            prefix = 'C:\\Users\\' if 'C:' in match.group(0) else '/Users/'
-            return f'{prefix}***'
-        return '***'
+        if match.lastgroup == "password":
+            return "password=***"
+        elif match.lastgroup == "token":
+            return "token=***"
+        elif match.lastgroup == "email":
+            return "***@***"
+        elif match.lastgroup == "phone":
+            return "***-****-****"
+        elif match.lastgroup == "winpath":
+            prefix = "C:\\Users\\" if "C:" in match.group(0) else "/Users/"
+            return f"{prefix}***"
+        return "***"
 
     def filter(self, record: logging.LogRecord) -> bool:
         """ログレコードから機密情報をマスク"""
         try:
-            if hasattr(record, 'msg'):
-                record.msg = self._SENSITIVE_PATTERN.sub(self._mask_match, str(record.msg))
+            if hasattr(record, "msg"):
+                record.msg = self._SENSITIVE_PATTERN.sub(
+                    self._mask_match, str(record.msg)
+                )
 
-            if hasattr(record, 'args') and record.args:
+            if hasattr(record, "args") and record.args:
                 if isinstance(record.args, dict):
                     record.args = {
                         k: self._SENSITIVE_PATTERN.sub(self._mask_match, str(v))
@@ -106,7 +128,12 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
-def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_name: str = "pdf_merge", use_json: bool = False) -> logging.Logger:
+def setup_logging(
+    log_dir: Optional[str] = None,
+    level: int = logging.INFO,
+    app_name: str = "pdf_merge",
+    use_json: bool = False,
+) -> logging.Logger:
     """
     統一ログシステムをセットアップ
 
@@ -121,8 +148,8 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
     """
     # ログディレクトリの決定（AppData内に作成）
     if log_dir is None:
-        appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-        log_dir = os.path.join(appdata, 'PDFMergeSystem', 'logs')
+        appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        log_dir = os.path.join(appdata, "PDFMergeSystem", "logs")
 
     # ログディレクトリの作成
     if not os.path.exists(log_dir):
@@ -150,19 +177,16 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
 
     # フォーマッター
     if use_json:
-        formatter = StructuredFormatter(datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = StructuredFormatter(datefmt="%Y-%m-%d %H:%M:%S")
     else:
         formatter = logging.Formatter(  # type: ignore[assignment]
-            '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
     # ファイルハンドラ（ローテーション付き: 5MB x 5ファイル）
     file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=5*1024*1024,
-        backupCount=5,
-        encoding='utf-8'
+        log_file, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
     )
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
@@ -173,9 +197,9 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     # Windows環境でのUTF-8出力を確保
-    if hasattr(sys.stdout, 'reconfigure'):
+    if hasattr(sys.stdout, "reconfigure"):
         try:
-            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stdout.reconfigure(encoding="utf-8")
         except Exception:
             pass  # エンコーディング変更失敗時も継続
     root_logger.addHandler(console_handler)

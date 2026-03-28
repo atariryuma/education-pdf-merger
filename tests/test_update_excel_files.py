@@ -18,7 +18,7 @@ def transfer():
         ref_filename="C:\\test\\ref.xlsx",
         target_filename="C:\\test\\target.xlsx",
         ref_sheet="Sheet1",
-        target_sheet="Sheet1"
+        target_sheet="Sheet1",
     )
 
 
@@ -30,7 +30,7 @@ def transfer_with_cancel():
         target_filename="target.xlsx",
         ref_sheet="Sheet1",
         target_sheet="Sheet1",
-        cancel_check=lambda: True
+        cancel_check=lambda: True,
     )
 
 
@@ -129,8 +129,8 @@ class TestConnectWorksheet:
 class TestInitComConnection:
     """_init_com_connection のテスト"""
 
-    @patch('core.update_excel_files.win32com.client')
-    @patch('core.update_excel_files.pythoncom')
+    @patch("core.update_excel_files.win32com.client")
+    @patch("core.update_excel_files.pythoncom")
     def test_initializes_com(self, mock_pythoncom, mock_client, transfer):
         """COMが正常に初期化される"""
         mock_excel = MagicMock()
@@ -143,12 +143,14 @@ class TestInitComConnection:
         assert transfer.excel is mock_excel
         assert transfer._com_initialized is True
 
-    @patch('core.update_excel_files.win32com.client')
-    @patch('core.update_excel_files.pythoncom')
+    @patch("core.update_excel_files.win32com.client")
+    @patch("core.update_excel_files.pythoncom")
     def test_com_already_initialized(self, mock_pythoncom, mock_client, transfer):
         """COM初期化済みの場合はスキップ（com_errorが発生）"""
-        mock_pythoncom.com_error = type('com_error', (Exception,), {})
-        mock_pythoncom.CoInitialize.side_effect = mock_pythoncom.com_error("Already initialized")
+        mock_pythoncom.com_error = type("com_error", (Exception,), {})
+        mock_pythoncom.CoInitialize.side_effect = mock_pythoncom.com_error(
+            "Already initialized"
+        )
         mock_client.Dispatch.return_value = MagicMock()
 
         transfer._init_com_connection()
@@ -156,14 +158,15 @@ class TestInitComConnection:
         assert transfer._com_initialized is False
         assert transfer.excel is not None
 
-    @patch('core.update_excel_files.win32com.client')
-    @patch('core.update_excel_files.pythoncom')
+    @patch("core.update_excel_files.win32com.client")
+    @patch("core.update_excel_files.pythoncom")
     def test_com_init_general_error_raises(self, mock_pythoncom, mock_client, transfer):
         """COM初期化で一般エラーの場合はExcelTransferErrorが発生"""
-        mock_pythoncom.com_error = type('com_error', (Exception,), {})
+        mock_pythoncom.com_error = type("com_error", (Exception,), {})
         mock_pythoncom.CoInitialize.side_effect = RuntimeError("Unexpected error")
 
         from core.update_excel_files import ExcelTransferError
+
         with pytest.raises(ExcelTransferError):
             transfer._init_com_connection()
 
@@ -172,7 +175,7 @@ class TestInitComConnection:
 class TestCleanupExcel:
     """_cleanup_excel のテスト"""
 
-    @patch('core.update_excel_files.pythoncom')
+    @patch("core.update_excel_files.pythoncom")
     def test_cleanup_releases_all(self, mock_pythoncom, transfer):
         """全COMオブジェクトが解放される"""
         transfer.excel = MagicMock()
@@ -192,7 +195,7 @@ class TestCleanupExcel:
         assert transfer._com_initialized is False
         mock_pythoncom.CoUninitialize.assert_called_once()
 
-    @patch('core.update_excel_files.pythoncom')
+    @patch("core.update_excel_files.pythoncom")
     def test_cleanup_skips_uninit(self, mock_pythoncom, transfer):
         """COM未初期化時はCoUninitializeをスキップ"""
         transfer._com_initialized = False
@@ -356,8 +359,8 @@ class TestReadDataRow:
 class TestPopulateEventNames:
     """populate_event_names のテスト"""
 
-    @patch('core.update_excel_files.pythoncom')
-    @patch('core.update_excel_files.win32com.client')
+    @patch("core.update_excel_files.pythoncom")
+    @patch("core.update_excel_files.win32com.client")
     def test_populates_all_categories(self, mock_client, mock_pythoncom, transfer):
         """全カテゴリの行事名がターゲットExcelに書き込まれる"""
         # COM接続のモック
@@ -376,12 +379,12 @@ class TestPopulateEventNames:
         transfer._com_initialized = True
 
         # _connect_to_target_onlyをモック（既に接続済み）
-        with patch.object(transfer, '_connect_to_target_only'):
-            with patch.object(transfer, '_cleanup_excel'):
+        with patch.object(transfer, "_connect_to_target_only"):
+            with patch.object(transfer, "_cleanup_excel"):
                 counts = transfer.populate_event_names(
                     school_events=["入学式", "卒業式"],
                     student_council_events=["児童会"],
-                    other_activities=["読書週間"]
+                    other_activities=["読書週間"],
                 )
 
         assert counts["school_events"] == 2
@@ -393,8 +396,8 @@ class TestPopulateEventNames:
         d_calls = [c for c in calls if "D" in str(c)]
         assert len(d_calls) >= 2  # D8, D9
 
-    @patch('core.update_excel_files.pythoncom')
-    @patch('core.update_excel_files.win32com.client')
+    @patch("core.update_excel_files.pythoncom")
+    @patch("core.update_excel_files.win32com.client")
     def test_respects_row_limits(self, mock_client, mock_pythoncom, transfer):
         """行数上限を超える行事名は書き込まれない"""
         mock_ws = MagicMock()
@@ -406,19 +409,19 @@ class TestPopulateEventNames:
         # 50件の行事名（D8～D50 = 43行が上限）
         many_events = [f"行事{i}" for i in range(50)]
 
-        with patch.object(transfer, '_connect_to_target_only'):
-            with patch.object(transfer, '_cleanup_excel'):
+        with patch.object(transfer, "_connect_to_target_only"):
+            with patch.object(transfer, "_cleanup_excel"):
                 counts = transfer.populate_event_names(
                     school_events=many_events,
                     student_council_events=[],
-                    other_activities=[]
+                    other_activities=[],
                 )
 
         # D8～D50 = 43行が上限
         assert counts["school_events"] == 43
 
-    @patch('core.update_excel_files.pythoncom')
-    @patch('core.update_excel_files.win32com.client')
+    @patch("core.update_excel_files.pythoncom")
+    @patch("core.update_excel_files.win32com.client")
     def test_empty_names_skipped(self, mock_client, mock_pythoncom, transfer):
         """空文字列の行事名はスキップされる"""
         mock_ws = MagicMock()
@@ -427,12 +430,12 @@ class TestPopulateEventNames:
         transfer.excel = MagicMock()
         transfer._com_initialized = True
 
-        with patch.object(transfer, '_connect_to_target_only'):
-            with patch.object(transfer, '_cleanup_excel'):
+        with patch.object(transfer, "_connect_to_target_only"):
+            with patch.object(transfer, "_cleanup_excel"):
                 counts = transfer.populate_event_names(
                     school_events=["入学式", "", "卒業式"],
                     student_council_events=[],
-                    other_activities=[]
+                    other_activities=[],
                 )
 
         # 空文字列はスキップされるため2件

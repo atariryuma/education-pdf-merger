@@ -17,8 +17,7 @@ from core.pdf_processor import PDFProcessor  # noqa: E402
 @pytest.fixture(autouse=True)
 def _mock_pdfmetrics():
     """全テストでpdfmetricsとTTFontをモック（フォント登録の副作用を防止）"""
-    with patch('core.pdf_processor.pdfmetrics'), \
-         patch('core.pdf_processor.TTFont'):
+    with patch("core.pdf_processor.pdfmetrics"), patch("core.pdf_processor.TTFont"):
         yield
 
 
@@ -205,7 +204,7 @@ class TestSetPdfOutlines:
 class TestCompressPdf:
     """compress_pdf のテスト"""
 
-    @patch('core.pdf_processor.subprocess')
+    @patch("core.pdf_processor.subprocess")
     def test_compress_success(self, mock_subprocess, real_pdf, mock_config):
         """圧縮成功でTrueが返る"""
         mock_subprocess.run.return_value = MagicMock(returncode=0)
@@ -214,13 +213,15 @@ class TestCompressPdf:
 
         processor = PDFProcessor(mock_config)
         # _atomic_pdf_operation内でos.replaceが呼ばれるためモック
-        with patch('core.pdf_processor.os.replace'):
+        with patch("core.pdf_processor.os.replace"):
             result = processor.compress_pdf(real_pdf)
 
         assert result is True
 
-    @patch('core.pdf_processor.subprocess')
-    def test_compress_timeout_returns_false(self, mock_subprocess, real_pdf, mock_config):
+    @patch("core.pdf_processor.subprocess")
+    def test_compress_timeout_returns_false(
+        self, mock_subprocess, real_pdf, mock_config
+    ):
         """タイムアウトでFalseが返る"""
         import subprocess as real_subprocess
 

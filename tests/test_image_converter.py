@@ -52,7 +52,7 @@ def mock_jpg_file(temp_dir: Path) -> Path:
         Path: ダミーファイルのパス
     """
     jpg_path = temp_dir / "test.jpg"
-    jpg_path.write_bytes(b'\xFF\xD8\xFF\xE0')  # JPEG magic number
+    jpg_path.write_bytes(b"\xFF\xD8\xFF\xE0")  # JPEG magic number
     return jpg_path
 
 
@@ -68,7 +68,7 @@ def mock_png_file(temp_dir: Path) -> Path:
         Path: ダミーファイルのパス
     """
     png_path = temp_dir / "test.png"
-    png_path.write_bytes(b'\x89PNG\r\n\x1a\n')  # PNG magic number
+    png_path.write_bytes(b"\x89PNG\r\n\x1a\n")  # PNG magic number
     return png_path
 
 
@@ -83,16 +83,16 @@ class TestImageConverter:
 
     def test_image_extensions_constant(self):
         """サポートされる拡張子の定義確認"""
-        expected_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
+        expected_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".tiff")
         assert ImageConverter.IMAGE_EXTENSIONS == expected_extensions
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_jpg_success(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_jpg_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """JPEG変換の成功テスト"""
         output_path = temp_dir / "output.pdf"
@@ -110,13 +110,13 @@ class TestImageConverter:
         mock_image_module.open.assert_called_once_with(str(mock_jpg_file))
         mock_image.save.assert_called_once_with(str(output_path), "PDF")
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_png_success(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_png_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """PNG変換の成功テスト"""
         output_path = temp_dir / "output.pdf"
@@ -134,13 +134,13 @@ class TestImageConverter:
         mock_image_module.open.assert_called_once_with(str(mock_png_file))
         mock_image.save.assert_called_once_with(str(output_path), "PDF")
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_rgba_to_rgb(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_png_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """RGBA画像のRGB変換テスト"""
         output_path = temp_dir / "output.pdf"
@@ -162,13 +162,13 @@ class TestImageConverter:
         # 実際の実装では image = image.convert("RGB") なので、
         # save()はmock_convertedではなくmock_imageで呼ばれる
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_palette_to_rgb(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_png_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """パレット画像(P mode)のRGB変換テスト"""
         output_path = temp_dir / "output.pdf"
@@ -187,13 +187,13 @@ class TestImageConverter:
         assert result == str(output_path)
         mock_image.convert.assert_called_once_with("RGB")
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_io_error(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_jpg_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """IOError発生時のテスト"""
         output_path = temp_dir / "output.pdf"
@@ -206,13 +206,13 @@ class TestImageConverter:
         assert exc_info.value.original_error is not None
         assert isinstance(exc_info.value.original_error, IOError)
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_exception_chaining(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_jpg_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """例外チェーンの確認"""
         output_path = temp_dir / "output.pdf"
@@ -226,13 +226,13 @@ class TestImageConverter:
         assert exc_info.value.original_error is original_error
         assert exc_info.value.__cause__ is original_error
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_context_manager_cleanup(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_jpg_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """with文によるリソース解放の確認"""
         output_path = temp_dir / "output.pdf"
@@ -251,13 +251,13 @@ class TestImageConverter:
         mock_enter.assert_called_once()
         mock_exit.assert_called_once()
 
-    @patch('converters.image_converter.Image')
+    @patch("converters.image_converter.Image")
     def test_convert_context_manager_with_exception(
         self,
         mock_image_module: Mock,
         converter: ImageConverter,
         mock_jpg_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """例外発生時のwith文クリーンアップ確認"""
         output_path = temp_dir / "output.pdf"
@@ -277,18 +277,20 @@ class TestImageConverter:
         # 例外が発生してもexitが呼ばれることを確認
         mock_exit.assert_called_once()
 
-    def test_convert_all_supported_extensions(self, converter: ImageConverter, temp_dir: Path):
+    def test_convert_all_supported_extensions(
+        self, converter: ImageConverter, temp_dir: Path
+    ):
         """全サポート拡張子のテスト"""
         supported_extensions = ImageConverter.IMAGE_EXTENSIONS
 
         for ext in supported_extensions:
             input_file = temp_dir / f"test{ext}"
-            input_file.write_bytes(b'\x00\x01\x02\x03')  # ダミーバイナリ
+            input_file.write_bytes(b"\x00\x01\x02\x03")  # ダミーバイナリ
 
             output_file = temp_dir / f"output{ext}.pdf"
 
             # 実際のPILは使わず、モック化する
-            with patch('converters.image_converter.Image') as mock_image_module:
+            with patch("converters.image_converter.Image") as mock_image_module:
                 mock_image = MagicMock()
                 mock_image.mode = "RGB"
                 mock_image.__enter__ = Mock(return_value=mock_image)

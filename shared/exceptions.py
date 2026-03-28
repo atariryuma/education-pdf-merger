@@ -13,12 +13,13 @@ class PDFMergeError(Exception):
 
     すべてのカスタム例外の共通インターフェースを定義
     """
+
     def __init__(
         self,
         message: str,
         *,
         original_error: Optional[Exception] = None,
-        **kwargs: object
+        **kwargs: object,
     ) -> None:
         """
         Args:
@@ -30,7 +31,9 @@ class PDFMergeError(Exception):
 
         # 元の例外がある場合、メッセージに追加
         if original_error:
-            full_message = f"{message} (原因: {type(original_error).__name__}: {original_error})"
+            full_message = (
+                f"{message} (原因: {type(original_error).__name__}: {original_error})"
+            )
         else:
             full_message = message
 
@@ -43,17 +46,19 @@ class PDFMergeError(Exception):
 
 class PDFConversionError(PDFMergeError):
     """PDF変換エラー"""
+
     pass
 
 
 class ConfigurationError(PDFMergeError):
     """設定エラー"""
+
     def __init__(
         self,
         message: str,
         *,
         config_key: Optional[str] = None,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -69,12 +74,13 @@ class ConfigurationError(PDFMergeError):
 
 class ResourceError(PDFMergeError):
     """リソースエラー（COM、ファイル等）"""
+
     def __init__(
         self,
         message: str,
         *,
         resource_type: str,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -83,18 +89,21 @@ class ResourceError(PDFMergeError):
             original_error: 元の例外
         """
         full_message = f"リソースエラー [{resource_type}]: {message}"
-        super().__init__(full_message, original_error=original_error, resource_type=resource_type)
+        super().__init__(
+            full_message, original_error=original_error, resource_type=resource_type
+        )
 
 
 class FileOperationError(PDFMergeError):
     """ファイル操作エラー"""
+
     def __init__(
         self,
         message: str,
         *,
         file_path: str,
         operation: str,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -108,18 +117,19 @@ class FileOperationError(PDFMergeError):
             full_message,
             original_error=original_error,
             file_path=file_path,
-            operation=operation
+            operation=operation,
         )
 
 
 class PathNotFoundError(PDFMergeError):
     """パスが見つからないエラー"""
+
     def __init__(
         self,
         path: str,
         *,
         description: Optional[str] = None,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -132,17 +142,20 @@ class PathNotFoundError(PDFMergeError):
         else:
             message = f"パスが見つかりません: {path}"
 
-        super().__init__(message, original_error=original_error, path=path, description=description)
+        super().__init__(
+            message, original_error=original_error, path=path, description=description
+        )
 
 
 class PDFProcessingError(PDFMergeError):
     """PDF処理エラー"""
+
     def __init__(
         self,
         message: str,
         *,
         operation: str,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -151,18 +164,21 @@ class PDFProcessingError(PDFMergeError):
             original_error: 元の例外
         """
         full_message = f"PDF{operation}エラー: {message}"
-        super().__init__(full_message, original_error=original_error, operation=operation)
+        super().__init__(
+            full_message, original_error=original_error, operation=operation
+        )
 
 
 class ExcelProcessingError(PDFMergeError):
     """Excel処理エラー"""
+
     def __init__(
         self,
         message: str,
         *,
         file_path: str,
         operation: str,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -176,18 +192,19 @@ class ExcelProcessingError(PDFMergeError):
             full_message,
             original_error=original_error,
             file_path=file_path,
-            operation=operation
+            operation=operation,
         )
 
 
 class FolderStructureError(PDFMergeError):
     """フォルダ構造分析エラー"""
+
     def __init__(
         self,
         message: str,
         *,
         directory_path: Optional[str] = None,
-        original_error: Optional[Exception] = None
+        original_error: Optional[Exception] = None,
     ) -> None:
         """
         Args:
@@ -198,10 +215,13 @@ class FolderStructureError(PDFMergeError):
         if directory_path:
             message = f"{message} [directory={directory_path}]"
 
-        super().__init__(message, original_error=original_error, directory_path=directory_path)
+        super().__init__(
+            message, original_error=original_error, directory_path=directory_path
+        )
 
 
 class CancelledError(PDFMergeError):
     """処理がキャンセルされたことを示す例外"""
+
     def __init__(self, message: str = "処理がキャンセルされました") -> None:
         super().__init__(message)

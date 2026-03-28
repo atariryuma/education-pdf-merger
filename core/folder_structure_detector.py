@@ -17,14 +17,16 @@ logger = logging.getLogger(__name__)
 
 class PlanType(Enum):
     """計画タイプの列挙型"""
+
     EDUCATION = "education"  # 教育計画（3層構造）
-    EVENT = "event"          # 行事計画（2層構造）
+    EVENT = "event"  # 行事計画（2層構造）
     AMBIGUOUS = "ambiguous"  # 判定不能
 
 
 @dataclass
 class DetectionResult:
     """フォルダ構造判定結果"""
+
     plan_type: PlanType
     confidence: float  # 0.0-1.0
     evidence: Dict[str, Any]
@@ -63,9 +65,7 @@ class FolderStructureDetector:
             event_score = self._calculate_event_score(scan_result)
 
             # ステップ3: 判定
-            result = self._make_decision(
-                scan_result, education_score, event_score
-            )
+            result = self._make_decision(scan_result, education_score, event_score)
 
             logger.info(
                 f"判定完了: {result.plan_type.value} "
@@ -82,7 +82,7 @@ class FolderStructureDetector:
             raise FolderStructureError(
                 f"フォルダ構造の分析中にエラーが発生しました: {e}",
                 directory_path=directory_path,
-                original_error=e
+                original_error=e,
             ) from e
 
     def _scan_directory(self, directory_path: str) -> Dict[str, Any]:
@@ -92,16 +92,15 @@ class FolderStructureDetector:
         # 除外パターン（表紙ファイル、隠しファイル等）
         def should_exclude(name: str) -> bool:
             return (
-                name.startswith('.') or
-                name.startswith('~') or
-                name == '__pycache__' or
-                '表紙' in name
+                name.startswith(".")
+                or name.startswith("~")
+                or name == "__pycache__"
+                or "表紙" in name
             )
 
         try:
             items = [
-                item for item in os.listdir(directory_path)
-                if not should_exclude(item)
+                item for item in os.listdir(directory_path) if not should_exclude(item)
             ]
         except PermissionError as e:
             logger.error(f"ディレクトリアクセス権限エラー: {e}")
@@ -118,24 +117,22 @@ class FolderStructureDetector:
                 # メインディレクトリの分析
                 dir_info = self._analyze_directory(item_path, depth=2)
                 main_dirs.append(dir_info)
-                max_depth = max(max_depth, dir_info['max_depth'])
+                max_depth = max(max_depth, dir_info["max_depth"])
             elif item_path.is_file():
                 root_files.append(item)
 
-        total_files = len(root_files) + sum(
-            d['total_files'] for d in main_dirs
-        )
+        total_files = len(root_files) + sum(d["total_files"] for d in main_dirs)
 
         result = {
-            'main_dirs': main_dirs,
-            'root_files': root_files,
-            'max_depth': max_depth,
-            'total_files': total_files,
-            'main_dir_count': len(main_dirs),
-            'root_file_count': len(root_files),
-            'root_file_ratio': (
+            "main_dirs": main_dirs,
+            "root_files": root_files,
+            "max_depth": max_depth,
+            "total_files": total_files,
+            "main_dir_count": len(main_dirs),
+            "root_file_count": len(root_files),
+            "root_file_ratio": (
                 len(root_files) / total_files if total_files > 0 else 0
-            )
+            ),
         }
 
         logger.debug(
@@ -147,9 +144,7 @@ class FolderStructureDetector:
 
         return result
 
-    def _analyze_directory(
-        self, dir_path: Path, depth: int
-    ) -> Dict[str, Any]:
+    def _analyze_directory(self, dir_path: Path, depth: int) -> Dict[str, Any]:
         """
         ディレクトリを再帰的に分析
 
@@ -163,12 +158,12 @@ class FolderStructureDetector:
         # 深さ制限
         if depth > self.MAX_SCAN_DEPTH:
             return {
-                'subfolders': [],
-                'files': [],
-                'max_depth': depth,
-                'subfolder_count': 0,
-                'file_count': 0,
-                'total_files': 0
+                "subfolders": [],
+                "files": [],
+                "max_depth": depth,
+                "subfolder_count": 0,
+                "file_count": 0,
+                "total_files": 0,
             }
 
         subfolders = []
@@ -181,17 +176,17 @@ class FolderStructureDetector:
         except PermissionError:
             logger.warning(f"アクセス権限なし: {dir_path}")
             return {
-                'subfolders': [],
-                'files': [],
-                'max_depth': depth,
-                'subfolder_count': 0,
-                'file_count': 0,
-                'total_files': 0
+                "subfolders": [],
+                "files": [],
+                "max_depth": depth,
+                "subfolder_count": 0,
+                "file_count": 0,
+                "total_files": 0,
             }
 
         # Path.iterdir()を使用してディレクトリを走査
         for item in items_iter:
-            if item.name.startswith('.') or item.name.startswith('~'):
+            if item.name.startswith(".") or item.name.startswith("~"):
                 continue
 
             try:
@@ -204,54 +199,53 @@ class FolderStructureDetector:
                 if item.is_dir():
                     sub_info = self._analyze_directory(item, depth + 1)
                     subfolders.append(sub_info)
-                    max_depth = max(max_depth, sub_info['max_depth'])
+                    max_depth = max(max_depth, sub_info["max_depth"])
                 elif item.is_file():
                     files.append(item.name)
             except OSError as e:
                 # シンボリックリンクエラー、権限エラー等をスキップ
-                logger.debug(f"ファイル/フォルダアクセスエラー（スキップ）: {item}, エラー: {e}")
+                logger.debug(
+                    f"ファイル/フォルダアクセスエラー（スキップ）: {item}, エラー: {e}"
+                )
                 continue
 
-        total_files = len(files) + sum(
-            s['total_files'] for s in subfolders
-        )
+        total_files = len(files) + sum(s["total_files"] for s in subfolders)
 
         return {
-            'subfolders': subfolders,
-            'files': files,
-            'max_depth': max_depth,
-            'subfolder_count': len(subfolders),
-            'file_count': len(files),
-            'total_files': total_files
+            "subfolders": subfolders,
+            "files": files,
+            "max_depth": max_depth,
+            "subfolder_count": len(subfolders),
+            "file_count": len(files),
+            "total_files": total_files,
         }
 
-    def _calculate_education_score(
-        self, scan_result: Dict[str, Any]
-    ) -> float:
+    def _calculate_education_score(self, scan_result: Dict[str, Any]) -> float:
         """教育計画（3層構造）スコアを計算
 
         教育計画の特徴: ルート直下に多数のカテゴリフォルダ（5個以上）、
         各フォルダの下にはサブフォルダが少数（平均5個以下）
         """
         score = 0.0
-        main_dir_count = scan_result['main_dir_count']
+        main_dir_count = scan_result["main_dir_count"]
 
         # メインディレクトリ数（5個以上で教育計画らしい、4個以下は加点なし）
         if main_dir_count >= self.MIN_MAIN_DIRS_FOR_EDUCATION:
             score += main_dir_count * 2.0
             # サブフォルダの平均数（教育計画は多数のカテゴリに少数のサブフォルダ）
-            avg_subfolders = sum(
-                d['subfolder_count'] for d in scan_result['main_dirs']
-            ) / main_dir_count
+            avg_subfolders = (
+                sum(d["subfolder_count"] for d in scan_result["main_dirs"])
+                / main_dir_count
+            )
             capped_avg = min(avg_subfolders, 5.0)
             score += capped_avg * 1.5
 
         # 階層の深さ
-        if scan_result['max_depth'] >= 3:
+        if scan_result["max_depth"] >= 3:
             score += 3.0
 
         # ルートファイル比率が低い
-        if scan_result['root_file_ratio'] < self.MAX_ROOT_FILE_RATIO_FOR_EDUCATION:
+        if scan_result["root_file_ratio"] < self.MAX_ROOT_FILE_RATIO_FOR_EDUCATION:
             score += 2.0
 
         return score
@@ -263,29 +257,30 @@ class FolderStructureDetector:
         各フォルダの下に多数の行事フォルダがある
         """
         score = 0.0
-        main_dir_count = scan_result['main_dir_count']
+        main_dir_count = scan_result["main_dir_count"]
 
         # ルートファイル数（多いほど高スコア）
-        score += scan_result['root_file_count'] * 1.0
+        score += scan_result["root_file_count"] * 1.0
 
         # サブフォルダがない／少ない
         if main_dir_count <= 3:
             score += 1.5
 
         # 階層が浅い
-        if scan_result['max_depth'] <= 2:
+        if scan_result["max_depth"] <= 2:
             score += 3.0
 
         # ルートファイル比率が高い
-        if scan_result['root_file_ratio'] > 0.5:
+        if scan_result["root_file_ratio"] > 0.5:
             score += 2.0
 
         # 行事計画パターン: ルート直下のフォルダが少数（2〜4個）で、
         # その下に多数のフォルダ（行事）がある
         if 2 <= main_dir_count <= 4:
-            avg_subfolders = sum(
-                d['subfolder_count'] for d in scan_result['main_dirs']
-            ) / main_dir_count
+            avg_subfolders = (
+                sum(d["subfolder_count"] for d in scan_result["main_dirs"])
+                / main_dir_count
+            )
             if avg_subfolders >= 5:
                 score += 20.0  # 強い行事計画シグナル
                 logger.debug(
@@ -296,10 +291,7 @@ class FolderStructureDetector:
         return score
 
     def _make_decision(
-        self,
-        scan_result: Dict[str, Any],
-        education_score: float,
-        event_score: float
+        self, scan_result: Dict[str, Any], education_score: float, event_score: float
     ) -> DetectionResult:
         """スコアから最終判定"""
         score_diff = abs(education_score - event_score)
@@ -313,26 +305,26 @@ class FolderStructureDetector:
 
         # 証拠データ
         evidence = {
-            'education_score': education_score,
-            'event_score': event_score,
-            'score_difference': score_diff,
-            'main_dir_count': scan_result['main_dir_count'],
-            'root_file_count': scan_result['root_file_count'],
-            'max_depth': scan_result['max_depth'],
-            'root_file_ratio': scan_result['root_file_ratio']
+            "education_score": education_score,
+            "event_score": event_score,
+            "score_difference": score_diff,
+            "main_dir_count": scan_result["main_dir_count"],
+            "root_file_count": scan_result["root_file_count"],
+            "max_depth": scan_result["max_depth"],
+            "root_file_ratio": scan_result["root_file_ratio"],
         }
 
         # 判定
         issues = []
 
         # 空ディレクトリの処理
-        if scan_result['total_files'] == 0:
+        if scan_result["total_files"] == 0:
             issues.append("ディレクトリにファイルが存在しません")
             return DetectionResult(
                 plan_type=PlanType.AMBIGUOUS,
                 confidence=0.0,
                 evidence=evidence,
-                issues=issues
+                issues=issues,
             )
 
         # 確信度による判定
@@ -356,8 +348,5 @@ class FolderStructureDetector:
             )
 
         return DetectionResult(
-            plan_type=plan_type,
-            confidence=confidence,
-            evidence=evidence,
-            issues=issues
+            plan_type=plan_type, confidence=confidence, evidence=evidence, issues=issues
         )

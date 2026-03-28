@@ -13,7 +13,16 @@ import fitz  # PyMuPDF
 from PyPDF2 import PdfMerger
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, Frame, PageTemplate, Table, TableStyle, SimpleDocTemplate
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Paragraph,
+    Spacer,
+    Frame,
+    PageTemplate,
+    Table,
+    TableStyle,
+    SimpleDocTemplate,
+)
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -86,15 +95,15 @@ class PDFProcessor:
         Raises:
             PDFProcessingError: フォント登録に失敗した場合
         """
-        font_path = self.config.get('fonts', 'mincho')
+        font_path = self.config.get("fonts", "mincho")
         try:
-            pdfmetrics.registerFont(TTFont('Mincho', font_path))
+            pdfmetrics.registerFont(TTFont("Mincho", font_path))
             logger.debug("Minchoフォントを登録しました")
         except Exception as e:
             raise PDFProcessingError(
                 f"Minchoフォントの登録に失敗しました。フォントファイルを確認してください: {font_path}",
                 operation="フォント登録",
-                original_error=e
+                original_error=e,
             ) from e
 
     def merge_pdfs(self, pdf_paths: List[str], output_file: str) -> None:
@@ -136,7 +145,7 @@ class PDFProcessor:
         """
         try:
             with self._atomic_pdf_operation(pdf_path) as tmp_file:
-                gs_executable = self.config.get('ghostscript', 'executable')
+                gs_executable = self.config.get("ghostscript", "executable")
 
                 gs_command = [
                     gs_executable,
@@ -147,10 +156,12 @@ class PDFProcessor:
                     "-dQUIET",
                     "-dBATCH",
                     f"-sOutputFile={tmp_file}",
-                    pdf_path
+                    pdf_path,
                 ]
 
-                subprocess.run(gs_command, check=True, timeout=PDFConstants.GS_TIMEOUT_SECONDS)
+                subprocess.run(
+                    gs_command, check=True, timeout=PDFConstants.GS_TIMEOUT_SECONDS
+                )
                 logger.info(f"Ghostscriptを使用してPDFを圧縮しました: {pdf_path}")
                 return True
         except subprocess.TimeoutExpired:
@@ -190,10 +201,12 @@ class PDFProcessor:
             raise PDFProcessingError(
                 f"PDFファイルの読み込みに失敗: {pdf_path}",
                 operation="ページ数取得",
-                original_error=e
+                original_error=e,
             ) from e
 
-    def add_page_numbers(self, pdf_file: str, exclude_first_pages: int = PDFConstants.COVER_PAGE_COUNT) -> None:
+    def add_page_numbers(
+        self, pdf_file: str, exclude_first_pages: int = PDFConstants.COVER_PAGE_COUNT
+    ) -> None:
         """
         PDFにページ番号を追加
 
@@ -216,20 +229,25 @@ class PDFProcessor:
                     # ページ中央下部に配置
                     point = fitz.Point(
                         rect.width / 2 - PDFConstants.PAGE_NUMBER_X_OFFSET,
-                        rect.height - PDFConstants.PAGE_NUMBER_BOTTOM_MARGIN
+                        rect.height - PDFConstants.PAGE_NUMBER_BOTTOM_MARGIN,
                     )
                     page.insert_text(
-                        point, number_text,
+                        point,
+                        number_text,
                         fontsize=PDFConstants.PAGE_NUMBER_FONT_SIZE,
                         fontname=PDFConstants.PAGE_NUMBER_FONT_NAME,
-                        color=(0, 0, 0)
+                        color=(0, 0, 0),
                     )
 
                 doc.save(tmp_file)
 
-            logger.info(f"ページ番号を追加しました: {pdf_file} (先頭{exclude_first_pages}ページはスキップ)")
+            logger.info(
+                f"ページ番号を追加しました: {pdf_file} (先頭{exclude_first_pages}ページはスキップ)"
+            )
 
-    def set_pdf_outlines(self, pdf_file: str, toc_entries: List[Tuple[str, int, int]]) -> None:
+    def set_pdf_outlines(
+        self, pdf_file: str, toc_entries: List[Tuple[str, int, int]]
+    ) -> None:
         """
         PDFにアウトライン（しおり）を設定
 
@@ -245,15 +263,22 @@ class PDFProcessor:
                 for title, level, page in toc_entries:
                     # ページ番号を有効範囲に補正
                     if page < 1:
-                        logger.warning(f"目次エントリ '{title}' のページ番号が範囲外: {page} < 1")
+                        logger.warning(
+                            f"目次エントリ '{title}' のページ番号が範囲外: {page} < 1"
+                        )
                         page = 1
                     if page > page_count:
-                        logger.warning(f"目次エントリ '{title}' のページ番号が範囲外: {page} > {page_count}")
+                        logger.warning(
+                            f"目次エントリ '{title}' のページ番号が範囲外: {page} > {page_count}"
+                        )
                         page = page_count
                     corrected_outlines.append([level, title, page])
 
                 # PyMuPDFの制約：最初の項目は必ずレベル1
-                if corrected_outlines and corrected_outlines[0][0] != PDFConstants.HEADING_LEVEL_MAIN:
+                if (
+                    corrected_outlines
+                    and corrected_outlines[0][0] != PDFConstants.HEADING_LEVEL_MAIN
+                ):
                     corrected_outlines[0][0] = PDFConstants.HEADING_LEVEL_MAIN
 
                 logger.debug(f"PDFアウトラインを設定: {corrected_outlines}")
@@ -263,7 +288,9 @@ class PDFProcessor:
 
             logger.info("PDFアウトライン（しおり）を設定しました")
 
-    def create_toc_pdf(self, toc_entries: List[Tuple[str, int, int]], output_path: str) -> int:
+    def create_toc_pdf(
+        self, toc_entries: List[Tuple[str, int, int]], output_path: str
+    ) -> int:
         """
         目次ページのPDFを作成
 
@@ -280,9 +307,9 @@ class PDFProcessor:
             y1=doc.bottomMargin,
             width=doc.width,
             height=doc.height,
-            id=PDFConstants.TOC_FRAME_ID
+            id=PDFConstants.TOC_FRAME_ID,
         )
-        doc.addPageTemplates([PageTemplate(id='normal', frames=[frame])])
+        doc.addPageTemplates([PageTemplate(id="normal", frames=[frame])])
 
         # テーブルデータの作成
         table_data = []
@@ -298,22 +325,28 @@ class PDFProcessor:
         # テーブルの作成（定数化した比率を使用）
         col_widths = [
             doc.width * PDFConstants.TOC_TITLE_COL_WIDTH_RATIO,
-            doc.width * PDFConstants.TOC_PAGE_COL_WIDTH_RATIO
+            doc.width * PDFConstants.TOC_PAGE_COL_WIDTH_RATIO,
         ]
         toc_table = Table(table_data, colWidths=col_widths)
-        toc_table.setStyle(TableStyle([
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Mincho'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('LINEBELOW', (0, 0), (-1, -1), 0.25, colors.grey),
-        ]))
+        toc_table.setStyle(
+            TableStyle(
+                [
+                    ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("FONTNAME", (0, 0), (-1, -1), "Mincho"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 12),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.grey),
+                ]
+            )
+        )
 
         # ストーリーの構築
         story = []
-        title_style = ParagraphStyle('toc_title', fontName='Mincho', fontSize=18, spaceAfter=12)
+        title_style = ParagraphStyle(
+            "toc_title", fontName="Mincho", fontSize=18, spaceAfter=12
+        )
         story.append(Paragraph("目次", title_style))
         story.append(Spacer(1, 0.2 * inch))
         story.append(toc_table)
@@ -339,11 +372,11 @@ class PDFProcessor:
 
         # タイトルスタイル: 明朝体24pt、中央揃え
         title_style = ParagraphStyle(
-            'separator_title',
-            fontName='Mincho',
+            "separator_title",
+            fontName="Mincho",
             fontSize=24,
             alignment=TA_CENTER,
-            leading=36  # 行間
+            leading=36,  # 行間
         )
 
         # ストーリー構築: 縦中央配置
@@ -383,7 +416,9 @@ class PDFProcessor:
 
                 if doc.page_count > 1:
                     with fitz.open() as remainder_doc:
-                        remainder_doc.insert_pdf(doc, from_page=1, to_page=doc.page_count - 1)
+                        remainder_doc.insert_pdf(
+                            doc, from_page=1, to_page=doc.page_count - 1
+                        )
                         remainder_doc.save(remainder_pdf)
                 else:
                     remainder_pdf = None  # type: ignore[assignment]
@@ -394,7 +429,5 @@ class PDFProcessor:
         except Exception as e:
             logger.error(f"PDF分割エラー ({pdf_path}): {e}")
             raise PDFProcessingError(
-                f"PDFの分割に失敗: {pdf_path}",
-                operation="分割",
-                original_error=e
+                f"PDFの分割に失敗: {pdf_path}", operation="分割", original_error=e
             ) from e

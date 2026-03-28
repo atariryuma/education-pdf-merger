@@ -14,10 +14,7 @@ class PlanTypeSelectionDialog(tk.Toplevel):
     """計画種別選択ダイアログ"""
 
     def __init__(
-        self,
-        parent: tk.Widget,
-        detection_result: Any,
-        callback: Callable[[str], None]
+        self, parent: tk.Widget, detection_result: Any, callback: Callable[[str], None]
     ) -> None:
         """
         Args:
@@ -53,8 +50,8 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         title_label = tk.Label(
             main_frame,
             text="計画種別を選択してください",
-            font=FONTS['dialog_heading'],
-            fg=COLORS['text_primary']
+            font=FONTS["dialog_heading"],
+            fg=COLORS["text_primary"],
         )
         title_label.pack(pady=(0, 10))
 
@@ -62,9 +59,9 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         message_label = tk.Label(
             main_frame,
             text="フォルダ構造から自動判定できませんでした。\n計画種別を手動で選択してください。",
-            font=FONTS['default'],
+            font=FONTS["default"],
             justify=tk.CENTER,
-            fg=COLORS['text_secondary']
+            fg=COLORS["text_secondary"],
         )
         message_label.pack(pady=(0, 20))
 
@@ -72,9 +69,9 @@ class PlanTypeSelectionDialog(tk.Toplevel):
         info_frame = tk.LabelFrame(
             main_frame,
             text="フォルダ構造の分析結果",
-            font=FONTS['default_bold'],
+            font=FONTS["default_bold"],
             padx=15,
-            pady=15
+            pady=15,
         )
         info_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
 
@@ -86,23 +83,17 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             ("最大階層深度", f"{evidence.get('max_depth', 0)}層"),
             ("ルートファイル比率", f"{evidence.get('root_file_ratio', 0):.1%}"),
             ("教育計画スコア", f"{evidence.get('education_score', 0):.1f}"),
-            ("行事計画スコア", f"{evidence.get('event_score', 0):.1f}")
+            ("行事計画スコア", f"{evidence.get('event_score', 0):.1f}"),
         ]
 
         for i, (label_text, value_text) in enumerate(info_items):
             label = tk.Label(
-                info_frame,
-                text=f"{label_text}:",
-                font=FONTS['default'],
-                anchor="w"
+                info_frame, text=f"{label_text}:", font=FONTS["default"], anchor="w"
             )
             label.grid(row=i, column=0, sticky="w", pady=5)
 
             value = tk.Label(
-                info_frame,
-                text=value_text,
-                font=FONTS['default_bold'],
-                anchor="e"
+                info_frame, text=value_text, font=FONTS["default_bold"], anchor="e"
             )
             value.grid(row=i, column=1, sticky="e", pady=5, padx=(20, 0))
 
@@ -118,12 +109,12 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             button_frame,
             text="📚 教育計画\n（3層構造）",
             command=lambda: self._on_select("education"),
-            bg=COLORS['valid'],
+            bg=COLORS["valid"],
             fg="white",
-            font=FONTS['subheading'],
+            font=FONTS["subheading"],
             width=15,
             height=3,
-            cursor="hand2"
+            cursor="hand2",
         )
         education_btn.pack(side=tk.LEFT, padx=10)
 
@@ -132,12 +123,12 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             button_frame,
             text="📅 行事計画\n（2層構造）",
             command=lambda: self._on_select("event"),
-            bg=COLORS['primary'],
+            bg=COLORS["primary"],
             fg="white",
-            font=FONTS['subheading'],
+            font=FONTS["subheading"],
             width=15,
             height=3,
-            cursor="hand2"
+            cursor="hand2",
         )
         event_btn.pack(side=tk.LEFT, padx=10)
 
@@ -146,8 +137,8 @@ class PlanTypeSelectionDialog(tk.Toplevel):
             main_frame,
             text="キャンセル",
             command=self._on_cancel,
-            font=FONTS['default'],
-            cursor="hand2"
+            font=FONTS["default"],
+            cursor="hand2",
         )
         cancel_btn.pack()
 

@@ -6,6 +6,7 @@ Ghostscriptの自動検出、パス検証、動作確認、インストール案
 import logging
 import os
 import subprocess
+
 try:
     import winreg
 except ImportError:
@@ -32,7 +33,7 @@ class GhostscriptDetector:
     GS_EXECUTABLES = [
         "gswin64c.exe",  # 64bit コンソール版（推奨）
         "gswin32c.exe",  # 32bit コンソール版
-        "gs.exe",        # 汎用名
+        "gs.exe",  # 汎用名
     ]
 
     # 標準インストールパス
@@ -102,7 +103,7 @@ class GhostscriptDetector:
     def _check_environment_variables(cls) -> Optional[str]:
         """環境変数からGhostscriptを検出"""
         # GS_DLL環境変数
-        gs_dll = os.environ.get('GS_DLL')
+        gs_dll = os.environ.get("GS_DLL")
         if gs_dll and Path(gs_dll).exists():
             dll_dir = Path(gs_dll).parent
             for exe_name in cls.GS_EXECUTABLES:
@@ -111,9 +112,9 @@ class GhostscriptDetector:
                     return str(exe_path)
 
         # GS_LIB環境変数（セミコロン区切りの複数パスに対応）
-        gs_lib = os.environ.get('GS_LIB')
+        gs_lib = os.environ.get("GS_LIB")
         if gs_lib:
-            for lib_path_str in gs_lib.split(';'):
+            for lib_path_str in gs_lib.split(";"):
                 lib_path_str = lib_path_str.strip()
                 if not lib_path_str:
                     continue
@@ -145,21 +146,29 @@ class GhostscriptDetector:
                         try:
                             version = winreg.EnumKey(key, i)
                             try:
-                                with winreg.OpenKey(root, f"{key_path}\\{version}") as ver_key:
+                                with winreg.OpenKey(
+                                    root, f"{key_path}\\{version}"
+                                ) as ver_key:
                                     try:
-                                        gs_dll = winreg.QueryValueEx(ver_key, "GS_DLL")[0]
+                                        gs_dll = winreg.QueryValueEx(ver_key, "GS_DLL")[
+                                            0
+                                        ]
                                         if Path(gs_dll).exists():
                                             dll_dir = Path(gs_dll).parent
                                             for exe_name in cls.GS_EXECUTABLES:
                                                 exe_path = dll_dir / exe_name
                                                 if exe_path.exists():
-                                                    found_versions.append((version, str(exe_path)))
+                                                    found_versions.append(
+                                                        (version, str(exe_path))
+                                                    )
                                                     break
                                     except FileNotFoundError:
                                         pass
 
                                     try:
-                                        gs_lib = winreg.QueryValueEx(ver_key, "GS_LIB")[0]
+                                        gs_lib = winreg.QueryValueEx(ver_key, "GS_LIB")[
+                                            0
+                                        ]
                                         lib_dir = Path(gs_lib)
                                         if lib_dir.exists():
                                             bin_dir = lib_dir.parent / "bin"
@@ -167,7 +176,9 @@ class GhostscriptDetector:
                                                 for exe_name in cls.GS_EXECUTABLES:
                                                     exe_path = bin_dir / exe_name
                                                     if exe_path.exists():
-                                                        found_versions.append((version, str(exe_path)))
+                                                        found_versions.append(
+                                                            (version, str(exe_path))
+                                                        )
                                                         break
                                     except FileNotFoundError:
                                         pass
@@ -184,7 +195,9 @@ class GhostscriptDetector:
 
         if found_versions:
             found_versions.sort(reverse=True, key=lambda x: cls._parse_version(x[0]))
-            logger.debug(f"レジストリから検出されたGhostscriptバージョン: {[v[0] for v in found_versions]}")
+            logger.debug(
+                f"レジストリから検出されたGhostscriptバージョン: {[v[0] for v in found_versions]}"
+            )
             return found_versions[0][1]
 
         return None
@@ -193,7 +206,7 @@ class GhostscriptDetector:
     def _parse_version(cls, version_str: str) -> Tuple[int, ...]:
         """バージョン文字列を解析してタプルに変換"""
         try:
-            parts = version_str.split('.')
+            parts = version_str.split(".")
             return tuple(int(p) for p in parts)
         except (ValueError, AttributeError):
             return (0,)
@@ -216,7 +229,7 @@ class GhostscriptDetector:
     @classmethod
     def _check_path_env(cls) -> Optional[str]:
         """PATH環境変数から検出"""
-        path_env = os.environ.get('PATH', '')
+        path_env = os.environ.get("PATH", "")
         for path_dir in path_env.split(os.pathsep):
             if not path_dir:
                 continue
@@ -279,10 +292,7 @@ class GhostscriptDetector:
 
         try:
             result = subprocess.run(
-                [gs_path, "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10
+                [gs_path, "--version"], capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
                 version = result.stdout.strip()
@@ -300,8 +310,10 @@ class GhostscriptDetector:
     @classmethod
     def get_install_instructions(cls) -> str:
         """インストール手順を取得"""
-        return ("Ghostscriptが見つかりませんでした。\n\n"
-                "設定タブの「⬇ インストール」ボタンで自動インストールできます。")
+        return (
+            "Ghostscriptが見つかりませんでした。\n\n"
+            "設定タブの「⬇ インストール」ボタンで自動インストールできます。"
+        )
 
 
 class GhostscriptInstaller:
@@ -316,8 +328,7 @@ class GhostscriptInstaller:
 
     @classmethod
     def download_and_install(
-        cls,
-        progress_callback: Optional[Callable] = None
+        cls, progress_callback: Optional[Callable] = None
     ) -> tuple:
         """
         Ghostscriptをダウンロードしてサイレントインストール
@@ -333,7 +344,7 @@ class GhostscriptInstaller:
         import urllib.request
         import urllib.error
 
-        is_64bit = platform.machine().endswith('64')
+        is_64bit = platform.machine().endswith("64")
 
         # ダウンロードURLを決定
         download_url = cls._get_download_url(is_64bit)
@@ -350,7 +361,11 @@ class GhostscriptInstaller:
             logger.info(f"Ghostscriptインストーラーをダウンロード: {installer_path}")
         except (urllib.error.URLError, OSError) as e:
             logger.error(f"ダウンロード失敗: {e}")
-            return False, f"ダウンロードに失敗しました。\n\nインターネット接続を確認してください。\n詳細: {e}", None
+            return (
+                False,
+                f"ダウンロードに失敗しました。\n\nインターネット接続を確認してください。\n詳細: {e}",
+                None,
+            )
 
         if progress_callback:
             progress_callback("📦 インストール中...")
@@ -358,12 +373,15 @@ class GhostscriptInstaller:
         # サイレントインストール実行
         try:
             result = subprocess.run(
-                [installer_path, "/S"],
-                capture_output=True, text=True, timeout=120
+                [installer_path, "/S"], capture_output=True, text=True, timeout=120
             )
             if result.returncode != 0:
                 logger.error(f"インストーラー終了コード: {result.returncode}")
-                return False, f"インストールに失敗しました（終了コード: {result.returncode}）", None
+                return (
+                    False,
+                    f"インストールに失敗しました（終了コード: {result.returncode}）",
+                    None,
+                )
         except subprocess.TimeoutExpired:
             return False, "インストールがタイムアウトしました（120秒）", None
         except OSError as e:
@@ -381,9 +399,17 @@ class GhostscriptInstaller:
         # インストール後に自動検出
         gs_path = GhostscriptDetector.detect()
         if gs_path and GhostscriptDetector.verify(gs_path):
-            return True, f"Ghostscriptのインストールが完了しました。\n\nパス: {gs_path}", gs_path
+            return (
+                True,
+                f"Ghostscriptのインストールが完了しました。\n\nパス: {gs_path}",
+                gs_path,
+            )
         else:
-            return False, "インストールは完了しましたが、Ghostscriptが検出できませんでした。\n再起動後に自動検出を試してください。", None
+            return (
+                False,
+                "インストールは完了しましたが、Ghostscriptが検出できませんでした。\n再起動後に自動検出を試してください。",
+                None,
+            )
 
     @classmethod
     def _get_download_url(cls, is_64bit: bool) -> Optional[str]:
@@ -394,8 +420,7 @@ class GhostscriptInstaller:
 
         try:
             req = urllib.request.Request(
-                cls.GITHUB_API_URL,
-                headers={"User-Agent": "PDFMergeSystem"}
+                cls.GITHUB_API_URL, headers={"User-Agent": "PDFMergeSystem"}
             )
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode())

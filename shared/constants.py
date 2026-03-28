@@ -9,29 +9,34 @@ from typing import Dict, List
 
 class WordFormat(IntEnum):
     """Word FileFormat定数"""
+
     PDF = 17  # wdFormatPDF
 
 
 class ExcelFormat(IntEnum):
     """Excel FileFormat定数"""
+
     PDF = 0  # xlTypePDF
 
 
 class PowerPointFormat(IntEnum):
     """PowerPoint FileFormat定数"""
+
     PDF = 32  # ppSaveAsPDF
 
 
 class ExcelSortOrder(IntEnum):
     """Excelソート順の定数"""
-    ASCENDING = 1   # xlAscending (昇順)
+
+    ASCENDING = 1  # xlAscending (昇順)
     DESCENDING = 2  # xlDescending (降順)
 
 
 class ExcelSortHeader(IntEnum):
     """Excelソートヘッダーの定数"""
+
     YES = 1  # xlYes (ヘッダー行あり)
-    NO = 0   # xlNo (ヘッダー行なし)
+    NO = 0  # xlNo (ヘッダー行なし)
 
 
 class ExcelTransferConstants:
@@ -58,7 +63,17 @@ class ExcelTransferConstants:
     EVENT_NAME_PATTERNS: Dict[str, List[str]] = {
         "儀式": ["式", "記念"],
         "文化": ["発表", "音楽", "展覧", "学芸", "作品"],
-        "保健": ["運動", "体育", "健康", "避難", "身体", "測定", "水泳", "マラソン", "プール"],
+        "保健": [
+            "運動",
+            "体育",
+            "健康",
+            "避難",
+            "身体",
+            "測定",
+            "水泳",
+            "マラソン",
+            "プール",
+        ],
         "遠足": ["遠足", "旅行", "校外", "宿泊", "見学"],
         "勤労": ["清掃", "奉仕", "勤労", "ボランティア"],
         "その": ["その他", "集会", "朝会"],
@@ -91,14 +106,14 @@ class ExcelTransferConstants:
 
     # 参照ファイルの列範囲
     REF_DATA_START_COL = "E"  # E列から開始
-    REF_DATA_END_COL = "AN"   # AN列まで（36列＝6学年×6校時）
-    REF_SEARCH_COL = 3        # C列（行事名検索用）
-    REF_DATE_COL = 1          # A列（日付取得用）
+    REF_DATA_END_COL = "AN"  # AN列まで（36列＝6学年×6校時）
+    REF_SEARCH_COL = 3  # C列（行事名検索用）
+    REF_DATE_COL = 1  # A列（日付取得用）
 
     # 学年別のデータ構造
-    GRADES_COUNT = 6          # 学年数
-    PERIODS_PER_GRADE = 6     # 1学年あたりの校時数
-    TOTAL_COLUMNS = 36        # 総列数（6学年×6校時）
+    GRADES_COUNT = 6  # 学年数
+    PERIODS_PER_GRADE = 6  # 1学年あたりの校時数
+    TOTAL_COLUMNS = 36  # 総列数（6学年×6校時）
 
     # 学年別マッピング（反映ファイル）
     # {学年: (行事時数の列, 欠時数の列)}
@@ -108,13 +123,13 @@ class ExcelTransferConstants:
         3: ("I", "J"),
         4: ("K", "L"),
         5: ("M", "N"),
-        6: ("O", "P")
+        6: ("O", "P"),
     }
 
     # 反映ファイルの列
-    TARGET_DATE_COL = "A"           # 日付列
-    TARGET_PROCESS_DATE_COL = "B"   # 処理日列
-    TARGET_FILTER_COL = "C"         # フィルターキーワード列（D8～D50用）
+    TARGET_DATE_COL = "A"  # 日付列
+    TARGET_PROCESS_DATE_COL = "B"  # 処理日列
+    TARGET_FILTER_COL = "C"  # フィルターキーワード列（D8～D50用）
 
     # 反映ファイルのクリア範囲（A～P列 = 16列）
     TARGET_CLEAR_RANGE = "A{row}:P{row}"
@@ -133,9 +148,9 @@ class AppConstants:
 
     # 一太郎変換のデフォルト設定
     ICHITARO_DEFAULTS = {
-        'ichitaro_ready_timeout': 30,  # 一時ファイル検出の最大待機時間（秒）
-        'max_retries': 3,              # 最大リトライ回数
-        'save_wait_seconds': 20        # PDF保存待機時間（秒）
+        "ichitaro_ready_timeout": 30,  # 一時ファイル検出の最大待機時間（秒）
+        "max_retries": 3,  # 最大リトライ回数
+        "save_wait_seconds": 20,  # PDF保存待機時間（秒）
     }
 
     # 一時ファイルのデフォルト保持期間（時間）
@@ -143,15 +158,15 @@ class AppConstants:
 
     # GUIログハンドラーで使用するロガー名リスト
     GUI_LOGGER_NAMES = [
-        'core.pdf_converter',
-        'core.pdf_processor',
-        'core.document_collector',
-        'core.pdf_merge_orchestrator',
-        'core.update_excel_files',
-        'converters.office_converter',
-        'converters.image_converter',
-        'converters.ichitaro_converter',
-        '__main__'
+        "core.pdf_converter",
+        "core.pdf_processor",
+        "core.document_collector",
+        "core.pdf_merge_orchestrator",
+        "core.update_excel_files",
+        "converters.office_converter",
+        "converters.image_converter",
+        "converters.ichitaro_converter",
+        "__main__",
     ]
 
 
@@ -159,42 +174,42 @@ class PDFConstants:
     """PDF処理に関連する定数"""
 
     # ページ構成
-    COVER_PAGE_COUNT = 1       # 表紙ページ数
-    TOC_PAGE_COUNT = 1         # 目次ページ数
-    CONTENT_START_PAGE = 3     # コンテンツ開始ページ（表紙 + 目次 + 1）
+    COVER_PAGE_COUNT = 1  # 表紙ページ数
+    TOC_PAGE_COUNT = 1  # 目次ページ数
+    CONTENT_START_PAGE = 3  # コンテンツ開始ページ（表紙 + 目次 + 1）
 
     # ページ番号の表示設定
-    PAGE_NUMBER_X_OFFSET = 10          # 中央からの左オフセット（ポイント）
-    PAGE_NUMBER_BOTTOM_MARGIN = 30     # 下端からのマージン（ポイント）
-    PAGE_NUMBER_FONT_SIZE = 12         # フォントサイズ（ポイント）
-    PAGE_NUMBER_FONT_NAME = "helv"     # フォント名
+    PAGE_NUMBER_X_OFFSET = 10  # 中央からの左オフセット（ポイント）
+    PAGE_NUMBER_BOTTOM_MARGIN = 30  # 下端からのマージン（ポイント）
+    PAGE_NUMBER_FONT_SIZE = 12  # フォントサイズ（ポイント）
+    PAGE_NUMBER_FONT_NAME = "helv"  # フォント名
 
     # ページ数のデフォルト値
-    DEFAULT_PAGE_COUNT = 1             # 取得失敗時のフォールバック
+    DEFAULT_PAGE_COUNT = 1  # 取得失敗時のフォールバック
 
     # 目次見出しレベル
-    HEADING_LEVEL_MAIN = 1             # 大見出し（メインディレクトリ）
-    HEADING_LEVEL_SUB = 2              # 小見出し（サブフォルダ/ファイル）
+    HEADING_LEVEL_MAIN = 1  # 大見出し（メインディレクトリ）
+    HEADING_LEVEL_SUB = 2  # 小見出し（サブフォルダ/ファイル）
 
     # 目次レイアウト定数
-    TOC_TITLE_COL_WIDTH_RATIO = 0.8    # タイトル列の幅（ドキュメント幅に対する比率）
-    TOC_PAGE_COL_WIDTH_RATIO = 0.2     # ページ番号列の幅（ドキュメント幅に対する比率）
-    TOC_FRAME_ID = 'toc_frame'         # 目次フレームのID
+    TOC_TITLE_COL_WIDTH_RATIO = 0.8  # タイトル列の幅（ドキュメント幅に対する比率）
+    TOC_PAGE_COL_WIDTH_RATIO = 0.2  # ページ番号列の幅（ドキュメント幅に対する比率）
+    TOC_FRAME_ID = "toc_frame"  # 目次フレームのID
 
     # ファイル名接尾辞
-    TEMP_FILE_SUFFIX = ".tmp"          # 一時ファイルの拡張子
+    TEMP_FILE_SUFFIX = ".tmp"  # 一時ファイルの拡張子
 
     # Ghostscript圧縮設定
-    GS_COMPATIBILITY_LEVEL = "1.4"     # PDF互換性レベル
-    GS_PDF_SETTINGS = "/ebook"         # 品質設定
-    GS_TIMEOUT_SECONDS = 180           # タイムアウト（秒）
+    GS_COMPATIBILITY_LEVEL = "1.4"  # PDF互換性レベル
+    GS_PDF_SETTINGS = "/ebook"  # 品質設定
+    GS_TIMEOUT_SECONDS = 180  # タイムアウト（秒）
 
     # マージ処理ステップ数
-    MERGE_STEPS = 6                    # 圧縮なし
-    MERGE_STEPS_WITH_COMPRESS = 7      # 圧縮あり
+    MERGE_STEPS = 6  # 圧縮なし
+    MERGE_STEPS_WITH_COMPRESS = 7  # 圧縮あり
 
     # ファイル名キーワード
-    COVER_FILE_KEYWORD = "表紙"        # 表紙ファイルを識別するキーワード
+    COVER_FILE_KEYWORD = "表紙"  # 表紙ファイルを識別するキーワード
 
 
 class IchitaroWaitTimes:
@@ -203,58 +218,59 @@ class IchitaroWaitTimes:
 
     低スペックPCの場合は config.json の ichitaro セクションで値を増やすことを推奨
     """
+
     # 起動・接続
-    STARTUP_WAIT = 3.0      # 一太郎起動待機時間（秒）
+    STARTUP_WAIT = 3.0  # 一太郎起動待機時間（秒）
 
     # 印刷ダイアログ操作
-    CTRL_P_WAIT = 3.0       # Ctrl+P後の待機時間（秒）
+    CTRL_P_WAIT = 3.0  # Ctrl+P後の待機時間（秒）
     PRINTER_SELECT_WAIT = 0.5  # プリンター選択後の待機時間（秒）
-    CTRL_A_WAIT = 0.5       # Ctrl+A後の待機時間（秒）
-    ENTER_INTERVAL = 0.8    # Enter連打の間隔（秒）
+    CTRL_A_WAIT = 0.5  # Ctrl+A後の待機時間（秒）
+    ENTER_INTERVAL = 0.8  # Enter連打の間隔（秒）
 
     # 保存ダイアログ操作
-    DIALOG_TIMEOUT = 30     # 保存ダイアログ検出のタイムアウト（秒）
+    DIALOG_TIMEOUT = 30  # 保存ダイアログ検出のタイムアウト（秒）
     DIALOG_POLL_INTERVAL = 0.3  # ダイアログ検出のポーリング間隔（秒）
-    DIALOG_MIN_WAIT = 2.0   # ダイアログ検出開始前の最低待機時間（秒）
+    DIALOG_MIN_WAIT = 2.0  # ダイアログ検出開始前の最低待機時間（秒）
     KEYBOARD_PREP_WAIT = 0.3  # キーボード入力準備の待機時間（秒）
-    FILE_INPUT_WAIT = 0.5   # ファイルパス入力後の待機時間（秒）
+    FILE_INPUT_WAIT = 0.5  # ファイルパス入力後の待機時間（秒）
 
     # プロセス終了
     PRINT_COMPLETE_WAIT = 2.0  # 印刷処理完了待機時間（秒）
-    WINDOW_CLOSE_WAIT = 0.5    # ウィンドウクローズ後の待機時間（秒）
-    CLEANUP_TIMEOUT = 1     # クリーンアップの接続タイムアウト（秒）
-    CLEANUP_WAIT = 0.5      # クリーンアップ後の待機時間（秒）
+    WINDOW_CLOSE_WAIT = 0.5  # ウィンドウクローズ後の待機時間（秒）
+    CLEANUP_TIMEOUT = 1  # クリーンアップの接続タイムアウト（秒）
+    CLEANUP_WAIT = 0.5  # クリーンアップ後の待機時間（秒）
 
     # リトライ設定
-    MAX_ATTEMPTS = 3        # 一太郎変換の最大試行回数
-    RETRY_DELAY = 2.0       # 再試行前の待機時間（秒）
+    MAX_ATTEMPTS = 3  # 一太郎変換の最大試行回数
+    RETRY_DELAY = 2.0  # 再試行前の待機時間（秒）
 
 
 class PathConstants:
     """パス処理関連の定数"""
 
     # ファイル名のデフォルト値
-    DEFAULT_FILENAME = 'file'
+    DEFAULT_FILENAME = "file"
 
 
 class PDFConversionConstants:
     """PDF変換処理の定数"""
 
     # 動的ファイル待機の間隔設定（秒）
-    FILE_WAIT_INTERVAL_FAST = 0.1        # 最初の10回（高速チェック）
-    FILE_WAIT_INTERVAL_MEDIUM = 0.5      # 次の20回（中速チェック）
-    FILE_WAIT_INTERVAL_SLOW = 1.0        # 残り（低速チェック）
-    FILE_WAIT_FAST_COUNT = 10            # 高速チェック回数
-    FILE_WAIT_MEDIUM_COUNT = 20          # 中速チェック回数
-    FILE_STABILITY_THRESHOLD = 3         # ファイルサイズ安定判定の閾値（回数）
-    FILE_WAIT_LOG_INTERVAL = 5           # ファイル待機のログ出力間隔（秒）
+    FILE_WAIT_INTERVAL_FAST = 0.1  # 最初の10回（高速チェック）
+    FILE_WAIT_INTERVAL_MEDIUM = 0.5  # 次の20回（中速チェック）
+    FILE_WAIT_INTERVAL_SLOW = 1.0  # 残り（低速チェック）
+    FILE_WAIT_FAST_COUNT = 10  # 高速チェック回数
+    FILE_WAIT_MEDIUM_COUNT = 20  # 中速チェック回数
+    FILE_STABILITY_THRESHOLD = 3  # ファイルサイズ安定判定の閾値（回数）
+    FILE_WAIT_LOG_INTERVAL = 5  # ファイル待機のログ出力間隔（秒）
 
     # キャンセルチェック間隔（秒）
     CANCEL_CHECK_INTERVAL = 0.5
 
     # プリンター選択リトライ
-    PRINTER_SELECT_MAX_RETRIES = 3       # プリンター選択の最大リトライ回数
-    PRINTER_SELECT_RETRY_DELAY = 1.0     # プリンター選択のリトライ遅延（秒）
+    PRINTER_SELECT_MAX_RETRIES = 3  # プリンター選択の最大リトライ回数
+    PRINTER_SELECT_RETRY_DELAY = 1.0  # プリンター選択のリトライ遅延（秒）
 
     # ログメッセージ
     LOG_MARK_SUCCESS = "✓"
@@ -263,5 +279,7 @@ class PDFConversionConstants:
     LOG_SEPARATOR_MINOR = "-" * 60
 
     # ファイル名のデフォルト値
-    DEFAULT_SEPARATOR_NAME = 'separator'
-    LOCAL_COPY_PREFIX = 'local_copy_'  # Office変換時のローカルコピーファイル名プレフィックス
+    DEFAULT_SEPARATOR_NAME = "separator"
+    LOCAL_COPY_PREFIX = (
+        "local_copy_"  # Office変換時のローカルコピーファイル名プレフィックス
+    )

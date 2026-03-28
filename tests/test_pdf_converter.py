@@ -15,24 +15,24 @@ class TestPDFConverter:
         """デフォルト設定での初期化"""
         converter = PDFConverter(temp_dir)
         assert converter.temp_dir == temp_dir
-        assert converter.ichitaro_settings['ichitaro_ready_timeout'] == 30
-        assert converter.ichitaro_settings['max_retries'] == 3
-        assert converter.ichitaro_settings['down_arrow_count'] == 5
-        assert converter.ichitaro_settings['save_wait_seconds'] == 20
+        assert converter.ichitaro_settings["ichitaro_ready_timeout"] == 30
+        assert converter.ichitaro_settings["max_retries"] == 3
+        assert converter.ichitaro_settings["down_arrow_count"] == 5
+        assert converter.ichitaro_settings["save_wait_seconds"] == 20
 
     def test_init_with_custom_settings(self, temp_dir):
         """カスタム設定での初期化"""
         custom_settings = {
-            'ichitaro_ready_timeout': 60,
-            'max_retries': 5,
-            'down_arrow_count': 7,
-            'save_wait_seconds': 30
+            "ichitaro_ready_timeout": 60,
+            "max_retries": 5,
+            "down_arrow_count": 7,
+            "save_wait_seconds": 30,
         }
         converter = PDFConverter(temp_dir, custom_settings)
-        assert converter.ichitaro_settings['ichitaro_ready_timeout'] == 60
-        assert converter.ichitaro_settings['max_retries'] == 5
-        assert converter.ichitaro_settings['down_arrow_count'] == 7
-        assert converter.ichitaro_settings['save_wait_seconds'] == 30
+        assert converter.ichitaro_settings["ichitaro_ready_timeout"] == 60
+        assert converter.ichitaro_settings["max_retries"] == 5
+        assert converter.ichitaro_settings["down_arrow_count"] == 7
+        assert converter.ichitaro_settings["save_wait_seconds"] == 30
 
     def test_skip_temporary_file(self, temp_dir):
         """一時ファイルのスキップ"""
@@ -46,7 +46,7 @@ class TestPDFConverter:
         converter = PDFConverter(temp_dir)
         # 存在するテキストファイルを作成
         txt_path = os.path.join(temp_dir, "test.txt")
-        with open(txt_path, 'w') as f:
+        with open(txt_path, "w") as f:
             f.write("test content")
 
         result = converter.convert(txt_path)
@@ -88,33 +88,34 @@ class TestPDFConverter:
 
     def test_office_extensions(self):
         """サポートされるOffice拡張子"""
-        assert '.doc' in PDFConverter.OFFICE_EXTENSIONS
-        assert '.docx' in PDFConverter.OFFICE_EXTENSIONS
-        assert '.xls' in PDFConverter.OFFICE_EXTENSIONS
-        assert '.xlsx' in PDFConverter.OFFICE_EXTENSIONS
-        assert '.ppt' in PDFConverter.OFFICE_EXTENSIONS
-        assert '.pptx' in PDFConverter.OFFICE_EXTENSIONS
-        assert '.rtf' in PDFConverter.OFFICE_EXTENSIONS
+        assert ".doc" in PDFConverter.OFFICE_EXTENSIONS
+        assert ".docx" in PDFConverter.OFFICE_EXTENSIONS
+        assert ".xls" in PDFConverter.OFFICE_EXTENSIONS
+        assert ".xlsx" in PDFConverter.OFFICE_EXTENSIONS
+        assert ".ppt" in PDFConverter.OFFICE_EXTENSIONS
+        assert ".pptx" in PDFConverter.OFFICE_EXTENSIONS
+        assert ".rtf" in PDFConverter.OFFICE_EXTENSIONS
 
     def test_image_extensions(self):
         """サポートされる画像拡張子"""
-        assert '.jpg' in PDFConverter.IMAGE_EXTENSIONS
-        assert '.jpeg' in PDFConverter.IMAGE_EXTENSIONS
-        assert '.png' in PDFConverter.IMAGE_EXTENSIONS
-        assert '.bmp' in PDFConverter.IMAGE_EXTENSIONS
-        assert '.tiff' in PDFConverter.IMAGE_EXTENSIONS
+        assert ".jpg" in PDFConverter.IMAGE_EXTENSIONS
+        assert ".jpeg" in PDFConverter.IMAGE_EXTENSIONS
+        assert ".png" in PDFConverter.IMAGE_EXTENSIONS
+        assert ".bmp" in PDFConverter.IMAGE_EXTENSIONS
+        assert ".tiff" in PDFConverter.IMAGE_EXTENSIONS
 
     def test_ichitaro_extensions(self):
         """サポートされる一太郎拡張子"""
-        assert '.jtd' in PDFConverter.ICHITARO_EXTENSIONS
+        assert ".jtd" in PDFConverter.ICHITARO_EXTENSIONS
 
     def test_convert_rgba_image(self, temp_dir):
         """RGBA画像の変換（RGB変換を含む）"""
         try:
             from PIL import Image
+
             # RGBA画像を作成
             rgba_path = os.path.join(temp_dir, "rgba_image.png")
-            img = Image.new('RGBA', (100, 100), color=(255, 0, 0, 128))
+            img = Image.new("RGBA", (100, 100), color=(255, 0, 0, 128))
             img.save(rgba_path)
             img.close()
 
@@ -137,11 +138,11 @@ class TestPDFConverterEdgeCases:
 
     def test_ichitaro_settings_merge(self, temp_dir):
         """一太郎設定のマージが正しく動作する"""
-        partial_settings = {'open_wait_seconds': 15}
+        partial_settings = {"open_wait_seconds": 15}
         converter = PDFConverter(temp_dir, partial_settings)
 
         # カスタム値が適用される
-        assert converter.ichitaro_settings['open_wait_seconds'] == 15
+        assert converter.ichitaro_settings["open_wait_seconds"] == 15
         # 他のデフォルト値は維持される
-        assert converter.ichitaro_settings['dialog_wait_seconds'] == 3
-        assert converter.ichitaro_settings['action_wait_seconds'] == 2
+        assert converter.ichitaro_settings["dialog_wait_seconds"] == 3
+        assert converter.ichitaro_settings["action_wait_seconds"] == 2

@@ -73,11 +73,13 @@ class TestCollectDocuments:
         with pytest.raises(PDFProcessingError, match="処理可能なドキュメント"):
             collector.collect_documents(temp_dir)
 
-    def test_root_files_collected(self, collector, temp_dir, mock_converter, mock_processor):
+    def test_root_files_collected(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
         """ルート直下のファイルが収集される"""
         # テストファイル作成
         test_file = os.path.join(temp_dir, "test.docx")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("dummy")
 
         mock_converter.convert.return_value = "/tmp/converted.pdf"
@@ -88,14 +90,16 @@ class TestCollectDocuments:
         assert len(content_pdfs) == 1
         mock_converter.convert.assert_called_once()
 
-    def test_cover_file_processed_separately(self, collector, temp_dir, mock_converter, mock_processor):
+    def test_cover_file_processed_separately(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
         """表紙ファイルはTOCに含まれずPDFにのみ追加される"""
         # 表紙ファイルとその他のファイル
         cover_file = os.path.join(temp_dir, "表紙.docx")
         other_file = os.path.join(temp_dir, "other.docx")
-        with open(cover_file, 'w') as f:
+        with open(cover_file, "w") as f:
             f.write("cover")
-        with open(other_file, 'w') as f:
+        with open(other_file, "w") as f:
             f.write("other")
 
         mock_converter.convert.return_value = "/tmp/converted.pdf"
@@ -109,30 +113,33 @@ class TestCollectDocuments:
         # 表紙もconvertされるが、content_pdfsには含まれる
         assert len(content_pdfs) >= 2
         # 表紙がconvertの呼び出しに含まれる
-        all_convert_args = [call[0][0] for call in mock_converter.convert.call_args_list]
+        all_convert_args = [
+            call[0][0] for call in mock_converter.convert.call_args_list
+        ]
         assert any("表紙" in arg for arg in all_convert_args)
 
     def test_cancel_during_collection(self, mock_converter, mock_processor, temp_dir):
         """キャンセルチェックが機能する"""
         collector = DocumentCollector(
-            mock_converter, mock_processor,
-            cancel_check=lambda: True
+            mock_converter, mock_processor, cancel_check=lambda: True
         )
 
         test_file = os.path.join(temp_dir, "test.docx")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("dummy")
 
         with pytest.raises(CancelledError):
             collector.collect_documents(temp_dir)
 
-    def test_directory_with_subdirs(self, collector, temp_dir, mock_converter, mock_processor):
+    def test_directory_with_subdirs(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
         """サブディレクトリが大見出しとして処理される"""
         # サブディレクトリ作成
         sub_dir = os.path.join(temp_dir, "01 教育計画")
         os.makedirs(sub_dir)
         sub_file = os.path.join(sub_dir, "test.docx")
-        with open(sub_file, 'w') as f:
+        with open(sub_file, "w") as f:
             f.write("dummy")
 
         mock_converter.convert.return_value = "/tmp/converted.pdf"
@@ -154,10 +161,12 @@ class TestCollectDocuments:
 class TestConvertAndAddPdf:
     """_convert_and_add_pdf のテスト"""
 
-    def test_successful_conversion(self, collector, temp_dir, mock_converter, mock_processor):
+    def test_successful_conversion(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
         """変換成功時にページ数が加算される"""
         test_file = os.path.join(temp_dir, "test.docx")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("dummy")
 
         mock_converter.convert.return_value = "/tmp/out.pdf"
@@ -172,7 +181,7 @@ class TestConvertAndAddPdf:
     def test_failed_conversion(self, collector, temp_dir, mock_converter):
         """変換失敗時はページ数が変わらない"""
         test_file = os.path.join(temp_dir, "test.bad")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("dummy")
 
         mock_converter.convert.return_value = None
@@ -191,7 +200,7 @@ class TestProcessRootFile:
     def test_adds_toc_entry(self, collector, temp_dir, mock_converter, mock_processor):
         """TOCエントリが追加される"""
         test_file = os.path.join(temp_dir, "01 概要.docx")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("dummy")
 
         mock_converter.convert.return_value = "/tmp/out.pdf"

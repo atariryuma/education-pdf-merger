@@ -17,14 +17,16 @@ logger = logging.getLogger(__name__)
 
 class ValidationLevel(Enum):
     """検証レベル"""
-    ERROR = "error"      # 必須項目の欠如（アプリが動作しない）
+
+    ERROR = "error"  # 必須項目の欠如（アプリが動作しない）
     WARNING = "warning"  # 推奨項目の欠如（一部機能が使えない）
-    INFO = "info"        # 情報（最適化の提案など）
+    INFO = "info"  # 情報（最適化の提案など）
 
 
 @dataclass
 class ValidationResult:
     """検証結果"""
+
     level: ValidationLevel
     message: str
     field: Optional[str] = None  # 問題のあるフィールド名
@@ -76,7 +78,9 @@ class ConfigValidator:
         if is_valid:
             logger.info("設定ファイルの検証が完了しました（エラーなし）")
         else:
-            logger.warning(f"設定ファイルの検証が完了しました（エラー数: {sum(1 for r in self.results if r.level == ValidationLevel.ERROR)}）")
+            logger.warning(
+                f"設定ファイルの検証が完了しました（エラー数: {sum(1 for r in self.results if r.level == ValidationLevel.ERROR)}）"
+            )
 
         return is_valid, self.results
 
@@ -85,98 +89,118 @@ class ConfigValidator:
         # 年度（西暦のみ）
         year = self.config.year
         if not year or year.strip() == "":
-            self.results.append(ValidationResult(
-                level=ValidationLevel.ERROR,
-                message="年度が設定されていません（例: 2026）",
-                field="year"
-            ))
+            self.results.append(
+                ValidationResult(
+                    level=ValidationLevel.ERROR,
+                    message="年度が設定されていません（例: 2026）",
+                    field="year",
+                )
+            )
 
         # year_shortは自動計算されるため、検証は不要（INFO）
         year_short = self.config.year_short
         if not year_short or year_short.strip() == "":
-            self.results.append(ValidationResult(
-                level=ValidationLevel.INFO,
-                message="年度（短縮形）は西暦から自動計算されます",
-                field="year_short"
-            ))
+            self.results.append(
+                ValidationResult(
+                    level=ValidationLevel.INFO,
+                    message="年度（短縮形）は西暦から自動計算されます",
+                    field="year_short",
+                )
+            )
 
         # Google Driveパス
-        gdrive = self.config.get('base_paths', 'google_drive')
+        gdrive = self.config.get("base_paths", "google_drive")
         if not gdrive or gdrive.strip() == "":
-            self.results.append(ValidationResult(
-                level=ValidationLevel.ERROR,
-                message="作業フォルダ（Google Drive等）が設定されていません",
-                field="base_paths.google_drive"
-            ))
+            self.results.append(
+                ValidationResult(
+                    level=ValidationLevel.ERROR,
+                    message="作業フォルダ（Google Drive等）が設定されていません",
+                    field="base_paths.google_drive",
+                )
+            )
 
     def _validate_paths(self) -> None:
         """パスの妥当性検証"""
         # Google Driveパス
-        gdrive = self.config.get('base_paths', 'google_drive')
+        gdrive = self.config.get("base_paths", "google_drive")
         if gdrive and gdrive.strip():
             gdrive_path = Path(gdrive)
             if not gdrive_path.exists():
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.WARNING,
-                    message=f"作業フォルダが見つかりません: {gdrive}",
-                    field="base_paths.google_drive"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.WARNING,
+                        message=f"作業フォルダが見つかりません: {gdrive}",
+                        field="base_paths.google_drive",
+                    )
+                )
             elif not gdrive_path.is_dir():
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.ERROR,
-                    message=f"作業フォルダがディレクトリではありません: {gdrive}",
-                    field="base_paths.google_drive"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.ERROR,
+                        message=f"作業フォルダがディレクトリではありません: {gdrive}",
+                        field="base_paths.google_drive",
+                    )
+                )
 
         # 一時フォルダ（自動生成されるのでWARNING）
-        temp = self.config.get('base_paths', 'local_temp')
+        temp = self.config.get("base_paths", "local_temp")
         if temp and temp.strip():
             temp_path = Path(temp)
             if not temp_path.exists():
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.INFO,
-                    message=f"一時フォルダが存在しません（初回実行時に自動作成されます）: {temp}",
-                    field="base_paths.local_temp"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.INFO,
+                        message=f"一時フォルダが存在しません（初回実行時に自動作成されます）: {temp}",
+                        field="base_paths.local_temp",
+                    )
+                )
 
         # フォントファイル
-        font = self.config.get('fonts', 'mincho')
+        font = self.config.get("fonts", "mincho")
         if font:
             font_path = Path(font)
             if not font_path.exists():
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.WARNING,
-                    message=f"フォントファイルが見つかりません: {font}",
-                    field="fonts.mincho"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.WARNING,
+                        message=f"フォントファイルが見つかりません: {font}",
+                        field="fonts.mincho",
+                    )
+                )
 
     def _validate_ghostscript(self) -> None:
         """Ghostscript設定の検証"""
-        gs_path = self.config.get('ghostscript', 'executable')
+        gs_path = self.config.get("ghostscript", "executable")
 
         if not gs_path or gs_path.strip() == "":
             # 自動検出を試みる
             detected = GhostscriptDetector.detect()
             if detected:
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.INFO,
-                    message=f"Ghostscriptが自動検出されました: {detected}",
-                    field="ghostscript.executable"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.INFO,
+                        message=f"Ghostscriptが自動検出されました: {detected}",
+                        field="ghostscript.executable",
+                    )
+                )
             else:
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.WARNING,
-                    message="Ghostscriptが設定されていません（PDF圧縮機能が使用できません）",
-                    field="ghostscript.executable"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.WARNING,
+                        message="Ghostscriptが設定されていません（PDF圧縮機能が使用できません）",
+                        field="ghostscript.executable",
+                    )
+                )
         else:
             # パスの妥当性を検証
             if not GhostscriptDetector.validate_ghostscript(gs_path):
-                self.results.append(ValidationResult(
-                    level=ValidationLevel.WARNING,
-                    message=f"Ghostscriptパスが無効です: {gs_path}",
-                    field="ghostscript.executable"
-                ))
+                self.results.append(
+                    ValidationResult(
+                        level=ValidationLevel.WARNING,
+                        message=f"Ghostscriptパスが無効です: {gs_path}",
+                        field="ghostscript.executable",
+                    )
+                )
 
     def _validate_excel_files(self) -> None:
         """Excelファイル設定の検証"""
@@ -191,7 +215,8 @@ class ConfigValidator:
             欠如している必須フィールド名のリスト
         """
         return [
-            r.field for r in self.results
+            r.field
+            for r in self.results
             if r.level == ValidationLevel.ERROR and r.field
         ]
 

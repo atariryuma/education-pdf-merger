@@ -15,7 +15,9 @@ from gui.utils import center_window
 class IchitaroConversionDialog(tk.Toplevel):
     """一太郎PDF変換中の警告ダイアログ（非モーダル、常に最前面）"""
 
-    def __init__(self, parent: tk.Widget, cancel_callback: Optional[Callable] = None) -> None:
+    def __init__(
+        self, parent: tk.Widget, cancel_callback: Optional[Callable] = None
+    ) -> None:
         """
         初期化
 
@@ -32,7 +34,7 @@ class IchitaroConversionDialog(tk.Toplevel):
         self.resizable(False, False)
 
         # 常に最前面（非モーダル）
-        self.attributes('-topmost', True)
+        self.attributes("-topmost", True)
 
         # 親ウィンドウとの関連付けのみ（grab_set()は使わない）
         self.transient(parent)
@@ -53,8 +55,8 @@ class IchitaroConversionDialog(tk.Toplevel):
         title_label = tk.Label(
             main_frame,
             text="⚠️ 一太郎PDF変換中",
-            font=FONTS['dialog_title'],
-            fg=COLORS['warning_mild']
+            font=FONTS["dialog_title"],
+            fg=COLORS["warning_mild"],
         )
         title_label.pack(pady=(0, 20))
 
@@ -62,17 +64,13 @@ class IchitaroConversionDialog(tk.Toplevel):
         self.message_label = tk.Label(
             main_frame,
             text="一太郎ファイルをPDFに変換しています。\nしばらくお待ちください...",
-            font=FONTS['default'],
-            justify=tk.CENTER
+            font=FONTS["default"],
+            justify=tk.CENTER,
         )
         self.message_label.pack(pady=(0, 20))
 
         # プログレスバー
-        self.progress = ttk.Progressbar(
-            main_frame,
-            mode="indeterminate",
-            length=400
-        )
+        self.progress = ttk.Progressbar(main_frame, mode="indeterminate", length=400)
         self.progress.pack(pady=(0, 20))
         self.progress.start(10)
 
@@ -80,8 +78,8 @@ class IchitaroConversionDialog(tk.Toplevel):
         note_label = tk.Label(
             main_frame,
             text="※ 変換中はキーボード操作を避けてください",
-            font=FONTS['small'],
-            fg=COLORS['text_secondary']
+            font=FONTS["small"],
+            fg=COLORS["text_secondary"],
         )
         note_label.pack()
 
@@ -91,12 +89,12 @@ class IchitaroConversionDialog(tk.Toplevel):
                 main_frame,
                 text="キャンセル",
                 command=self._on_cancel,
-                bg=COLORS['error'],
+                bg=COLORS["error"],
                 fg="white",
-                font=FONTS['default'],
+                font=FONTS["default"],
                 cursor="hand2",
                 padx=20,
-                pady=5
+                pady=5,
             )
             cancel_btn.pack(pady=(10, 0))
 

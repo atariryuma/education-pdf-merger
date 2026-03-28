@@ -13,7 +13,7 @@ from shared.exceptions import (
     PDFProcessingError,
     ExcelProcessingError,
     FolderStructureError,
-    CancelledError
+    CancelledError,
 )
 
 
@@ -46,7 +46,7 @@ class TestPDFConversionError:
             "Word変換失敗: test.docx",
             original_error=original,
             file_path="test.docx",
-            operation="Word変換"
+            operation="Word変換",
         )
         assert error.file_path == "test.docx"
         assert error.operation == "Word変換"
@@ -57,9 +57,7 @@ class TestPDFConversionError:
     def test_without_original_error(self):
         """元の例外なし"""
         error = PDFConversionError(
-            "Excel変換失敗: test.xlsx",
-            file_path="test.xlsx",
-            operation="Excel変換"
+            "Excel変換失敗: test.xlsx", file_path="test.xlsx", operation="Excel変換"
         )
         assert error.original_error is None
         assert "Excel変換失敗" in str(error)
@@ -78,7 +76,7 @@ class TestConfigurationError:
     def test_without_config_key(self):
         """設定キーなし"""
         error = ConfigurationError("設定ファイルが見つかりません")
-        assert not hasattr(error, 'config_key') or error.config_key is None
+        assert not hasattr(error, "config_key") or error.config_key is None
 
 
 @pytest.mark.unit
@@ -91,7 +89,7 @@ class TestResourceError:
         error = ResourceError(
             "アプリケーションに接続できません",
             resource_type="Excel COM",
-            original_error=original
+            original_error=original,
         )
         assert error.resource_type == "Excel COM"
         assert error.original_error == original
@@ -99,10 +97,7 @@ class TestResourceError:
 
     def test_without_original_error(self):
         """元の例外なし"""
-        error = ResourceError(
-            "ファイルがロックされています",
-            resource_type="ファイル"
-        )
+        error = ResourceError("ファイルがロックされています", resource_type="ファイル")
         assert error.original_error is None
 
 
@@ -117,7 +112,7 @@ class TestFileOperationError:
             "アクセス拒否",
             file_path="C:\\test.pdf",
             operation="読み込み",
-            original_error=original
+            original_error=original,
         )
         assert error.file_path == "C:\\test.pdf"
         assert error.operation == "読み込み"
@@ -126,9 +121,7 @@ class TestFileOperationError:
     def test_write_error(self):
         """書き込みエラー"""
         error = FileOperationError(
-            "ディスク容量不足",
-            file_path="C:\\output.pdf",
-            operation="書き込み"
+            "ディスク容量不足", file_path="C:\\output.pdf", operation="書き込み"
         )
         assert "ファイル書き込みエラー" in str(error)
 
@@ -140,8 +133,7 @@ class TestPathNotFoundError:
     def test_with_description(self):
         """説明あり"""
         error = PathNotFoundError(
-            "C:\\Documents\\計画書",
-            description="教育計画フォルダ"
+            "C:\\Documents\\計画書", description="教育計画フォルダ"
         )
         assert error.path == "C:\\Documents\\計画書"
         assert error.description == "教育計画フォルダ"
@@ -168,9 +160,7 @@ class TestPDFProcessingError:
         """分割エラー"""
         original = RuntimeError("メモリ不足")
         error = PDFProcessingError(
-            "処理できませんでした",
-            operation="分割",
-            original_error=original
+            "処理できませんでした", operation="分割", original_error=original
         )
         assert error.original_error == original
 
@@ -182,9 +172,7 @@ class TestExcelProcessingError:
     def test_basic_error(self):
         """基本エラー"""
         error = ExcelProcessingError(
-            "シートが見つかりません",
-            file_path="data.xlsx",
-            operation="シート削除"
+            "シートが見つかりません", file_path="data.xlsx", operation="シート削除"
         )
         assert error.file_path == "data.xlsx"
         assert error.operation == "シート削除"
@@ -197,7 +185,7 @@ class TestExcelProcessingError:
             "ファイルが使用中です",
             file_path="locked.xlsx",
             operation="更新",
-            original_error=original
+            original_error=original,
         )
         assert error.original_error == original
 
@@ -227,10 +215,14 @@ class TestExceptionHierarchy:
             PDFConversionError("変換失敗"),
             ConfigurationError("設定エラー"),
             ResourceError("リソースエラー", resource_type="ファイル"),
-            FileOperationError("操作エラー", file_path="file.pdf", operation="読み込み"),
+            FileOperationError(
+                "操作エラー", file_path="file.pdf", operation="読み込み"
+            ),
             PathNotFoundError("path"),
             PDFProcessingError("処理エラー", operation="結合"),
-            ExcelProcessingError("Excelエラー", file_path="file.xlsx", operation="更新"),
+            ExcelProcessingError(
+                "Excelエラー", file_path="file.xlsx", operation="更新"
+            ),
             FolderStructureError("構造エラー", directory_path="C:\\test"),
         ]
         for exc in exceptions:
@@ -245,8 +237,7 @@ class TestFolderStructureError:
     def test_basic_creation(self):
         """メッセージとディレクトリパスで作成"""
         error = FolderStructureError(
-            "フォルダ構造が不正です",
-            directory_path="C:\\Documents\\計画書"
+            "フォルダ構造が不正です", directory_path="C:\\Documents\\計画書"
         )
         assert error.directory_path == "C:\\Documents\\計画書"
         assert "フォルダ構造が不正です" in str(error)
@@ -256,19 +247,14 @@ class TestFolderStructureError:
         """元の例外あり"""
         original = OSError("アクセス拒否")
         error = FolderStructureError(
-            "分析に失敗しました",
-            directory_path="C:\\test",
-            original_error=original
+            "分析に失敗しました", directory_path="C:\\test", original_error=original
         )
         assert error.original_error == original
         assert error.directory_path == "C:\\test"
 
     def test_directory_path_accessible(self):
         """directory_path属性がアクセス可能"""
-        error = FolderStructureError(
-            "構造エラー",
-            directory_path="C:\\path\\to\\dir"
-        )
+        error = FolderStructureError("構造エラー", directory_path="C:\\path\\to\\dir")
         assert error.directory_path == "C:\\path\\to\\dir"
 
 

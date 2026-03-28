@@ -7,4 +7,4 @@ from converters.office_converter import OfficeConverter
 from converters.image_converter import ImageConverter
 from converters.ichitaro_converter import IchitaroConverter
 
-__all__ = ['OfficeConverter', 'ImageConverter', 'IchitaroConverter']
+__all__ = ["OfficeConverter", "ImageConverter", "IchitaroConverter"]

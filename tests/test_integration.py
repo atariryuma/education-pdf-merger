@@ -21,11 +21,10 @@ def _has_win32com() -> bool:
     """Check if win32com.client is available."""
     try:
         import win32com.client  # noqa: F401
+
         return True
     except ImportError:
         return False
-
-
 
 
 @pytest.fixture
@@ -58,19 +57,16 @@ def mock_config(temp_workspace: Path) -> ConfigLoader:
     config_data = {
         "year": "2025",
         "year_short": "R7",
-        "base_paths": {
-            "local_temp": str(temp_workspace / "temp")
-        },
+        "base_paths": {"local_temp": str(temp_workspace / "temp")},
         "fonts": {
             "mincho": "C:\\Windows\\Fonts\\msgothic.ttc"  # システムフォント
         },
-        "ghostscript": {
-            "executable": "gswin64c.exe"
-        }
+        "ghostscript": {"executable": "gswin64c.exe"},
     }
 
     import json
-    with open(config_file, 'w', encoding='utf-8') as f:
+
+    with open(config_file, "w", encoding="utf-8") as f:
         json.dump(config_data, f, ensure_ascii=False, indent=2)
 
     return ConfigLoader(str(config_file))
@@ -92,13 +88,13 @@ def sample_input_dir(temp_workspace: Path) -> Path:
 
     # ダミーPDFバイト列（1ページの最小PDF）
     dummy_pdf = (
-        b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'
-        b'1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'
-        b'2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
-        b'3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n'
-        b'xref\n0 4\n0000000000 65535 f \n'
-        b'0000000015 00000 n \n0000000068 00000 n \n0000000131 00000 n \n'
-        b'trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n214\n%%EOF\n'
+        b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n"
+        b"xref\n0 4\n0000000000 65535 f \n"
+        b"0000000015 00000 n \n0000000068 00000 n \n0000000131 00000 n \n"
+        b"trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n214\n%%EOF\n"
     )
 
     # 表紙ファイル（ダミーPDF）
@@ -126,7 +122,7 @@ class TestPDFMergeIntegration:
         """ConfigLoaderが正しく初期化されることを確認"""
         assert mock_config.year == "2025"
         assert mock_config.year_short == "R7"
-        assert mock_config.get('year') == "2025"
+        assert mock_config.get("year") == "2025"
 
     def test_temp_dir_creation(self, mock_config: ConfigLoader):
         """一時ディレクトリが正しく作成されることを確認"""
@@ -161,7 +157,9 @@ class TestPDFMergeIntegration:
         converter = PDFConverter(temp_dir, config=mock_config)
         processor = PDFProcessor(mock_config)
         collector = DocumentCollector(converter, processor)
-        orchestrator = PDFMergeOrchestrator(mock_config, converter, processor, collector)
+        orchestrator = PDFMergeOrchestrator(
+            mock_config, converter, processor, collector
+        )
 
         assert orchestrator.config == mock_config
         assert orchestrator.converter == converter
@@ -183,13 +181,10 @@ class TestPDFMergeIntegration:
 
     @pytest.mark.skipif(
         not _has_win32com(),
-        reason="win32com.client not available (Office not installed)"
+        reason="win32com.client not available (Office not installed)",
     )
     def test_full_pdf_merge_flow(
-        self,
-        mock_config: ConfigLoader,
-        sample_input_dir: Path,
-        temp_workspace: Path
+        self, mock_config: ConfigLoader, sample_input_dir: Path, temp_workspace: Path
     ):
         """
         完全なPDF統合フローのテスト（外部依存のため通常はスキップ）
@@ -206,13 +201,15 @@ class TestPDFMergeIntegration:
         converter = PDFConverter(temp_dir, config=mock_config)
         processor = PDFProcessor(mock_config)
         collector = DocumentCollector(converter, processor)
-        orchestrator = PDFMergeOrchestrator(mock_config, converter, processor, collector)
+        orchestrator = PDFMergeOrchestrator(
+            mock_config, converter, processor, collector
+        )
 
         # PDF統合実行
         orchestrator.create_merged_pdf(
             target_dir=str(sample_input_dir),
             output_pdf=str(output_pdf),
-            create_separator_for_subfolder=True
+            create_separator_for_subfolder=True,
         )
 
         # 結果検証
@@ -230,15 +227,16 @@ class TestPathValidator:
         import os
 
         is_valid, error_msg, validated_path = PathValidator.validate_directory(
-            str(temp_workspace),
-            must_exist=True
+            str(temp_workspace), must_exist=True
         )
 
         assert is_valid is True
         assert error_msg is None
         # Windows short path (RUNNER~1) vs long path (runneradmin) の違いを吸収
         # os.path.realpath() は短縮パスを長形式に変換する
-        assert os.path.realpath(str(validated_path)) == os.path.realpath(str(temp_workspace))
+        assert os.path.realpath(str(validated_path)) == os.path.realpath(
+            str(temp_workspace)
+        )
 
     def test_validate_nonexistent_directory(self, temp_workspace: Path):
         """存在しないディレクトリの検証"""
@@ -246,8 +244,7 @@ class TestPathValidator:
 
         nonexistent = temp_workspace / "nonexistent"
         is_valid, error_msg, validated_path = PathValidator.validate_directory(
-            str(nonexistent),
-            must_exist=True
+            str(nonexistent), must_exist=True
         )
 
         assert is_valid is False

@@ -52,9 +52,16 @@ class ToolTip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(
-            tw, text=self.text, justify=tk.LEFT,
-            background=COLORS['tooltip_bg'], foreground=COLORS['tooltip_fg'],
-            relief=tk.SOLID, borderwidth=1, font=FONTS['small'], padx=8, pady=4
+            tw,
+            text=self.text,
+            justify=tk.LEFT,
+            background=COLORS["tooltip_bg"],
+            foreground=COLORS["tooltip_fg"],
+            relief=tk.SOLID,
+            borderwidth=1,
+            font=FONTS["small"],
+            padx=8,
+            pady=4,
         ).pack()
 
     def _hide(self) -> None:
@@ -70,12 +77,12 @@ def center_window(window: tk.Toplevel) -> None:
     height = window.winfo_height()
     x = (window.winfo_screenwidth() // 2) - (width // 2)
     y = (window.winfo_screenheight() // 2) - (height // 2)
-    window.geometry(f'{width}x{height}+{x}+{y}')
+    window.geometry(f"{width}x{height}+{x}+{y}")
 
 
 def create_tooltip(widget: tk.Widget, text: str) -> ToolTip:
     """ウィジェットにツールチップを追加"""
-    if hasattr(widget, '_tooltip') and widget._tooltip:
+    if hasattr(widget, "_tooltip") and widget._tooltip:
         widget._tooltip._cancel()
         widget._tooltip._hide()
     tooltip = ToolTip(widget, text)
@@ -93,17 +100,20 @@ def thread_safe_call(widget: tk.Widget, func: Callable[[], Any]) -> None:
 
 def update_status(status_bar: tk.Label, message: str) -> None:
     """ステータスバーを更新（スレッドセーフ）"""
+
     def _update() -> None:
         try:
             timestamp = datetime.now().strftime("%H:%M:%S")
             status_bar.config(text=f"[{timestamp}] {message}")
         except tk.TclError:
             pass
+
     thread_safe_call(status_bar, _update)
 
 
 def log_message(log_widget: Any, message: str, msg_type: str = "normal") -> None:
     """ログにメッセージを追加（スレッドセーフ）"""
+
     def _log() -> None:
         try:
             log_widget.config(state="normal")
@@ -113,14 +123,18 @@ def log_message(log_widget: Any, message: str, msg_type: str = "normal") -> None
             log_widget.config(state="disabled")
         except tk.TclError:
             pass
+
     thread_safe_call(log_widget, _log)
 
 
 def set_button_state(
-    button: tk.Button, enabled: bool,
-    status_label: Optional[tk.Label] = None, status_text: str = ""
+    button: tk.Button,
+    enabled: bool,
+    status_label: Optional[tk.Label] = None,
+    status_text: str = "",
 ) -> None:
     """ボタンの状態を変更（スレッドセーフ）"""
+
     def _set_state() -> None:
         try:
             if enabled:
@@ -133,29 +147,37 @@ def set_button_state(
                     status_label.config(text=status_text, fg="orange")
         except tk.TclError:
             pass
+
     thread_safe_call(button, _set_state)
 
 
 def create_hover_button(
-    parent: tk.Widget, text: str, command: Any,
-    color: str = "primary", **kwargs: Any
+    parent: tk.Widget, text: str, command: Any, color: str = "primary", **kwargs: Any
 ) -> tk.Button:
     """ホバー効果付きボタンを作成"""
-    style = BUTTON_STYLES.get(color, BUTTON_STYLES['primary'])
-    bg_color = style['bg']
-    hover_color = style['activebackground']
+    style = BUTTON_STYLES.get(color, BUTTON_STYLES["primary"])
+    bg_color = style["bg"]
+    hover_color = style["activebackground"]
 
     button = tk.Button(
-        parent, text=text, command=command,
-        bg=bg_color, fg=style['fg'], cursor="hand2",
-        relief=tk.RAISED, borderwidth=2, **kwargs
+        parent,
+        text=text,
+        command=command,
+        bg=bg_color,
+        fg=style["fg"],
+        cursor="hand2",
+        relief=tk.RAISED,
+        borderwidth=2,
+        **kwargs,
     )
     button.bind("<Enter>", lambda e: button.config(bg=hover_color))
     button.bind("<Leave>", lambda e: button.config(bg=bg_color))
     return button
 
 
-def open_file_or_folder(path: str, on_error: Optional[Callable[[str], None]] = None) -> bool:
+def open_file_or_folder(
+    path: str, on_error: Optional[Callable[[str], None]] = None
+) -> bool:
     """
     ファイルまたはフォルダをデフォルトアプリケーションで開く（Windows専用）
 
@@ -163,7 +185,7 @@ def open_file_or_folder(path: str, on_error: Optional[Callable[[str], None]] = N
         path: 開くファイルまたはフォルダのパス
         on_error: エラー時のコールバック関数
     """
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         if on_error:
             on_error("この機能はWindows専用です。")
         return False
@@ -177,9 +199,13 @@ def open_file_or_folder(path: str, on_error: Optional[Callable[[str], None]] = N
         if os.path.isdir(path):
             try:
                 subprocess.run(
-                    ['explorer', path], shell=False,
-                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL, check=False, timeout=5
+                    ["explorer", path],
+                    shell=False,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    timeout=5,
                 )
             except subprocess.TimeoutExpired:
                 pass  # エクスプローラーは非同期起動のためタイムアウトは正常

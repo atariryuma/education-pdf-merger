@@ -29,7 +29,7 @@ class PDFMergeOrchestrator:
         pdf_processor: PDFProcessor,
         document_collector: DocumentCollector,
         cancel_check: Optional[Callable[[], bool]] = None,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
     ) -> None:
         """
         Args:
@@ -49,7 +49,9 @@ class PDFMergeOrchestrator:
         self._normalized_temp_dir = normalized
         self._normalized_temp_prefix = normalized + os.sep
         self._cancel_check = cancel_check or (lambda: False)
-        self._user_progress_callback = progress_callback or (lambda step, total, msg: None)
+        self._user_progress_callback = progress_callback or (
+            lambda step, total, msg: None
+        )
 
     def is_cancelled(self) -> bool:
         """キャンセルされたかどうかを確認"""
@@ -69,8 +71,10 @@ class PDFMergeOrchestrator:
         """一時ディレクトリ内のファイルかどうかを判定"""
         try:
             normalized = os.path.normcase(os.path.abspath(file_path))
-            return normalized.startswith(self._normalized_temp_prefix) or \
-                normalized == self._normalized_temp_dir
+            return (
+                normalized.startswith(self._normalized_temp_prefix)
+                or normalized == self._normalized_temp_dir
+            )
         except (ValueError, OSError):
             return False
 
@@ -91,8 +95,7 @@ class PDFMergeOrchestrator:
 
     @staticmethod
     def _offset_toc_entries(
-        toc_entries: List[Tuple[str, int, int]],
-        page_offset: int
+        toc_entries: List[Tuple[str, int, int]], page_offset: int
     ) -> List[Tuple[str, int, int]]:
         """
         目次エントリのページ番号にオフセットを加算する
@@ -121,12 +124,12 @@ class PDFMergeOrchestrator:
         Args:
             output_pdf: 圧縮対象のPDFパス
         """
-        gs_path = self.config.get('ghostscript', 'executable')
+        gs_path = self.config.get("ghostscript", "executable")
         if not gs_path:
             gs_path = GhostscriptDetector.detect()
             if gs_path:
                 # compress_pdf() は config から GS パスを読むため、検出結果を保存する
-                self.config.set('ghostscript', 'executable', value=gs_path)
+                self.config.set("ghostscript", "executable", value=gs_path)
 
         if not gs_path or not GhostscriptDetector.validate_ghostscript(gs_path):
             logger.warning("Ghostscriptが見つからないため、圧縮をスキップします")
@@ -137,20 +140,20 @@ class PDFMergeOrchestrator:
 
         if success:
             compressed_size = os.path.getsize(output_pdf)
-            ratio = (1 - compressed_size / original_size) * 100 if original_size > 0 else 0
+            ratio = (
+                (1 - compressed_size / original_size) * 100 if original_size > 0 else 0
+            )
             logger.info(
                 "PDF圧縮完了: %.1fMB → %.1fMB (%.0f%%削減)",
                 original_size / 1_048_576,
                 compressed_size / 1_048_576,
-                ratio
+                ratio,
             )
         else:
             logger.warning("PDF圧縮に失敗しました。圧縮前のファイルを使用します")
 
     def _create_stable_toc_pdf(
-        self,
-        base_toc_entries: List[Tuple[str, int, int]],
-        toc_pdf: str
+        self, base_toc_entries: List[Tuple[str, int, int]], toc_pdf: str
     ) -> List[Tuple[str, int, int]]:
         """
         実際の目次ページ数に合わせて、目次エントリを補正しながら目次PDFを作成する
@@ -166,9 +169,13 @@ class PDFMergeOrchestrator:
         # 目次ページ数が変化しなくなるまで再計算
         for _ in range(3):
             page_offset = current_toc_pages - assumed_toc_pages
-            adjusted_toc_entries = self._offset_toc_entries(base_toc_entries, page_offset)
+            adjusted_toc_entries = self._offset_toc_entries(
+                base_toc_entries, page_offset
+            )
 
-            measured_toc_pages = self.processor.create_toc_pdf(adjusted_toc_entries, toc_pdf)
+            measured_toc_pages = self.processor.create_toc_pdf(
+                adjusted_toc_entries, toc_pdf
+            )
 
             if measured_toc_pages == current_toc_pages:
                 if page_offset != 0:
@@ -176,7 +183,7 @@ class PDFMergeOrchestrator:
                         "目次ページ数補正: assumed=%s, actual=%s, offset=%s",
                         assumed_toc_pages,
                         measured_toc_pages,
-                        page_offset
+                        page_offset,
                     )
                 return adjusted_toc_entries
 
@@ -188,7 +195,7 @@ class PDFMergeOrchestrator:
         self.processor.create_toc_pdf(adjusted_toc_entries, toc_pdf)
         logger.warning(
             "目次ページ数補正が収束しませんでした。最後の計算結果を採用します: actual=%s",
-            current_toc_pages
+            current_toc_pages,
         )
         return adjusted_toc_entries
 
@@ -197,7 +204,7 @@ class PDFMergeOrchestrator:
         target_dir: str,
         output_pdf: str,
         create_separator_for_subfolder: bool = True,
-        compress: bool = False
+        compress: bool = False,
     ) -> None:
         """
         ディレクトリ内のドキュメントを統合したPDFを作成
@@ -215,7 +222,11 @@ class PDFMergeOrchestrator:
         logger.info(f"PDFマージ処理を開始: {target_dir}")
         logger.info(f"出力先: {output_pdf}")
 
-        total_steps = PDFConstants.MERGE_STEPS_WITH_COMPRESS if compress else PDFConstants.MERGE_STEPS
+        total_steps = (
+            PDFConstants.MERGE_STEPS_WITH_COMPRESS
+            if compress
+            else PDFConstants.MERGE_STEPS
+        )
 
         # 一時ファイルのパスを定義（finallyでクリーンアップ用）
         unique_id = uuid.uuid4().hex[:8]
@@ -229,8 +240,7 @@ class PDFMergeOrchestrator:
             # 1. ドキュメント収集とPDF変換
             self._progress_callback(1, total_steps, "ドキュメントを収集・変換中...")
             toc_entries, content_pdfs = self.collector.collect_documents(
-                target_dir,
-                create_separator_for_subfolder
+                target_dir, create_separator_for_subfolder
             )
             self._check_cancel()
 
@@ -246,18 +256,24 @@ class PDFMergeOrchestrator:
 
             # 4. 表紙と残りのページに分割
             self._progress_callback(4, total_steps, "表紙とコンテンツを分割中...")
-            cover_pdf, remainder_pdf = self.processor.split_pdf(temp_merged, self.temp_dir)
+            cover_pdf, remainder_pdf = self.processor.split_pdf(
+                temp_merged, self.temp_dir
+            )
             self._check_cancel()
 
             # 5. 最終的にマージ（表紙 + 目次 + 残り）
             self._progress_callback(5, total_steps, "最終PDFをマージ中...")
-            final_list = [p for p in [cover_pdf, toc_pdf, remainder_pdf] if p is not None]
+            final_list = [
+                p for p in [cover_pdf, toc_pdf, remainder_pdf] if p is not None
+            ]
             self.processor.merge_pdfs(final_list, output_pdf)
             self._check_cancel()
 
             # 6. ページ番号を追加（表紙は除外）・しおり設定
             self._progress_callback(6, total_steps, "ページ番号としおりを追加中...")
-            self.processor.add_page_numbers(output_pdf, exclude_first_pages=PDFConstants.COVER_PAGE_COUNT)
+            self.processor.add_page_numbers(
+                output_pdf, exclude_first_pages=PDFConstants.COVER_PAGE_COUNT
+            )
             self.processor.set_pdf_outlines(output_pdf, adjusted_toc_entries)
             self._check_cancel()
 
@@ -275,7 +291,11 @@ class PDFMergeOrchestrator:
             # .pdfファイルを変換せず元パスをそのまま返すため）。
             # _is_temp_fileフィルタにより、一時ディレクトリ内のファイルのみ削除する。
             all_content_pdfs = content_pdfs or self.collector.get_collected_pdfs()
-            files_to_cleanup = [p for p in [temp_merged, toc_pdf, cover_pdf, remainder_pdf] if p is not None]
+            files_to_cleanup = [
+                p
+                for p in [temp_merged, toc_pdf, cover_pdf, remainder_pdf]
+                if p is not None
+            ]
             files_to_cleanup.extend(
                 p for p in all_content_pdfs if self._is_temp_file(p)
             )

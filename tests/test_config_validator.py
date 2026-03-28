@@ -7,7 +7,9 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from infrastructure.config_validator import (
-    ConfigValidator, ValidationLevel, ValidationResult
+    ConfigValidator,
+    ValidationLevel,
+    ValidationResult,
 )
 
 
@@ -19,10 +21,12 @@ def _make_config(**overrides):
 
     def get_side_effect(section, key=None):
         defaults = {
-            ('base_paths', 'google_drive'): overrides.get("gdrive", "C:\\Users\\test\\GoogleDrive"),
-            ('base_paths', 'local_temp'): overrides.get("local_temp", "C:\\temp"),
-            ('fonts', 'mincho'): overrides.get("font", None),
-            ('ghostscript', 'executable'): overrides.get("gs", ""),
+            ("base_paths", "google_drive"): overrides.get(
+                "gdrive", "C:\\Users\\test\\GoogleDrive"
+            ),
+            ("base_paths", "local_temp"): overrides.get("local_temp", "C:\\temp"),
+            ("fonts", "mincho"): overrides.get("font", None),
+            ("ghostscript", "executable"): overrides.get("gs", ""),
         }
         return defaults.get((section, key), "")
 

@@ -21,12 +21,13 @@ sys.coinit_flags = 2  # type: ignore[attr-defined]  # COINIT_APARTMENTTHREADED
 # tkinter の可用性チェック（モジュールトップで実行）
 try:
     from tkinter import messagebox
+
     HAS_TKINTER = True
 except ImportError:
     HAS_TKINTER = False
 
 # プロジェクトルートをパスに追加
-if getattr(sys, 'frozen', False):
+if getattr(sys, "frozen", False):
     # PyInstallerでビルドされた場合
     application_path = os.path.dirname(sys.executable)
 else:
@@ -40,15 +41,15 @@ from infrastructure.logging_config import setup_logging  # noqa: E402
 
 # ログレベルマッピング（定数として定義）
 LOG_LEVEL_MAP = {
-    'DEBUG': logging.DEBUG,
-    'INFO': logging.INFO,
-    'WARNING': logging.WARNING,
-    'ERROR': logging.ERROR,
-    'CRITICAL': logging.CRITICAL
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
 }
 
 # 環境変数からログレベルを取得
-log_level_str = os.environ.get('LOG_LEVEL', 'INFO').upper()
+log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
 log_level = LOG_LEVEL_MAP.get(log_level_str, logging.INFO)
 
 # ロギングシステムを初期化（この後に logger を取得する）
@@ -61,7 +62,7 @@ logger = logging.getLogger(__name__)
 def global_exception_handler(
     exc_type: Type[BaseException],
     exc_value: BaseException,
-    exc_traceback: Optional[TracebackType]
+    exc_traceback: Optional[TracebackType],
 ) -> None:
     """
     キャッチされなかった例外を処理するグローバルハンドラ.
@@ -80,7 +81,7 @@ def global_exception_handler(
         return
 
     # エラーログ出力
-    error_msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
     logger.critical(f"未処理の例外が発生しました:\n{error_msg}")
 
     # ユーザーへ通知（GUIが利用可能な場合のみ）
@@ -90,7 +91,7 @@ def global_exception_handler(
                 "予期しないエラー",
                 f"アプリケーションエラーが発生しました。\n\n"
                 f"エラー: {exc_type.__name__}: {exc_value}\n\n"
-                f"詳細はログファイルを確認してください。"
+                f"詳細はログファイルを確認してください。",
             )
         except Exception as gui_error:
             # GUIが壊れている場合は諦める
@@ -114,6 +115,7 @@ def main() -> None:
 
     try:
         from gui.app import main as app_main
+
         app_main()
     except Exception as e:
         logger.critical(f"アプリケーション起動に失敗しました: {e}", exc_info=True)

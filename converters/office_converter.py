@@ -15,7 +15,12 @@ import pythoncom
 import win32process
 
 from shared.exceptions import PDFConversionError
-from shared.constants import WordFormat, ExcelFormat, PowerPointFormat, PDFConversionConstants
+from shared.constants import (
+    WordFormat,
+    ExcelFormat,
+    PowerPointFormat,
+    PDFConversionConstants,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +28,7 @@ logger = logging.getLogger(__name__)
 class OfficeConverter:
     """OfficeファイルをPDFに変換するクラス"""
 
-    OFFICE_EXTENSIONS = ('.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.rtf')
+    OFFICE_EXTENSIONS = (".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf")
 
     def __init__(self, temp_dir: str) -> None:
         """
@@ -43,25 +48,30 @@ class OfficeConverter:
             pythoncom.CoUninitialize()
 
     @staticmethod
-    def _kill_office_process(process_name: str, process_id: Optional[int] = None) -> None:
+    def _kill_office_process(
+        process_name: str, process_id: Optional[int] = None
+    ) -> None:
         """Officeプロセスを強制終了（可能な限りPID指定）"""
         try:
-            command = ['taskkill', '/F', '/PID', str(process_id)] if process_id is not None else ['taskkill', '/F', '/IM', process_name]
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                timeout=5,
-                text=True
+            command = (
+                ["taskkill", "/F", "/PID", str(process_id)]
+                if process_id is not None
+                else ["taskkill", "/F", "/IM", process_name]
             )
+            result = subprocess.run(command, capture_output=True, timeout=5, text=True)
             if result.returncode == 0:
                 if process_id is not None:
-                    logger.debug(f"プロセスを強制終了: {process_name} (pid={process_id})")
+                    logger.debug(
+                        f"プロセスを強制終了: {process_name} (pid={process_id})"
+                    )
                 else:
                     logger.debug(f"プロセスを強制終了: {process_name}")
             elif result.returncode == 128:
                 # プロセスが見つからない（既に終了済み）
                 if process_id is not None:
-                    logger.debug(f"プロセスは既に終了済み: {process_name} (pid={process_id})")
+                    logger.debug(
+                        f"プロセスは既に終了済み: {process_name} (pid={process_id})"
+                    )
                 else:
                     logger.debug(f"プロセスは既に終了済み: {process_name}")
             else:
@@ -70,7 +80,9 @@ class OfficeConverter:
                     f"戻り値={result.returncode}, stderr={result.stderr}"
                 )
         except subprocess.TimeoutExpired:
-            logger.warning(f"プロセス強制終了がタイムアウト ({process_name}): taskkillが応答しません")
+            logger.warning(
+                f"プロセス強制終了がタイムアウト ({process_name}): taskkillが応答しません"
+            )
         except Exception as e:
             logger.warning(f"プロセス強制終了に失敗 ({process_name}): {e}")
 
@@ -94,7 +106,7 @@ class OfficeConverter:
         app: Any,
         process_name: str,
         app_name: str,
-        process_id: Optional[int] = None
+        process_id: Optional[int] = None,
     ) -> None:
         """
         Officeアプリケーションのクリーンアップを行う共通メソッド
@@ -160,13 +172,13 @@ class OfficeConverter:
         file_name = os.path.basename(file_path)
 
         try:
-            if ext in ['.doc', '.docx', '.rtf']:
+            if ext in [".doc", ".docx", ".rtf"]:
                 logger.info(f"Word変換開始: {file_name}")
                 self._convert_word(file_path, output_path)
-            elif ext in ['.xls', '.xlsx']:
+            elif ext in [".xls", ".xlsx"]:
                 logger.info(f"Excel変換開始: {file_name}")
                 self._convert_excel(file_path, output_path)
-            elif ext in ['.ppt', '.pptx']:
+            elif ext in [".ppt", ".pptx"]:
                 logger.info(f"PowerPoint変換開始: {file_name}")
                 self._convert_powerpoint(file_path, output_path)
             else:
@@ -188,7 +200,9 @@ class OfficeConverter:
 
         except Exception as e:
             logger.exception(f"Office変換エラー ({file_path}): {e}")
-            raise PDFConversionError(f"Office変換に失敗: {file_path}", original_error=e) from e
+            raise PDFConversionError(
+                f"Office変換に失敗: {file_path}", original_error=e
+            ) from e
 
     def _convert_word(self, file_path: str, output_path: str) -> None:
         """Word文書をPDFに変換"""
@@ -224,13 +238,17 @@ class OfficeConverter:
 
         # ネットワークパスの場合はローカルにコピー
         base_name = os.path.basename(file_path)
-        local_copy = os.path.join(self.temp_dir, PDFConversionConstants.LOCAL_COPY_PREFIX + base_name)
+        local_copy = os.path.join(
+            self.temp_dir, PDFConversionConstants.LOCAL_COPY_PREFIX + base_name
+        )
 
         try:
             shutil.copy2(file_path, local_copy)
         except OSError as e:
             logger.error(f"ファイルコピーに失敗 ({file_path}): {e}")
-            raise PDFConversionError(f"ファイルコピーに失敗: {file_path}", original_error=e) from e
+            raise PDFConversionError(
+                f"ファイルコピーに失敗: {file_path}", original_error=e
+            ) from e
 
         with self._com_context():
             excel: Any = None
@@ -256,7 +274,9 @@ class OfficeConverter:
                     try:
                         os.remove(local_copy)
                     except OSError as e:
-                        logger.warning(f"ローカルコピーの削除に失敗 ({local_copy}): {e}")
+                        logger.warning(
+                            f"ローカルコピーの削除に失敗 ({local_copy}): {e}"
+                        )
 
     def _convert_powerpoint(self, file_path: str, output_path: str) -> None:
         """PowerPointプレゼンテーションをPDFに変換"""
@@ -279,5 +299,9 @@ class OfficeConverter:
                 logger.debug(f"PowerPoint変換完了: {file_path} -> {output_path}")
             finally:
                 self._cleanup_office_app(
-                    pres, powerpoint, "POWERPNT.EXE", "PowerPoint", process_id=process_id
+                    pres,
+                    powerpoint,
+                    "POWERPNT.EXE",
+                    "PowerPoint",
+                    process_id=process_id,
                 )

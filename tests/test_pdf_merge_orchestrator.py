@@ -65,8 +65,7 @@ class TestPDFMergeOrchestratorInit:
     def test_init_custom_cancel_check(self, mock_deps):
         config, converter, processor, collector = mock_deps
         orch = PDFMergeOrchestrator(
-            config, converter, processor, collector,
-            cancel_check=lambda: True
+            config, converter, processor, collector, cancel_check=lambda: True
         )
         assert orch.is_cancelled() is True
 
@@ -81,14 +80,13 @@ class TestCreateMergedPDF:
 
         # モックの戻り値を設定
         collector.collect_documents.return_value = (
-            [("Section1", 1, 3)], ["/tmp/a.pdf"]
+            [("Section1", 1, 3)],
+            ["/tmp/a.pdf"],
         )
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
         processor.create_toc_pdf.return_value = 1
         processor.get_page_count.side_effect = _page_count_side_effect(
-            config.get_temp_dir.return_value,
-            toc_pages=1,
-            default_pages=10
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=10
         )
 
         orchestrator.create_merged_pdf("/target", "/output.pdf")
@@ -105,7 +103,9 @@ class TestCreateMergedPDF:
         processor.add_page_numbers.assert_called_once()
         # Step 7: アウトライン
         processor.set_pdf_outlines.assert_called_once()
-        processor.set_pdf_outlines.assert_called_with("/output.pdf", [("Section1", 1, 3)])
+        processor.set_pdf_outlines.assert_called_with(
+            "/output.pdf", [("Section1", 1, 3)]
+        )
 
     def test_cancel_at_step1(self, mock_deps, temp_dir):
         """Step1後のキャンセルで例外発生"""
@@ -116,15 +116,16 @@ class TestCreateMergedPDF:
             return cancel_flag[0]
 
         orch = PDFMergeOrchestrator(
-            config, converter, processor, collector,
-            cancel_check=cancel_check
+            config, converter, processor, collector, cancel_check=cancel_check
         )
 
         collector.collect_documents.return_value = ([], [])
+
         # Step1実行後にキャンセルフラグを立てる
         def set_cancel(*args, **kwargs):
             cancel_flag[0] = True
             return ([], [])
+
         collector.collect_documents.side_effect = set_cancel
 
         with pytest.raises(CancelledError):
@@ -138,12 +139,12 @@ class TestCreateMergedPDF:
         processor.split_pdf.return_value = ("/tmp/c.pdf", "/tmp/r.pdf")
         processor.create_toc_pdf.return_value = 1
         processor.get_page_count.side_effect = _page_count_side_effect(
-            config.get_temp_dir.return_value,
-            toc_pages=1,
-            default_pages=1
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=1
         )
 
-        orchestrator.create_merged_pdf("/target", "/out.pdf", create_separator_for_subfolder=False)
+        orchestrator.create_merged_pdf(
+            "/target", "/out.pdf", create_separator_for_subfolder=False
+        )
         collector.collect_documents.assert_called_once_with("/target", False)
 
     def test_final_merge_order(self, orchestrator, mock_deps):
@@ -154,9 +155,7 @@ class TestCreateMergedPDF:
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
         processor.create_toc_pdf.return_value = 1
         processor.get_page_count.side_effect = _page_count_side_effect(
-            config.get_temp_dir.return_value,
-            toc_pages=1,
-            default_pages=5
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=5
         )
 
         orchestrator.create_merged_pdf("/target", "/output.pdf")
@@ -173,13 +172,14 @@ class TestCreateMergedPDF:
 
         original_toc_entries = [("Main", 1, 3), ("Sub", 2, 4)]
         adjusted_toc_entries = [("Main", 1, 5), ("Sub", 2, 6)]
-        collector.collect_documents.return_value = (original_toc_entries, ["/tmp/a.pdf"])
+        collector.collect_documents.return_value = (
+            original_toc_entries,
+            ["/tmp/a.pdf"],
+        )
         processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
         processor.create_toc_pdf.return_value = 3
         processor.get_page_count.side_effect = _page_count_side_effect(
-            config.get_temp_dir.return_value,
-            toc_pages=3,
-            default_pages=20
+            config.get_temp_dir.return_value, toc_pages=3, default_pages=20
         )
 
         orchestrator.create_merged_pdf("/target", "/output.pdf")
@@ -192,7 +192,9 @@ class TestCreateMergedPDF:
         # 2回目の呼び出し: 補正後の目次エントリ
         second_call_entries = processor.create_toc_pdf.call_args_list[1][0][0]
         assert second_call_entries == adjusted_toc_entries
-        processor.set_pdf_outlines.assert_called_once_with("/output.pdf", adjusted_toc_entries)
+        processor.set_pdf_outlines.assert_called_once_with(
+            "/output.pdf", adjusted_toc_entries
+        )
 
     def test_compress_calls_ghostscript(self, mock_deps, temp_dir):
         """compress=Trueの場合、圧縮ステップが呼ばれる"""
@@ -207,9 +209,11 @@ class TestCreateMergedPDF:
         )
         processor.compress_pdf.return_value = True
 
-        with patch.object(GhostscriptDetector, 'detect', return_value="/usr/bin/gs"), \
-             patch.object(GhostscriptDetector, 'validate_ghostscript', return_value=True), \
-             patch('core.pdf_merge_orchestrator.os.path.getsize', return_value=1_000_000):
+        with patch.object(
+            GhostscriptDetector, "detect", return_value="/usr/bin/gs"
+        ), patch.object(
+            GhostscriptDetector, "validate_ghostscript", return_value=True
+        ), patch("core.pdf_merge_orchestrator.os.path.getsize", return_value=1_000_000):
             orch.create_merged_pdf("/target", "/output.pdf", compress=True)
 
         processor.compress_pdf.assert_called_once_with("/output.pdf")
@@ -227,7 +231,7 @@ class TestCreateMergedPDF:
             config.get_temp_dir.return_value, toc_pages=1, default_pages=5
         )
 
-        with patch.object(GhostscriptDetector, 'detect', return_value=None):
+        with patch.object(GhostscriptDetector, "detect", return_value=None):
             orch.create_merged_pdf("/target", "/output.pdf", compress=True)
 
         processor.compress_pdf.assert_not_called()
@@ -255,7 +259,7 @@ class TestCleanupTempFiles:
     def test_cleanup_removes_existing_files(self, orchestrator, temp_dir):
         """存在するファイルが削除される"""
         tmp_file = os.path.join(temp_dir, "test.tmp")
-        with open(tmp_file, 'w') as f:
+        with open(tmp_file, "w") as f:
             f.write("test")
 
         orchestrator._cleanup_temp_files(tmp_file)
@@ -284,21 +288,23 @@ class TestCleanupTempFiles:
 
         collector.collect_documents.side_effect = RuntimeError("test error")
 
-        with patch.object(orch, '_cleanup_temp_files') as mock_cleanup:
+        with patch.object(orch, "_cleanup_temp_files") as mock_cleanup:
             with pytest.raises(RuntimeError):
                 orch.create_merged_pdf("/target", "/output.pdf")
 
             # finallyブロックでクリーンアップが呼ばれたことを確認
             mock_cleanup.assert_called()
 
-    def test_cleanup_includes_partial_content_pdfs_on_exception(self, mock_deps, temp_dir):
+    def test_cleanup_includes_partial_content_pdfs_on_exception(
+        self, mock_deps, temp_dir
+    ):
         """collect_documentsが途中で例外を投げても、収集済みPDFがクリーンアップされる"""
         config, converter, processor, collector = mock_deps
         orch = PDFMergeOrchestrator(config, converter, processor, collector)
 
         # get_collected_pdfs() が部分結果を返す状態をシミュレート
         partial_pdf = os.path.join(temp_dir, "partial.pdf")
-        with open(partial_pdf, 'w') as f:
+        with open(partial_pdf, "w") as f:
             f.write("dummy")
 
         def raise_with_partial(*args, **kwargs):
@@ -336,5 +342,5 @@ class TestIsTempFile:
         """Windowsではパスの大文字小文字を区別しない"""
         file_path = os.path.join(temp_dir.upper(), "test.pdf")
         # Windowsでは True、他OSでは temp_dir.upper() が存在しないため結果は環境依存
-        if os.name == 'nt':
+        if os.name == "nt":
             assert orchestrator._is_temp_file(file_path) is True

@@ -7,7 +7,11 @@ PathValidator のユニットテスト
 import pytest
 from pathlib import Path
 
-from infrastructure.path_validator import PathValidator, PathValidationError, _check_path_security
+from infrastructure.path_validator import (
+    PathValidator,
+    PathValidationError,
+    _check_path_security,
+)
 
 
 @pytest.mark.unit
@@ -142,7 +146,7 @@ class TestValidateFilePath:
         file = tmp_path / "test.pdf"
         file.write_text("test")
         is_valid, _, _ = PathValidator.validate_file_path(
-            str(file), must_exist=True, allowed_extensions=['.pdf']
+            str(file), must_exist=True, allowed_extensions=[".pdf"]
         )
         assert is_valid is True
 
@@ -151,7 +155,7 @@ class TestValidateFilePath:
         file = tmp_path / "test.txt"
         file.write_text("test")
         is_valid, error_msg, _ = PathValidator.validate_file_path(
-            str(file), must_exist=True, allowed_extensions=['.pdf']
+            str(file), must_exist=True, allowed_extensions=[".pdf"]
         )
         assert is_valid is False
         assert "許可されていない拡張子" in error_msg
@@ -161,7 +165,7 @@ class TestValidateFilePath:
         file = tmp_path / "test.PDF"
         file.write_text("test")
         is_valid, _, _ = PathValidator.validate_file_path(
-            str(file), must_exist=True, allowed_extensions=['.pdf']
+            str(file), must_exist=True, allowed_extensions=[".pdf"]
         )
         assert is_valid is True
 
@@ -229,18 +233,18 @@ class TestSanitizeFilename:
     def test_removes_invalid_chars(self):
         """無効な文字を置換"""
         result = PathValidator.sanitize_filename('file<>:"/\\|?*.pdf')
-        assert '<' not in result
-        assert '>' not in result
-        assert ':' not in result
+        assert "<" not in result
+        assert ">" not in result
+        assert ":" not in result
         assert '"' not in result
-        assert '?' not in result
-        assert '*' not in result
+        assert "?" not in result
+        assert "*" not in result
 
     def test_removes_control_chars(self):
         """制御文字を除去"""
         result = PathValidator.sanitize_filename("file\x00\x01name.txt")
-        assert '\x00' not in result
-        assert '\x01' not in result
+        assert "\x00" not in result
+        assert "\x01" not in result
 
     def test_windows_reserved_names(self):
         """Windows予約名を回避"""
@@ -261,11 +265,13 @@ class TestSanitizeFilename:
     def test_empty_returns_default(self):
         """空文字列でデフォルト名"""
         from shared.constants import PathConstants
+
         assert PathValidator.sanitize_filename("") == PathConstants.DEFAULT_FILENAME
 
     def test_only_invalid_chars_returns_default(self):
         """無効文字のみでデフォルト名"""
         from shared.constants import PathConstants
+
         result = PathValidator.sanitize_filename("***")
         assert result == PathConstants.DEFAULT_FILENAME
 

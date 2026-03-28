@@ -25,7 +25,9 @@ class TestValidateGhostscript:
 
     def test_nonexistent_path(self):
         """存在しないパスは無効"""
-        assert GhostscriptDetector.validate_ghostscript(r"C:\nonexistent\gs.exe") is False
+        assert (
+            GhostscriptDetector.validate_ghostscript(r"C:\nonexistent\gs.exe") is False
+        )
 
     def test_valid_executable_name(self, tmp_path):
         """有効な実行ファイル名"""
@@ -173,7 +175,9 @@ class TestGetInstallInstructions:
 class TestDetect:
     """detect のテスト"""
 
-    @patch.object(GhostscriptDetector, "_check_environment_variables", return_value=None)
+    @patch.object(
+        GhostscriptDetector, "_check_environment_variables", return_value=None
+    )
     @patch.object(GhostscriptDetector, "_check_registry", return_value=None)
     @patch.object(GhostscriptDetector, "_check_standard_paths", return_value=None)
     @patch.object(GhostscriptDetector, "_check_path_env", return_value=None)
@@ -181,14 +185,22 @@ class TestDetect:
         """何も見つからない"""
         assert GhostscriptDetector.detect() is None
 
-    @patch.object(GhostscriptDetector, "_check_environment_variables", return_value=r"C:\gs\bin\gs.exe")
+    @patch.object(
+        GhostscriptDetector,
+        "_check_environment_variables",
+        return_value=r"C:\gs\bin\gs.exe",
+    )
     def test_env_var_priority(self, mock_env):
         """環境変数が最優先"""
         result = GhostscriptDetector.detect()
         assert result == r"C:\gs\bin\gs.exe"
 
-    @patch.object(GhostscriptDetector, "_check_environment_variables", return_value=None)
-    @patch.object(GhostscriptDetector, "_check_registry", return_value=r"C:\gs\bin\gs.exe")
+    @patch.object(
+        GhostscriptDetector, "_check_environment_variables", return_value=None
+    )
+    @patch.object(
+        GhostscriptDetector, "_check_registry", return_value=r"C:\gs\bin\gs.exe"
+    )
     def test_registry_fallback(self, *mocks):
         """環境変数なし→レジストリ"""
         result = GhostscriptDetector.detect()

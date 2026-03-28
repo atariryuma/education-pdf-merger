@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 class IchitaroConverter:
     """一太郎ファイルをPDFに変換するクラス"""
 
-    ICHITARO_EXTENSIONS = ('.jtd',)
+    ICHITARO_EXTENSIONS = (".jtd",)
 
     def __init__(
         self,
         ichitaro_settings: Optional[Dict[str, Any]] = None,
         cancel_check: Optional[Callable[[], bool]] = None,
-        dialog_callback: Optional[Callable[[str, bool], None]] = None
+        dialog_callback: Optional[Callable[[str, bool], None]] = None,
     ) -> None:
         """
         Args:
@@ -37,7 +37,7 @@ class IchitaroConverter:
         """
         self.ichitaro_settings = ichitaro_settings or {
             **AppConstants.ICHITARO_DEFAULTS,
-            'printer_name': 'Microsoft Print to PDF'
+            "printer_name": "Microsoft Print to PDF",
         }
         self._cancel_check = cancel_check or (lambda: False)
         self._dialog_callback = dialog_callback
@@ -85,18 +85,18 @@ class IchitaroConverter:
             - 他の特殊文字（+, ^, %, ~, (, )）→ {文字}
         """
         # 1文字ずつ処理してエスケープの二重適用を防ぐ
-        special_chars = {'+', '^', '%', '~', '(', ')'}
+        special_chars = {"+", "^", "%", "~", "(", ")"}
         result = []
         for char in text:
-            if char == '{':
-                result.append('{{')
-            elif char == '}':
-                result.append('}}')
+            if char == "{":
+                result.append("{{")
+            elif char == "}":
+                result.append("}}")
             elif char in special_chars:
-                result.append('{' + char + '}')
+                result.append("{" + char + "}")
             else:
                 result.append(char)
-        return ''.join(result)
+        return "".join(result)
 
     def convert(self, file_path: str, output_path: str) -> Optional[str]:
         """
@@ -130,7 +130,9 @@ class IchitaroConverter:
         try:
             for attempt in range(1, max_attempts + 1):
                 if attempt > 1:
-                    logger.info(f"一太郎PDF変換を再試行します（試行 {attempt}/{max_attempts}）")
+                    logger.info(
+                        f"一太郎PDF変換を再試行します（試行 {attempt}/{max_attempts}）"
+                    )
                 logger.info(f"一太郎PDF変換開始: {file_name}")
 
                 # パスを正規化（バックスラッシュに統一）
@@ -150,10 +152,12 @@ class IchitaroConverter:
                     logger.warning(f"出力ファイル削除エラー（続行します）: {e}")
 
                 # 設定値
-                max_wait = self.ichitaro_settings.get('ichitaro_ready_timeout', 30)
-                save_wait = self.ichitaro_settings.get('save_wait_seconds', 20)
+                max_wait = self.ichitaro_settings.get("ichitaro_ready_timeout", 30)
+                save_wait = self.ichitaro_settings.get("save_wait_seconds", 20)
 
-                logger.info(f"設定値 - 接続タイムアウト: {max_wait}秒, 保存待機: {save_wait}秒")
+                logger.info(
+                    f"設定値 - 接続タイムアウト: {max_wait}秒, 保存待機: {save_wait}秒"
+                )
 
                 app = None
                 main_window = None
@@ -166,7 +170,9 @@ class IchitaroConverter:
 
                     # ステップ2: 一太郎でファイルを開く
                     logger.debug("ステップ2: 一太郎でファイルを開く")
-                    app, main_window = self._open_ichitaro_file(file_path_norm, max_wait)
+                    app, main_window = self._open_ichitaro_file(
+                        file_path_norm, max_wait
+                    )
                     if app is None or main_window is None:
                         logger.error("一太郎ファイルを開けませんでした")
                         result = None
@@ -177,7 +183,9 @@ class IchitaroConverter:
 
                         # ステップ4: PDF作成完了を待つ
                         logger.debug("ステップ4: PDF作成完了を待つ")
-                        result = self._wait_for_output_file(output_path_norm, file_path_norm, save_wait)
+                        result = self._wait_for_output_file(
+                            output_path_norm, file_path_norm, save_wait
+                        )
 
                 finally:
                     # ステップ5: 一太郎を正常終了
@@ -190,19 +198,27 @@ class IchitaroConverter:
                     if file_size > 0:
                         logger.debug(f"PDFファイル確認OK (サイズ: {file_size:,} bytes)")
                         if attempt > 1:
-                            logger.info(f"一太郎PDF変換成功（試行 {attempt}/{max_attempts}）: {file_name}")
+                            logger.info(
+                                f"一太郎PDF変換成功（試行 {attempt}/{max_attempts}）: {file_name}"
+                            )
                         else:
                             logger.info(f"一太郎PDF変換成功: {file_name}")
                         return result
                     else:
-                        logger.error(f"{PDFConversionConstants.LOG_MARK_FAILURE} PDFファイルが空です (サイズ: 0 bytes)")
+                        logger.error(
+                            f"{PDFConversionConstants.LOG_MARK_FAILURE} PDFファイルが空です (サイズ: 0 bytes)"
+                        )
                         result = None
                 elif result:
-                    logger.error(f"{PDFConversionConstants.LOG_MARK_FAILURE} PDFファイルが削除されています: {output_path_norm}")
+                    logger.error(
+                        f"{PDFConversionConstants.LOG_MARK_FAILURE} PDFファイルが削除されています: {output_path_norm}"
+                    )
                     result = None
 
                 # 変換失敗時の処理
-                logger.error(f"一太郎PDF変換失敗（試行 {attempt}/{max_attempts}）: {file_name}")
+                logger.error(
+                    f"一太郎PDF変換失敗（試行 {attempt}/{max_attempts}）: {file_name}"
+                )
 
                 if attempt < max_attempts:
                     logger.warning("一太郎プロセスをクリーンアップして再試行します...")
@@ -210,12 +226,18 @@ class IchitaroConverter:
                     self._wait_with_cancel_check(IchitaroWaitTimes.RETRY_DELAY)
                     # ダイアログメッセージ更新
                     if self._dialog_callback:
-                        self._dialog_callback(f"再試行中: {file_name} ({attempt+1}/{max_attempts})", True)
+                        self._dialog_callback(
+                            f"再試行中: {file_name} ({attempt+1}/{max_attempts})", True
+                        )
                 else:
-                    logger.error(f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎変換が{max_attempts}回失敗しました。スキップします: {file_name}")
+                    logger.error(
+                        f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎変換が{max_attempts}回失敗しました。スキップします: {file_name}"
+                    )
 
             # ループを抜けた = 全試行失敗
-            logger.warning(f"一太郎変換が全{max_attempts}回の試行で失敗しました: {file_name}")
+            logger.warning(
+                f"一太郎変換が全{max_attempts}回の試行で失敗しました: {file_name}"
+            )
             return None
 
         except CancelledError:
@@ -226,7 +248,9 @@ class IchitaroConverter:
             raise
 
         except Exception as e:
-            logger.exception(f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎変換で予期しないエラー: {e}")
+            logger.exception(
+                f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎変換で予期しないエラー: {e}"
+            )
             return None
 
         finally:
@@ -235,9 +259,7 @@ class IchitaroConverter:
                 self._dialog_callback("", False)  # False = hide
 
     def _open_ichitaro_file(
-        self,
-        file_path: str,
-        max_wait: int
+        self, file_path: str, max_wait: int
     ) -> Tuple[Optional[Application], Optional[Any]]:
         """
         一太郎でファイルを開く（ベストプラクティス版）
@@ -278,7 +300,9 @@ class IchitaroConverter:
                 title_re=title_pattern, timeout=max_wait
             )
             main_window = app.top_window()
-            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎への接続成功: {main_window.window_text()}")
+            logger.info(
+                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎への接続成功: {main_window.window_text()}"
+            )
             main_window.set_focus()
             return app, main_window
 
@@ -286,14 +310,14 @@ class IchitaroConverter:
             self._cleanup_ichitaro_windows()
             raise
         except Exception as e:
-            logger.error(f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎への接続失敗: {e}")
+            logger.error(
+                f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎への接続失敗: {e}"
+            )
             self._cleanup_ichitaro_windows()
             return None, None
 
     def _close_ichitaro(
-        self,
-        app: Optional[Application],
-        main_window: Optional[Any]
+        self, app: Optional[Application], main_window: Optional[Any]
     ) -> None:
         """
         一太郎を正常終了（改良版）
@@ -322,7 +346,9 @@ class IchitaroConverter:
             logger.info(f"対象ウィンドウ: {window_title}")
 
             app.kill()
-            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎プロセスを終了しました")
+            logger.info(
+                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎プロセスを終了しました"
+            )
 
             # プロセス終了の確認待機
             wait_time = IchitaroWaitTimes.WINDOW_CLOSE_WAIT
@@ -331,11 +357,7 @@ class IchitaroConverter:
         except Exception as e:
             logger.warning(f"一太郎の終了に失敗しました: {e}")
 
-    def _execute_print_sequence(
-        self,
-        app: Application,
-        output_path: str
-    ) -> bool:
+    def _execute_print_sequence(self, app: Application, output_path: str) -> bool:
         """
         印刷シーケンスを実行（ベストプラクティス版）
 
@@ -359,7 +381,9 @@ class IchitaroConverter:
         logger.info("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
         wait_time = IchitaroWaitTimes.CTRL_P_WAIT
         self._wait_with_cancel_check(wait_time)
-        logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 待機完了、印刷ダイアログが開いているはず")
+        logger.info(
+            f"{PDFConversionConstants.LOG_MARK_SUCCESS} 待機完了、印刷ダイアログが開いているはず"
+        )
 
         # Microsoft Print to PDFをプリンター名で直接選択
         logger.info("Microsoft Print to PDFを選択中...")
@@ -371,12 +395,18 @@ class IchitaroConverter:
         for attempt in range(max_retries):
             try:
                 main_window = app.top_window()
-                print_dialog = main_window.child_window(title="印刷", control_type="Window")
-                printer_combo = print_dialog.child_window(auto_id="1297", control_type="ComboBox")
+                print_dialog = main_window.child_window(
+                    title="印刷", control_type="Window"
+                )
+                printer_combo = print_dialog.child_window(
+                    auto_id="1297", control_type="ComboBox"
+                )
 
                 # pywinautoの高レベルAPIでプリンターを選択
                 printer_combo.select("Microsoft Print to PDF")
-                logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} select()メソッドで'Microsoft Print to PDF'を選択")
+                logger.info(
+                    f"{PDFConversionConstants.LOG_MARK_SUCCESS} select()メソッドで'Microsoft Print to PDF'を選択"
+                )
                 self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
 
                 # 印刷ボタン（OK）をクリックして印刷実行
@@ -384,12 +414,16 @@ class IchitaroConverter:
                 # 2回目のEnterが文書本体に改行として入力されるバグがあるため、
                 # pywinautoのclick()で確実にボタンを操作する
                 try:
-                    ok_button = print_dialog.child_window(title="OK", control_type="Button")
+                    ok_button = print_dialog.child_window(
+                        title="OK", control_type="Button"
+                    )
                     ok_button.click()
                     logger.info("印刷ボタン（OK）をクリックして印刷実行")
                 except Exception as click_error:
                     # クリック失敗時はEnterキーにフォールバック（1回のみ）
-                    logger.warning(f"OKボタンのクリックに失敗、Enterキーで代替: {click_error}")
+                    logger.warning(
+                        f"OKボタンのクリックに失敗、Enterキーで代替: {click_error}"
+                    )
                     send_keys("{ENTER}")
 
                 self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
@@ -397,14 +431,18 @@ class IchitaroConverter:
 
             except Exception as select_error:
                 if attempt < max_retries - 1:
-                    logger.warning(f"プリンター選択失敗（試行 {attempt + 1}/{max_retries}）: {select_error}")
+                    logger.warning(
+                        f"プリンター選択失敗（試行 {attempt + 1}/{max_retries}）: {select_error}"
+                    )
                     logger.info(f"{retry_delay}秒待機後、再試行します...")
                     self._wait_with_cancel_check(retry_delay)
                 else:
-                    logger.error(f"プリンター選択が{max_retries}回失敗しました: {select_error}")
+                    logger.error(
+                        f"プリンター選択が{max_retries}回失敗しました: {select_error}"
+                    )
                     raise PDFConversionError(
                         f"Microsoft Print to PDFの選択に失敗しました: {select_error}",
-                        original_error=select_error
+                        original_error=select_error,
                     ) from select_error
 
         if self.is_cancelled():
@@ -432,18 +470,24 @@ class IchitaroConverter:
                 if top and top.exists(timeout=0):
                     class_name = top.class_name()
                     if class_name == "#32770" or "JSTARO" not in class_name.upper():
-                        logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（top_window, {dialog_elapsed:.1f}秒経過）")
+                        logger.info(
+                            f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（top_window, {dialog_elapsed:.1f}秒経過）"
+                        )
                         logger.info(f"  クラス名: {class_name}")
                         return True
             except Exception as e:
                 logger.debug(f"top_window検出エラー: {e}")
 
             # 方法2: タイトル正規表現での検出
-            save_dialogs = app.windows(title_re='.*名前を付けて保存.*|.*Save.*|.*保存.*')
+            save_dialogs = app.windows(
+                title_re=".*名前を付けて保存.*|.*Save.*|.*保存.*"
+            )
             if save_dialogs:
                 for dlg in save_dialogs:
                     if dlg.exists(timeout=0):
-                        logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（title_re, {dialog_elapsed:.1f}秒経過）")
+                        logger.info(
+                            f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（title_re, {dialog_elapsed:.1f}秒経過）"
+                        )
                         return True
 
             # 方法3: クラス名#32770での検出
@@ -452,7 +496,9 @@ class IchitaroConverter:
                 if dialog_windows:
                     for dlg in dialog_windows:
                         if dlg.exists(timeout=0):
-                            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（#32770, {dialog_elapsed:.1f}秒経過）")
+                            logger.info(
+                                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（#32770, {dialog_elapsed:.1f}秒経過）"
+                            )
                             logger.info(f"  タイトル: {dlg.window_text()}")
                             return True
             except Exception as e:
@@ -472,7 +518,9 @@ class IchitaroConverter:
             output_path: 出力ファイルパス
         """
         # 保存ダイアログの表示を動的に待機
-        logger.debug(f"保存ダイアログの表示を待機中（最大{IchitaroWaitTimes.DIALOG_TIMEOUT}秒）")
+        logger.debug(
+            f"保存ダイアログの表示を待機中（最大{IchitaroWaitTimes.DIALOG_TIMEOUT}秒）"
+        )
 
         dialog_timeout = IchitaroWaitTimes.DIALOG_TIMEOUT
         dialog_wait_interval = IchitaroWaitTimes.DIALOG_POLL_INTERVAL
@@ -500,9 +548,13 @@ class IchitaroConverter:
                 logger.info(f"待機中... {dialog_elapsed:.1f}秒 / {dialog_timeout}秒")
 
         if dialog_found:
-            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ確認済み")
+            logger.info(
+                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ確認済み"
+            )
         else:
-            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} {dialog_elapsed:.1f}秒待機完了（ダイアログ検出なし、キーボード操作で続行）")
+            logger.info(
+                f"{PDFConversionConstants.LOG_MARK_SUCCESS} {dialog_elapsed:.1f}秒待機完了（ダイアログ検出なし、キーボード操作で続行）"
+            )
 
         # キーボード入力の準備のため追加待機
         self._wait_with_cancel_check(IchitaroWaitTimes.KEYBOARD_PREP_WAIT)
@@ -527,10 +579,7 @@ class IchitaroConverter:
         logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存処理完了")
 
     def _wait_for_output_file(
-        self,
-        output_path: str,
-        file_path: str,
-        save_wait: int = 20
+        self, output_path: str, file_path: str, save_wait: int = 20
     ) -> Optional[str]:
         """
         出力ファイルの作成を待機（動的間隔＆ファイルサイズ安定性チェック）
@@ -546,7 +595,9 @@ class IchitaroConverter:
         Raises:
             CancelledError: キャンセルされた場合
         """
-        logger.info(f"出力ファイルの作成を待機中（最大{save_wait}秒、動的間隔でチェック）...")
+        logger.info(
+            f"出力ファイルの作成を待機中（最大{save_wait}秒、動的間隔でチェック）..."
+        )
         logger.info(f"待機対象ファイル: {output_path}")
 
         # 動的待機間隔を生成
@@ -577,7 +628,9 @@ class IchitaroConverter:
                         stable_count += 1
                         threshold = PDFConversionConstants.FILE_STABILITY_THRESHOLD
                         if stable_count >= threshold:
-                            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 出力ファイル検出成功！ (サイズ: {current_size:,} bytes)")
+                            logger.info(
+                                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 出力ファイル検出成功！ (サイズ: {current_size:,} bytes)"
+                            )
                             logger.info(f"待機時間: {elapsed_time:.1f}秒")
                             return output_path
                     else:
@@ -593,7 +646,9 @@ class IchitaroConverter:
             self._wait_with_cancel_check(interval)
             elapsed_time += interval
 
-        logger.error(f"{PDFConversionConstants.LOG_MARK_FAILURE} タイムアウト: {save_wait}秒経過しても出力ファイルが見つかりません")
+        logger.error(
+            f"{PDFConversionConstants.LOG_MARK_FAILURE} タイムアウト: {save_wait}秒経過しても出力ファイルが見つかりません"
+        )
         logger.error(f"ファイルパス: {output_path}")
         return None
 
@@ -607,12 +662,16 @@ class IchitaroConverter:
         try:
             logger.info("一太郎ウィンドウのクリーンアップを開始...")
             timeout = IchitaroWaitTimes.CLEANUP_TIMEOUT
-            app = Application(backend="uia").connect(title_re=".*一太郎.*", timeout=timeout)
+            app = Application(backend="uia").connect(
+                title_re=".*一太郎.*", timeout=timeout
+            )
 
             logger.info("一太郎プロセスを強制終了しています...")
             app.kill()
             self._wait_with_cancel_check(IchitaroWaitTimes.CLEANUP_WAIT)
-            logger.info(f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎プロセスのクリーンアップ完了")
+            logger.info(
+                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎プロセスのクリーンアップ完了"
+            )
 
         except CancelledError:
             raise

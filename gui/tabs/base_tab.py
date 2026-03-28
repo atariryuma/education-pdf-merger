@@ -51,7 +51,9 @@ class GUILogHandler(logging.Handler):
 class BaseTab:
     """タブの基底クラス"""
 
-    def __init__(self, notebook: ttk.Notebook, config: "ConfigLoader", status_bar: tk.Label) -> None:
+    def __init__(
+        self, notebook: ttk.Notebook, config: "ConfigLoader", status_bar: tk.Label
+    ) -> None:
         """
         Args:
             notebook: タブを追加するNotebookウィジェット
@@ -68,7 +70,9 @@ class BaseTab:
         """タブをNotebookに追加"""
         self.notebook.add(self.tab, text=text)
 
-    def create_log_frame(self, height: int = 10, parent: Optional[tk.Widget] = None) -> None:
+    def create_log_frame(
+        self, height: int = 10, parent: Optional[tk.Widget] = None
+    ) -> None:
         """
         ログフレームを作成
 
@@ -80,7 +84,9 @@ class BaseTab:
             parent = self.tab
         log_frame = tk.Frame(parent)
         log_frame.pack(fill="both", expand=True, padx=20, pady=(5, 15))
-        tk.Label(log_frame, text="実行ログ:", font=FONTS['default_bold']).pack(anchor="w", pady=(0, 5))
+        tk.Label(log_frame, text="実行ログ:", font=FONTS["default_bold"]).pack(
+            anchor="w", pady=(0, 5)
+        )
         self.log_widget = scrolledtext.ScrolledText(
             log_frame, width=80, height=height, state="disabled", wrap=tk.WORD
         )
@@ -99,29 +105,30 @@ class BaseTab:
 
         if logger_names is None:
             from shared.constants import AppConstants
+
             logger_names = AppConstants.GUI_LOGGER_NAMES
 
         # GUIログハンドラを作成
         self._gui_handler = GUILogHandler(
-            lambda msg, msg_type: log_message(self.log_widget, msg, msg_type) if self.log_widget else None
+            lambda msg, msg_type: log_message(self.log_widget, msg, msg_type)
+            if self.log_widget
+            else None
         )
         self._gui_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(message)s')
+        formatter = logging.Formatter("%(message)s")
         self._gui_handler.setFormatter(formatter)
 
         # 各ロガーにハンドラを追加
         for name in logger_names:
             logger = logging.getLogger(name)
             # 重複防止: 既にGUILogHandlerがあれば追加しない
-            has_gui_handler = any(
-                isinstance(h, GUILogHandler) for h in logger.handlers
-            )
+            has_gui_handler = any(isinstance(h, GUILogHandler) for h in logger.handlers)
             if not has_gui_handler:
                 logger.addHandler(self._gui_handler)
 
     def remove_gui_logging(self) -> None:
         """GUIログハンドラを削除"""
-        if hasattr(self, '_gui_handler') and self._gui_handler:
+        if hasattr(self, "_gui_handler") and self._gui_handler:
             from shared.constants import AppConstants
 
             for name in AppConstants.GUI_LOGGER_NAMES:
@@ -156,7 +163,7 @@ class BaseTab:
         path_type: str = "directory",
         must_exist: bool = True,
         allowed_extensions: Optional[List[str]] = None,
-        error_title: str = "パスエラー"
+        error_title: str = "パスエラー",
     ) -> Optional[Path]:
         """
         パスを検証し、無効な場合はエラーダイアログを表示
@@ -191,7 +198,7 @@ class BaseTab:
         parent: tk.Widget,
         title_collapsed: str,
         title_expanded: str,
-        **pack_kwargs: Any
+        **pack_kwargs: Any,
     ) -> Tuple[tk.Button, tk.Frame]:
         """
         折りたたみ可能なセクションを作成
@@ -221,11 +228,11 @@ class BaseTab:
             parent,
             text=title_collapsed,
             command=toggle,
-            font=FONTS['default_bold'],
+            font=FONTS["default_bold"],
             relief="flat",
             anchor="w",
             cursor="hand2",
-            bg=COLORS['surface_dim']
+            bg=COLORS["surface_dim"],
         )
         toggle_btn.pack(**pack_kwargs) if pack_kwargs else toggle_btn.pack(fill="x")
 

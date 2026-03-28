@@ -78,8 +78,11 @@ def find_from_known_paths() -> Optional[str]:
             continue
 
         try:
-            subdirs = [d for d in os.listdir(base_path)
-                      if os.path.isdir(os.path.join(base_path, d)) and d.startswith("gs")]
+            subdirs = [
+                d
+                for d in os.listdir(base_path)
+                if os.path.isdir(os.path.join(base_path, d)) and d.startswith("gs")
+            ]
             subdirs.sort(reverse=True)
 
             for subdir in subdirs:
@@ -102,10 +105,7 @@ def verify_ghostscript(gs_path: str) -> bool:
 
     try:
         result = subprocess.run(
-            [gs_path, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            [gs_path, "--version"], capture_output=True, text=True, timeout=10
         )
         return result.returncode == 0
     except Exception:
@@ -120,15 +120,15 @@ def update_config(app_dir: str, gs_path: str) -> bool:
         return False
 
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
         # Ghostscriptパスを設定
-        if 'ghostscript' not in config:
-            config['ghostscript'] = {}
-        config['ghostscript']['executable'] = gs_path
+        if "ghostscript" not in config:
+            config["ghostscript"] = {}
+        config["ghostscript"]["executable"] = gs_path
 
-        with open(config_path, 'w', encoding='utf-8') as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
 
         return True

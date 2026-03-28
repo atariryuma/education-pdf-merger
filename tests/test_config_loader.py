@@ -29,7 +29,7 @@ class TestConfigLoader:
     def test_load_config_invalid_json(self, temp_dir):
         """不正なJSONの読み込みでConfigurationErrorが発生する"""
         invalid_json_path = os.path.join(temp_dir, "invalid.json")
-        with open(invalid_json_path, 'w') as f:
+        with open(invalid_json_path, "w") as f:
             f.write("{ invalid json }")
         with pytest.raises(ConfigurationError) as exc_info:
             ConfigLoader(invalid_json_path)
@@ -38,15 +38,15 @@ class TestConfigLoader:
     def test_get_nested_keys(self, config_file):
         """ネストされたキーの取得"""
         config = ConfigLoader(config_file)
-        assert config.get('base_paths', 'google_drive') == "C:\\TestDrive"
-        assert config.get('directories', 'education_plan') == "教育計画書"
-        assert config.get('ichitaro', 'max_retries') == 3
+        assert config.get("base_paths", "google_drive") == "C:\\TestDrive"
+        assert config.get("directories", "education_plan") == "教育計画書"
+        assert config.get("ichitaro", "max_retries") == 3
 
     def test_get_with_default(self, config_file):
         """存在しないキーのデフォルト値"""
         config = ConfigLoader(config_file)
-        assert config.get('non_existent', default='default_value') == 'default_value'
-        assert config.get('base_paths', 'non_existent', default='default') == 'default'
+        assert config.get("non_existent", default="default_value") == "default_value"
+        assert config.get("base_paths", "non_existent", default="default") == "default"
 
     def test_build_path_with_placeholders(self, config_file):
         """プレースホルダー置換のテスト"""
@@ -60,7 +60,7 @@ class TestConfigLoader:
     def test_get_path_with_dot_notation(self, config_file):
         """ドット記法でのパス取得"""
         config = ConfigLoader(config_file)
-        result = config.get_path('base_paths.google_drive', 'test_dir')
+        result = config.get_path("base_paths.google_drive", "test_dir")
         assert "C:\\TestDrive" in result
         assert "test_dir" in result
 
@@ -80,11 +80,11 @@ class TestConfigLoader:
     def test_set_and_save(self, config_file, temp_dir):
         """設定の変更と保存"""
         config = ConfigLoader(config_file)
-        config.set('test_key', value='test_value')
-        assert config.get('test_key') == 'test_value'
+        config.set("test_key", value="test_value")
+        assert config.get("test_key") == "test_value"
 
-        config.set('nested', 'key', value='nested_value')
-        assert config.get('nested', 'key') == 'nested_value'
+        config.set("nested", "key", value="nested_value")
+        assert config.get("nested", "key") == "nested_value"
 
     def test_update_year(self, config_file):
         """年度情報の更新（実運用では西暦のみを使用）"""
@@ -93,7 +93,7 @@ class TestConfigLoader:
         config.update_year("2026")
         assert config.year == "2026"
         assert config.year_short == "R8"  # 自動計算される
-        assert config.config['year'] == "2026"
+        assert config.config["year"] == "2026"
 
     def test_update_year_with_explicit_year_short(self, config_file):
         """年度情報の更新（year_short明示指定）"""
@@ -102,25 +102,25 @@ class TestConfigLoader:
         config.update_year("2027", "R9")
         assert config.year == "2027"
         assert config.year_short == "R9"
-        assert config.config['year'] == "2027"
-        assert config.config['year_short'] == "R9"
+        assert config.config["year"] == "2027"
+        assert config.config["year_short"] == "R9"
 
     def test_save_config(self, config_file):
         """設定の保存"""
         config = ConfigLoader(config_file)
-        config.set('new_key', value='new_value')
+        config.set("new_key", value="new_value")
         config.save_config()  # Returns None
 
         # 再読み込みして確認
         config2 = ConfigLoader(config_file)
-        assert config2.get('new_key') == 'new_value'
+        assert config2.get("new_key") == "new_value"
 
     def test_get_temp_dir_creates_directory(self, config_file, temp_dir):
         """一時ディレクトリの作成"""
         config = ConfigLoader(config_file)
         # 一時ディレクトリのパスを変更
         new_temp = os.path.join(temp_dir, "new_temp_dir")
-        config.set('base_paths', 'local_temp', value=new_temp)
+        config.set("base_paths", "local_temp", value=new_temp)
 
         result = config.get_temp_dir()
         assert result == new_temp
@@ -138,10 +138,10 @@ class TestEventNames:
         data["excel_default_event_names"] = {
             "school_events": ["入学式", "卒業式", "運動会"],
             "student_council_events": ["生徒総会", "選挙"],
-            "other_activities": ["遠足"]
+            "other_activities": ["遠足"],
         }
         config_path = os.path.join(temp_dir, "config_events.json")
-        with open(config_path, 'w', encoding='utf-8') as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return ConfigLoader(config_path)
 

@@ -19,16 +19,15 @@ from infrastructure.year_utils import calculate_year_short, calculate_next_fisca
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
+
 class ConfigLoader:
     """設定ファイルを読み込み、パスを構築するクラス"""
 
     # デフォルトの設定ファイル名
-    DEFAULT_CONFIG_FILENAME = 'config.json'
+    DEFAULT_CONFIG_FILENAME = "config.json"
 
     def __init__(
-        self,
-        config_path: Optional[str] = None,
-        use_user_config: Optional[bool] = None
+        self, config_path: Optional[str] = None, use_user_config: Optional[bool] = None
     ) -> None:
         """
         設定ファイルを読み込む
@@ -41,7 +40,7 @@ class ConfigLoader:
 
         if config_path is None:
             # PyInstallerでビルドされた場合は実行ファイルと同じディレクトリを使用
-            if getattr(sys, 'frozen', False):
+            if getattr(sys, "frozen", False):
                 # PyInstallerでビルドされている場合
                 module_dir = os.path.dirname(sys.executable)
             else:
@@ -50,26 +49,28 @@ class ConfigLoader:
                 module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             config_path = os.path.join(module_dir, self.DEFAULT_CONFIG_FILENAME)
 
-        self.use_user_config: bool = (not explicit_config_path) if use_user_config is None else use_user_config
+        self.use_user_config: bool = (
+            (not explicit_config_path) if use_user_config is None else use_user_config
+        )
         self.config_path: str = config_path  # デフォルト設定（読み取り専用）
 
         # ユーザー設定ファイルのパス（AppData内、読み書き可能）
-        appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-        user_config_dir = os.path.join(appdata, 'PDFMergeSystem')
+        appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        user_config_dir = os.path.join(appdata, "PDFMergeSystem")
         if self.use_user_config:
             os.makedirs(user_config_dir, exist_ok=True)
-        self.user_config_path = os.path.join(user_config_dir, 'user_config.json')
+        self.user_config_path = os.path.join(user_config_dir, "user_config.json")
 
         # ユーザー設定を別途保持（行事名設定などで使用）
         self.user_config: Dict[str, Any] = {}
 
         self.config: Dict[str, Any] = self._load_config()
-        self.year: str = self.config.get('year', '')
+        self.year: str = self.config.get("year", "")
         if not self.year:
             # yearが空の場合（初回起動時など）は次年度を自動計算
             self.year, self.year_short = calculate_next_fiscal_year()
-            self.config['year'] = self.year
-            self.config['year_short'] = self.year_short
+            self.config["year"] = self.year
+            self.config["year_short"] = self.year_short
         else:
             # year_shortは自動計算（設定ファイルの値は無視）
             self.year_short = calculate_year_short(self.year)
@@ -86,27 +87,27 @@ class ConfigLoader:
         """
         # デフォルト設定を読み込み
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
         except FileNotFoundError as e:
             logger.error(f"設定ファイルが見つかりません: {self.config_path}")
             raise ConfigurationError(
                 f"設定ファイルが見つかりません: {self.config_path}",
                 config_key="config_path",
-                original_error=e
+                original_error=e,
             ) from e
         except json.JSONDecodeError as e:
             logger.error(f"設定ファイルのJSON形式が不正です: {e}")
             raise ConfigurationError(
                 "設定ファイルのJSON形式が不正です",
                 config_key="json_format",
-                original_error=e
+                original_error=e,
             ) from e
 
         # ユーザー設定を読み込んでマージ
         if self.use_user_config and os.path.exists(self.user_config_path):
             try:
-                with open(self.user_config_path, 'r', encoding='utf-8') as f:
+                with open(self.user_config_path, "r", encoding="utf-8") as f:
                     user_config = json.load(f)
                 # インスタンス変数に保存
                 self.user_config = user_config
@@ -164,7 +165,9 @@ class ConfigLoader:
         result = []
         for part in parts:
             if isinstance(part, str):
-                part = part.replace('{year}', self.year).replace('{year_short}', self.year_short)
+                part = part.replace("{year}", self.year).replace(
+                    "{year_short}", self.year_short
+                )
             result.append(part)
         if not result:
             return ""
@@ -215,9 +218,9 @@ class ConfigLoader:
         """
         parts = []
         for key_path in path_keys:
-            if isinstance(key_path, str) and '.' in key_path:
+            if isinstance(key_path, str) and "." in key_path:
                 # ドット区切りのキー（例: 'base_paths.google_drive'）
-                keys = key_path.split('.')
+                keys = key_path.split(".")
                 value = self.get(*keys)
             else:
                 value = key_path
@@ -233,23 +236,23 @@ class ConfigLoader:
 
     def get_education_plan_path(self) -> str:
         """教育計画のディレクトリパスを取得"""
-        base_path = self.get('base_paths', 'google_drive')
+        base_path = self.get("base_paths", "google_drive")
         if not base_path:
             return ""
 
-        edu_base = self.get('directories', 'education_plan_base') or ""
-        edu_plan = self.get('directories', 'education_plan') or ""
+        edu_base = self.get("directories", "education_plan_base") or ""
+        edu_plan = self.get("directories", "education_plan") or ""
 
         return self.build_path(base_path, self.year, edu_base, edu_plan)
 
     def get_event_plan_path(self) -> str:
         """行事計画のディレクトリパスを取得"""
-        base_path = self.get('base_paths', 'google_drive')
+        base_path = self.get("base_paths", "google_drive")
         if not base_path:
             return ""
 
-        edu_base = self.get('directories', 'education_plan_base') or ""
-        event_plan = self.get('directories', 'event_plan') or ""
+        edu_base = self.get("directories", "education_plan_base") or ""
+        event_plan = self.get("directories", "event_plan") or ""
 
         return self.build_path(base_path, self.year, edu_base, event_plan)
 
@@ -264,25 +267,29 @@ class ConfigLoader:
         Returns:
             str: 一時ディレクトリのパス
         """
-        temp_dir = self.get('base_paths', 'local_temp')
+        temp_dir = self.get("base_paths", "local_temp")
 
         # 設定が空または存在しない場合、デフォルトの一時フォルダを使用
         if not temp_dir:
-            appdata = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
-            temp_dir = os.path.join(appdata, 'PDFMergeSystem', 'temp')
+            appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+            temp_dir = os.path.join(appdata, "PDFMergeSystem", "temp")
 
         if not os.path.exists(temp_dir):
             try:
                 os.makedirs(temp_dir, exist_ok=True)
             except PermissionError as e:
-                logger.error(f"一時ディレクトリの作成に失敗しました（権限不足）: {temp_dir}")
+                logger.error(
+                    f"一時ディレクトリの作成に失敗しました（権限不足）: {temp_dir}"
+                )
                 raise ConfigurationError(
                     f"一時ディレクトリの作成権限がありません。\n"
                     f"パス: {temp_dir}\n"
                     f"管理者権限で実行するか、別の場所を指定してください。"
                 ) from e
             except OSError as e:
-                logger.error(f"一時ディレクトリの作成に失敗しました: {temp_dir}, エラー: {e}")
+                logger.error(
+                    f"一時ディレクトリの作成に失敗しました: {temp_dir}, エラー: {e}"
+                )
                 raise ConfigurationError(
                     f"一時ディレクトリの作成に失敗しました。\n"
                     f"パス: {temp_dir}\n"
@@ -373,7 +380,9 @@ class ConfigLoader:
             ConfigurationError: 保存に失敗した場合
         """
         self._persist_config()
-        save_target = self.user_config_path if self.use_user_config else self.config_path
+        save_target = (
+            self.user_config_path if self.use_user_config else self.config_path
+        )
         logger.info(f"設定を保存しました: {save_target}")
 
     def update_year(self, year: str, year_short: Optional[str] = None) -> None:
@@ -389,9 +398,11 @@ class ConfigLoader:
         """
         self.year = year
         # year_shortが明示的に指定されていない場合は自動計算
-        self.year_short = year_short if year_short is not None else calculate_year_short(year)
-        self.config['year'] = year
-        self.config['year_short'] = self.year_short
+        self.year_short = (
+            year_short if year_short is not None else calculate_year_short(year)
+        )
+        self.config["year"] = year
+        self.config["year_short"] = self.year_short
 
     def get_event_names(self, category: str) -> List[str]:
         """
@@ -488,14 +499,14 @@ class ConfigLoader:
     def _save_base_config(self) -> None:
         """設定をconfig_pathに直接保存する。"""
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
         except (OSError, PermissionError) as e:
             logger.error(f"設定の保存に失敗しました: {e}")
             raise ConfigurationError(
                 f"設定の保存に失敗しました: {self.config_path}",
                 config_key="save_config",
-                original_error=e
+                original_error=e,
             ) from e
 
     def _save_user_config(self) -> None:
@@ -506,12 +517,12 @@ class ConfigLoader:
             ConfigurationError: 保存に失敗した場合
         """
         try:
-            with open(self.user_config_path, 'w', encoding='utf-8') as f:
+            with open(self.user_config_path, "w", encoding="utf-8") as f:
                 json.dump(self.user_config, f, ensure_ascii=False, indent=2)
         except (OSError, PermissionError) as e:
             logger.error(f"ユーザー設定の保存に失敗しました: {e}")
             raise ConfigurationError(
                 f"ユーザー設定の保存に失敗しました: {self.user_config_path}",
                 config_key="save_user_config",
-                original_error=e
+                original_error=e,
             ) from e

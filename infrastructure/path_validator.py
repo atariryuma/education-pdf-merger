@@ -47,6 +47,7 @@ def _check_path_security(path: Path, base_resolved: Path) -> bool:
 
 class PathValidationError(Exception):
     """パス検証エラー"""
+
     pass
 
 
@@ -60,9 +61,28 @@ class PathValidator:
 
     # Windows予約名
     WINDOWS_RESERVED_NAMES = (
-        'CON', 'PRN', 'AUX', 'NUL',
-        'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
-        'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9",
     )
 
     @staticmethod
@@ -86,7 +106,7 @@ class PathValidator:
         cleaned = path_str.strip()
 
         # 改行・タブを削除（途中のスペースは保持）
-        cleaned = cleaned.replace('\n', '').replace('\r', '').replace('\t', '')
+        cleaned = cleaned.replace("\n", "").replace("\r", "").replace("\t", "")
 
         try:
             # Pathオブジェクトに変換して正規化
@@ -102,9 +122,7 @@ class PathValidator:
 
     @staticmethod
     def validate_directory(
-        path_str: str,
-        must_exist: bool = True,
-        base_dir: Optional[Path] = None
+        path_str: str, must_exist: bool = True, base_dir: Optional[Path] = None
     ) -> Tuple[bool, Optional[str], Optional[Path]]:
         """
         ディレクトリパスを検証
@@ -133,13 +151,21 @@ class PathValidator:
                     # 親ディレクトリの存在を確認して詳細なエラーメッセージ
                     parent = path.parent
                     if parent.exists():
-                        return False, f"ディレクトリが存在しません: {path}\n親ディレクトリは存在します: {parent}", None
+                        return (
+                            False,
+                            f"ディレクトリが存在しません: {path}\n親ディレクトリは存在します: {parent}",
+                            None,
+                        )
                     else:
                         return False, f"ディレクトリが存在しません: {path}", None
 
                 # ディレクトリであることを確認
                 if not path.is_dir():
-                    return False, f"指定されたパスはディレクトリではありません: {path}", None
+                    return (
+                        False,
+                        f"指定されたパスはディレクトリではありません: {path}",
+                        None,
+                    )
 
             return True, None, path
 
@@ -153,7 +179,7 @@ class PathValidator:
     def validate_file_path(
         path_str: str,
         must_exist: bool = False,
-        allowed_extensions: Optional[list] = None
+        allowed_extensions: Optional[list] = None,
     ) -> Tuple[bool, Optional[str], Optional[Path]]:
         """
         ファイルパスを検証
@@ -172,21 +198,35 @@ class PathValidator:
 
             # 拡張子チェック
             if allowed_extensions:
-                if path.suffix.lower() not in [ext.lower() for ext in allowed_extensions]:
-                    return False, f"許可されていない拡張子です: {path.suffix}\n許可: {', '.join(allowed_extensions)}", None
+                if path.suffix.lower() not in [
+                    ext.lower() for ext in allowed_extensions
+                ]:
+                    return (
+                        False,
+                        f"許可されていない拡張子です: {path.suffix}\n許可: {', '.join(allowed_extensions)}",
+                        None,
+                    )
 
             # 存在チェック
             if must_exist:
                 if not path.exists():
                     parent = path.parent
                     if parent.exists():
-                        return False, f"ファイルが存在しません: {path}\n親ディレクトリは存在します: {parent}", None
+                        return (
+                            False,
+                            f"ファイルが存在しません: {path}\n親ディレクトリは存在します: {parent}",
+                            None,
+                        )
                     else:
                         return False, f"ファイルが存在しません: {path}", None
 
                 # ファイルであることを確認
                 if not path.is_file():
-                    return False, f"指定されたパスはファイルではありません: {path}", None
+                    return (
+                        False,
+                        f"指定されたパスはファイルではありません: {path}",
+                        None,
+                    )
             else:
                 # 保存先の場合、親ディレクトリが存在するか確認
                 parent = path.parent
@@ -238,9 +278,9 @@ class PathValidator:
     @staticmethod
     def sanitize_filename(
         filename: str,
-        replacement: str = '_',
+        replacement: str = "_",
         max_length: int = 255,
-        default_name: str = PathConstants.DEFAULT_FILENAME
+        default_name: str = PathConstants.DEFAULT_FILENAME,
     ) -> str:
         """
         ファイル名を安全にサニタイズ（セキュリティベストプラクティス準拠）
@@ -265,11 +305,13 @@ class PathValidator:
             return default_name
 
         # Unicode正規化（NFD → NFC: 結合文字を統合）
-        normalized = unicodedata.normalize('NFC', filename)
+        normalized = unicodedata.normalize("NFC", filename)
 
         # Null bytes と制御文字を削除
         # \x00-\x1f: 制御文字、\x7f: DELETE、\x80-\x9f: 拡張制御文字
-        cleaned = ''.join(char for char in normalized if ord(char) >= 0x20 and ord(char) != 0x7f)
+        cleaned = "".join(
+            char for char in normalized if ord(char) >= 0x20 and ord(char) != 0x7F
+        )
 
         # Windows/Linux/macOSの無効文字を置換
         # < > : " / \ | ? * および \x00-\x1f
@@ -278,12 +320,12 @@ class PathValidator:
 
         # 連続する置換文字を1つに統合
         if replacement:
-            pattern = re.escape(replacement) + r'+'
+            pattern = re.escape(replacement) + r"+"
             cleaned = re.sub(pattern, replacement, cleaned)
 
         # 先頭と末尾の空白、ドット、アンダースコアを削除
         # Windows: 末尾のスペースとドットは無視される
-        cleaned = cleaned.strip(' ._')
+        cleaned = cleaned.strip(" ._")
 
         # 空文字列の場合はデフォルト名
         if not cleaned:

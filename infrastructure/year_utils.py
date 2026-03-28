@@ -84,4 +84,6 @@ def calculate_year_short(year: str) -> str:
             return year
 
     except ValueError:
-        raise ValueError(f"年度の変換に失敗しました。有効な西暦4桁を指定してください: '{year}'")
+        raise ValueError(
+            f"年度の変換に失敗しました。有効な西暦4桁を指定してください: '{year}'"
+        )

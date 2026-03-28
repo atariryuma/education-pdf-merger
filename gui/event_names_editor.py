@@ -33,7 +33,7 @@ class EventNamesEditor:
         self,
         parent: tk.Frame,
         config: "ConfigLoader",
-        status_callback: Optional[Callable[[str], None]] = None
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         self.parent = parent
         self.config = config
@@ -42,7 +42,7 @@ class EventNamesEditor:
         self.event_categories: Dict[str, str] = {
             "school_events": "学校行事名 (D列)",
             "student_council_events": "児童会行事名 (C列)",
-            "other_activities": "その他の活動 (C列)"
+            "other_activities": "その他の活動 (C列)",
         }
         self._create_ui()
 
@@ -86,8 +86,10 @@ class EventNamesEditor:
         scrollbar.pack(side="right", fill="y")
 
         listbox = tk.Listbox(
-            list_frame, yscrollcommand=scrollbar.set,
-            font=FONTS['small'], selectmode="single"
+            list_frame,
+            yscrollcommand=scrollbar.set,
+            font=FONTS["small"],
+            selectmode="single",
         )
         listbox.pack(side="left", fill="both", expand=True)
         scrollbar.config(command=listbox.yview)
@@ -109,8 +111,12 @@ class EventNamesEditor:
         ]
         for text, cmd in buttons:
             tk.Button(
-                button_panel, text=text, command=cmd,
-                font=FONTS['tiny'], width=8, cursor="hand2"
+                button_panel,
+                text=text,
+                command=cmd,
+                font=FONTS["tiny"],
+                width=8,
+                cursor="hand2",
             ).pack(pady=1)
 
     def _load_event_names_to_listbox(self, category: str) -> None:
@@ -142,9 +148,7 @@ class EventNamesEditor:
             category: 行事カテゴリキー
         """
         new_name = simpledialog.askstring(
-            "行事名を追加",
-            "新しい行事名を入力してください:",
-            parent=self.parent
+            "行事名を追加", "新しい行事名を入力してください:", parent=self.parent
         )
 
         if new_name and new_name.strip():
@@ -158,7 +162,9 @@ class EventNamesEditor:
                 self._update_status(f"行事名を追加: {new_name}")
             except Exception as e:
                 logger.error(f"行事名追加エラー: {e}", exc_info=True)
-                messagebox.showerror("追加エラー", f"行事名の追加に失敗しました。\n\n詳細: {e}")
+                messagebox.showerror(
+                    "追加エラー", f"行事名の追加に失敗しました。\n\n詳細: {e}"
+                )
 
     def _on_edit_event_name(self, category: str) -> None:
         """
@@ -182,7 +188,7 @@ class EventNamesEditor:
             "行事名を編集",
             "行事名を編集してください:",
             initialvalue=old_name,
-            parent=self.parent
+            parent=self.parent,
         )
 
         if new_name and new_name.strip() and new_name.strip() != old_name:
@@ -196,7 +202,9 @@ class EventNamesEditor:
                 self._update_status(f"行事名を編集: {old_name} → {new_name}")
             except Exception as e:
                 logger.error(f"行事名編集エラー: {e}", exc_info=True)
-                messagebox.showerror("編集エラー", f"行事名の編集に失敗しました。\n\n詳細: {e}")
+                messagebox.showerror(
+                    "編集エラー", f"行事名の編集に失敗しました。\n\n詳細: {e}"
+                )
 
     def _on_delete_event_name(self, category: str) -> None:
         """
@@ -218,9 +226,7 @@ class EventNamesEditor:
 
         # 確認ダイアログ
         result = messagebox.askyesno(
-            "削除確認",
-            f"「{name}」を削除しますか？",
-            parent=self.parent
+            "削除確認", f"「{name}」を削除しますか？", parent=self.parent
         )
 
         if result:
@@ -232,7 +238,9 @@ class EventNamesEditor:
                 self._update_status(f"行事名を削除: {name}")
             except Exception as e:
                 logger.error(f"行事名削除エラー: {e}", exc_info=True)
-                messagebox.showerror("削除エラー", f"行事名の削除に失敗しました。\n\n詳細: {e}")
+                messagebox.showerror(
+                    "削除エラー", f"行事名の削除に失敗しました。\n\n詳細: {e}"
+                )
 
     def _on_move_up(self, category: str) -> None:
         """
@@ -254,7 +262,10 @@ class EventNamesEditor:
             return
 
         event_names = list(self.config.get_event_names(category))
-        event_names[index], event_names[index - 1] = event_names[index - 1], event_names[index]
+        event_names[index], event_names[index - 1] = (
+            event_names[index - 1],
+            event_names[index],
+        )
 
         try:
             self.config.save_event_names(category, event_names)
@@ -263,7 +274,9 @@ class EventNamesEditor:
             self._update_status(f"行事名を上へ移動: {event_names[index - 1]}")
         except Exception as e:
             logger.error(f"行事名移動エラー: {e}", exc_info=True)
-            messagebox.showerror("移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}"
+            )
 
     def _on_move_down(self, category: str) -> None:
         """
@@ -285,7 +298,10 @@ class EventNamesEditor:
         if index == len(event_names) - 1:
             return
 
-        event_names[index], event_names[index + 1] = event_names[index + 1], event_names[index]
+        event_names[index], event_names[index + 1] = (
+            event_names[index + 1],
+            event_names[index],
+        )
 
         try:
             self.config.save_event_names(category, event_names)
@@ -294,7 +310,9 @@ class EventNamesEditor:
             self._update_status(f"行事名を下へ移動: {event_names[index + 1]}")
         except Exception as e:
             logger.error(f"行事名移動エラー: {e}", exc_info=True)
-            messagebox.showerror("移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "移動エラー", f"行事名の移動に失敗しました。\n\n詳細: {e}"
+            )
 
     def _on_reset_to_default(self, category: str) -> None:
         """
@@ -307,7 +325,7 @@ class EventNamesEditor:
         result = messagebox.askyesno(
             "デフォルトに戻す",
             "行事名をデフォルト値に戻しますか？\n\n現在の設定は失われます。",
-            parent=self.parent
+            parent=self.parent,
         )
 
         if not result:
@@ -323,4 +341,6 @@ class EventNamesEditor:
                 self._update_status("既にデフォルト値です")
         except Exception as e:
             logger.error(f"デフォルト復元エラー: {e}", exc_info=True)
-            messagebox.showerror("エラー", f"デフォルト値への復元に失敗しました。\n\n詳細: {e}")
+            messagebox.showerror(
+                "エラー", f"デフォルト値への復元に失敗しました。\n\n詳細: {e}"
+            )

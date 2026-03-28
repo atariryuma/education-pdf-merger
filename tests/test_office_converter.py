@@ -56,7 +56,7 @@ def mock_word_doc(temp_dir: Path) -> Path:
         Path: ダミーファイルのパス
     """
     doc_path = temp_dir / "test.docx"
-    doc_path.write_text("Test document", encoding='utf-8')
+    doc_path.write_text("Test document", encoding="utf-8")
     return doc_path
 
 
@@ -72,7 +72,7 @@ def mock_excel_file(temp_dir: Path) -> Path:
         Path: ダミーファイルのパス
     """
     excel_path = temp_dir / "test.xlsx"
-    excel_path.write_text("Test workbook", encoding='utf-8')
+    excel_path.write_text("Test workbook", encoding="utf-8")
     return excel_path
 
 
@@ -88,7 +88,7 @@ def mock_ppt_file(temp_dir: Path) -> Path:
         Path: ダミーファイルのパス
     """
     ppt_path = temp_dir / "test.pptx"
-    ppt_path.write_text("Test presentation", encoding='utf-8')
+    ppt_path.write_text("Test presentation", encoding="utf-8")
     return ppt_path
 
 
@@ -103,17 +103,25 @@ class TestOfficeConverter:
 
     def test_office_extensions_constant(self):
         """サポートされる拡張子の定義確認"""
-        expected_extensions = ('.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.rtf')
+        expected_extensions = (
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx",
+            ".rtf",
+        )
         assert OfficeConverter.OFFICE_EXTENSIONS == expected_extensions
 
-    @patch('converters.office_converter.pythoncom')
+    @patch("converters.office_converter.pythoncom")
     def test_com_context_manager(self, mock_pythoncom: Mock):
         """COMコンテキストマネージャーのテスト"""
         with OfficeConverter._com_context():
             mock_pythoncom.CoInitialize.assert_called_once()
         mock_pythoncom.CoUninitialize.assert_called_once()
 
-    @patch('converters.office_converter.pythoncom')
+    @patch("converters.office_converter.pythoncom")
     def test_com_context_manager_with_exception(self, mock_pythoncom: Mock):
         """COMコンテキストマネージャーの例外処理テスト"""
         with pytest.raises(ValueError):
@@ -122,34 +130,35 @@ class TestOfficeConverter:
                 raise ValueError("Test error")
         mock_pythoncom.CoUninitialize.assert_called_once()
 
-    @patch('converters.office_converter.subprocess.run')
+    @patch("converters.office_converter.subprocess.run")
     def test_kill_office_process_success(self, mock_run: Mock):
         """プロセス強制終了の成功テスト"""
         mock_run.return_value = Mock(returncode=0, stderr="")
         OfficeConverter._kill_office_process("WINWORD.EXE")
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
-        assert call_args == ['taskkill', '/F', '/IM', 'WINWORD.EXE']
+        assert call_args == ["taskkill", "/F", "/IM", "WINWORD.EXE"]
 
-    @patch('converters.office_converter.subprocess.run')
+    @patch("converters.office_converter.subprocess.run")
     def test_kill_office_process_not_found(self, mock_run: Mock):
         """プロセスが見つからない場合のテスト"""
         mock_run.return_value = Mock(returncode=128, stderr="プロセスなし")
         OfficeConverter._kill_office_process("WINWORD.EXE")
         mock_run.assert_called_once()
 
-    @patch('converters.office_converter.subprocess.run')
+    @patch("converters.office_converter.subprocess.run")
     def test_kill_office_process_failure(self, mock_run: Mock):
         """プロセス強制終了の失敗テスト"""
         mock_run.return_value = Mock(returncode=1, stderr="エラー")
         OfficeConverter._kill_office_process("WINWORD.EXE")
         mock_run.assert_called_once()
 
-    @patch('converters.office_converter.subprocess.run')
+    @patch("converters.office_converter.subprocess.run")
     def test_kill_office_process_timeout(self, mock_run: Mock):
         """プロセス強制終了のタイムアウトテスト"""
         from subprocess import TimeoutExpired
-        mock_run.side_effect = TimeoutExpired('taskkill', 5)
+
+        mock_run.side_effect = TimeoutExpired("taskkill", 5)
         OfficeConverter._kill_office_process("WINWORD.EXE")
 
     def test_cleanup_office_app_word(self, converter: OfficeConverter):
@@ -179,8 +188,10 @@ class TestOfficeConverter:
         mock_app = Mock()
         mock_app.Quit.side_effect = Exception("Quit failed")
 
-        with patch.object(converter, '_kill_office_process') as mock_kill:
-            converter._cleanup_office_app(mock_doc, mock_app, "WINWORD.EXE", "Word", process_id=1234)
+        with patch.object(converter, "_kill_office_process") as mock_kill:
+            converter._cleanup_office_app(
+                mock_doc, mock_app, "WINWORD.EXE", "Word", process_id=1234
+            )
             mock_kill.assert_called_once_with("WINWORD.EXE", 1234)
 
     def test_cleanup_office_app_none_objects(self, converter: OfficeConverter):
@@ -188,9 +199,9 @@ class TestOfficeConverter:
         # 例外が発生しないことを確認
         converter._cleanup_office_app(None, None, "WINWORD.EXE", "Word")
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
-    @patch('os.path.exists')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
+    @patch("os.path.exists")
     def test_convert_word_success(
         self,
         mock_exists: Mock,
@@ -198,7 +209,7 @@ class TestOfficeConverter:
         mock_client: Mock,
         converter: OfficeConverter,
         mock_word_doc: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """Word変換の成功テスト"""
         output_path = temp_dir / "output.pdf"
@@ -217,10 +228,10 @@ class TestOfficeConverter:
         mock_word.Documents.Open.assert_called_once()
         mock_doc.SaveAs2.assert_called_once()
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
-    @patch('converters.office_converter.shutil.copy2')
-    @patch('os.path.exists')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
+    @patch("converters.office_converter.shutil.copy2")
+    @patch("os.path.exists")
     def test_convert_excel_success(
         self,
         mock_exists: Mock,
@@ -229,7 +240,7 @@ class TestOfficeConverter:
         mock_client: Mock,
         converter: OfficeConverter,
         mock_excel_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """Excel変換の成功テスト"""
         output_path = temp_dir / "output.pdf"
@@ -249,9 +260,9 @@ class TestOfficeConverter:
         mock_excel.Workbooks.Open.assert_called_once()
         mock_wb.ExportAsFixedFormat.assert_called_once()
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
-    @patch('os.path.exists')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
+    @patch("os.path.exists")
     def test_convert_powerpoint_success(
         self,
         mock_exists: Mock,
@@ -259,7 +270,7 @@ class TestOfficeConverter:
         mock_client: Mock,
         converter: OfficeConverter,
         mock_ppt_file: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """PowerPoint変換の成功テスト"""
         output_path = temp_dir / "output.pdf"
@@ -278,9 +289,9 @@ class TestOfficeConverter:
         mock_ppt.Presentations.Open.assert_called_once()
         mock_pres.SaveAs.assert_called_once()
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
-    @patch('os.path.exists')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
+    @patch("os.path.exists")
     def test_convert_output_not_created(
         self,
         mock_exists: Mock,
@@ -288,7 +299,7 @@ class TestOfficeConverter:
         mock_client: Mock,
         converter: OfficeConverter,
         mock_word_doc: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """変換後のファイルが作成されない場合のテスト"""
         output_path = temp_dir / "output.pdf"
@@ -301,15 +312,15 @@ class TestOfficeConverter:
 
         assert result is None
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
     def test_convert_raises_pdf_conversion_error(
         self,
         mock_pythoncom: Mock,
         mock_client: Mock,
         converter: OfficeConverter,
         mock_word_doc: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """変換エラー時のPDFConversionError発生テスト"""
         output_path = temp_dir / "output.pdf"
@@ -321,15 +332,15 @@ class TestOfficeConverter:
         assert "Office変換に失敗" in str(exc_info.value)
         assert exc_info.value.original_error is not None
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
     def test_convert_system_exit_propagation(
         self,
         mock_pythoncom: Mock,
         mock_client: Mock,
         converter: OfficeConverter,
         mock_word_doc: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """SystemExitの伝播テスト"""
         output_path = temp_dir / "output.pdf"
@@ -338,15 +349,15 @@ class TestOfficeConverter:
         with pytest.raises(SystemExit):
             converter.convert(str(mock_word_doc), str(output_path))
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
     def test_convert_keyboard_interrupt_propagation(
         self,
         mock_pythoncom: Mock,
         mock_client: Mock,
         converter: OfficeConverter,
         mock_word_doc: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """KeyboardInterruptの伝播テスト"""
         output_path = temp_dir / "output.pdf"
@@ -355,9 +366,9 @@ class TestOfficeConverter:
         with pytest.raises(KeyboardInterrupt):
             converter.convert(str(mock_word_doc), str(output_path))
 
-    @patch('converters.office_converter.client')
-    @patch('converters.office_converter.pythoncom')
-    @patch('os.path.exists')
+    @patch("converters.office_converter.client")
+    @patch("converters.office_converter.pythoncom")
+    @patch("os.path.exists")
     def test_convert_removes_existing_output(
         self,
         mock_exists: Mock,
@@ -365,11 +376,11 @@ class TestOfficeConverter:
         mock_client: Mock,
         converter: OfficeConverter,
         mock_word_doc: Path,
-        temp_dir: Path
+        temp_dir: Path,
     ):
         """既存の出力ファイルを削除するテスト"""
         output_path = temp_dir / "output.pdf"
-        output_path.write_text("existing", encoding='utf-8')
+        output_path.write_text("existing", encoding="utf-8")
 
         mock_exists.return_value = True
         mock_word = MagicMock()

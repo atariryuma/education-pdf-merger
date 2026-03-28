@@ -45,7 +45,7 @@ class SetupWizard:
         self,
         parent: tk.Tk,
         config: ConfigLoader,
-        on_complete: Optional[Callable[[], None]] = None
+        on_complete: Optional[Callable[[], None]] = None,
     ) -> None:
         """
         初期化
@@ -90,7 +90,7 @@ class SetupWizard:
         self.progress_var = tk.IntVar(value=0)
 
         # 年度変更時に自動でyear_shortを更新
-        self.year_var.trace_add('write', self._on_year_changed)
+        self.year_var.trace_add("write", self._on_year_changed)
 
         # UI構築
         self._create_ui()
@@ -115,15 +115,15 @@ class SetupWizard:
     def _create_ui(self) -> None:
         """UI構築"""
         # ヘッダー
-        header_frame = tk.Frame(self.window, bg=COLORS['primary'])
+        header_frame = tk.Frame(self.window, bg=COLORS["primary"])
         header_frame.pack(fill=tk.X)
 
         title_label = tk.Label(
             header_frame,
             text="教育計画PDFマージシステム - 初回セットアップ",
-            font=FONTS['dialog_heading'],
-            bg=COLORS['primary'],
-            fg="white"
+            font=FONTS["dialog_heading"],
+            bg=COLORS["primary"],
+            fg="white",
         )
         title_label.pack(pady=15)
 
@@ -134,8 +134,8 @@ class SetupWizard:
         self.progress_label = tk.Label(
             progress_frame,
             text=f"ステップ 1 / {self.total_steps}",
-            font=FONTS['default'],
-            bg="white"
+            font=FONTS["default"],
+            bg="white",
         )
         self.progress_label.pack(pady=2)
 
@@ -143,7 +143,7 @@ class SetupWizard:
             progress_frame,
             variable=self.progress_var,
             maximum=self.total_steps,
-            mode='determinate'
+            mode="determinate",
         )
         self.progress_bar.pack(fill=tk.X, padx=20, pady=5)
 
@@ -156,24 +156,17 @@ class SetupWizard:
         button_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=20, pady=10)
 
         self.back_button = ttk.Button(
-            button_frame,
-            text="← 戻る",
-            command=self._go_back,
-            state=tk.DISABLED
+            button_frame, text="← 戻る", command=self._go_back, state=tk.DISABLED
         )
         self.back_button.pack(side=tk.LEFT)
 
         self.next_button = ttk.Button(
-            button_frame,
-            text="次へ →",
-            command=self._go_next
+            button_frame, text="次へ →", command=self._go_next
         )
         self.next_button.pack(side=tk.RIGHT)
 
         self.cancel_button = ttk.Button(
-            button_frame,
-            text="キャンセル",
-            command=self._cancel
+            button_frame, text="キャンセル", command=self._cancel
         )
         self.cancel_button.pack(side=tk.RIGHT, padx=10)
 
@@ -208,8 +201,8 @@ class SetupWizard:
         title = tk.Label(
             self.content_frame,
             text="ようこそ！",
-            font=FONTS['dialog_title'],
-            bg="white"
+            font=FONTS["dialog_title"],
+            bg="white",
         )
         title.pack(pady=20)
 
@@ -222,9 +215,9 @@ class SetupWizard:
                 "必要な基本設定を行います。\n\n"
                 "設定は後から変更することもできます。"
             ),
-            font=FONTS['default'],
+            font=FONTS["default"],
             bg="white",
-            justify=tk.LEFT
+            justify=tk.LEFT,
         )
         desc.pack(pady=20)
 
@@ -232,10 +225,10 @@ class SetupWizard:
         features_frame = tk.LabelFrame(
             self.content_frame,
             text="主な機能",
-            font=FONTS['default_bold'],
+            font=FONTS["default_bold"],
             bg="white",
             relief=tk.GROOVE,
-            borderwidth=2
+            borderwidth=2,
         )
         features_frame.pack(fill=tk.BOTH, expand=True, pady=20)
 
@@ -245,16 +238,16 @@ class SetupWizard:
             "📝 一太郎文書のPDF変換",
             "📁 フォルダ構造の自動認識",
             "📊 Excel自動転記機能",
-            "🗜️ PDF圧縮機能（Ghostscript）"
+            "🗜️ PDF圧縮機能（Ghostscript）",
         ]
 
         for feature in features:
             label = tk.Label(
                 features_frame,
                 text=feature,
-                font=FONTS['default'],
+                font=FONTS["default"],
                 bg="white",
-                anchor=tk.W
+                anchor=tk.W,
             )
             label.pack(fill=tk.X, padx=20, pady=5)
 
@@ -262,9 +255,9 @@ class SetupWizard:
         note = tk.Label(
             self.content_frame,
             text="※ Microsoft Officeがインストールされている必要があります",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            fg="gray"
+            fg="gray",
         )
         note.pack(pady=10)
 
@@ -272,10 +265,7 @@ class SetupWizard:
         """ステップ2: 基本設定（年度 + 作業フォルダ）"""
         # タイトル
         title = tk.Label(
-            self.content_frame,
-            text="基本設定",
-            font=FONTS['dialog_title'],
-            bg="white"
+            self.content_frame, text="基本設定", font=FONTS["dialog_title"], bg="white"
         )
         title.pack(pady=15)
 
@@ -283,11 +273,11 @@ class SetupWizard:
         year_section = tk.LabelFrame(
             self.content_frame,
             text="📅 年度設定",
-            font=FONTS['subheading'],
+            font=FONTS["subheading"],
             bg="white",
-            fg=COLORS['primary'],
+            fg=COLORS["primary"],
             relief=tk.GROOVE,
-            borderwidth=2
+            borderwidth=2,
         )
         year_section.pack(fill=tk.X, padx=20, pady=10)
 
@@ -298,40 +288,37 @@ class SetupWizard:
         year_label = tk.Label(
             year_frame,
             text="年度（西暦）:",
-            font=FONTS['default'],
+            font=FONTS["default"],
             bg="white",
             width=12,
-            anchor=tk.W
+            anchor=tk.W,
         )
         year_label.pack(side=tk.LEFT, padx=5)
 
         year_entry = ttk.Entry(
-            year_frame,
-            textvariable=self.year_var,
-            font=FONTS['default'],
-            width=15
+            year_frame, textvariable=self.year_var, font=FONTS["default"], width=15
         )
         year_entry.pack(side=tk.LEFT, padx=5)
 
         # 和暦は自動計算される旨を表示（読み取り専用・動的更新）
-        arrow_label = tk.Label(year_frame, text="→", font=FONTS['default'], bg="white")
+        arrow_label = tk.Label(year_frame, text="→", font=FONTS["default"], bg="white")
         arrow_label.pack(side=tk.LEFT, padx=5)
 
         year_short_display_label = tk.Label(
             year_frame,
             textvariable=self.year_short_var,
-            font=FONTS['default_bold'],
+            font=FONTS["default_bold"],
             bg="white",
-            fg=COLORS['primary']
+            fg=COLORS["primary"],
         )
         year_short_display_label.pack(side=tk.LEFT, padx=5)
 
         hint_label = tk.Label(
             year_section,
             text="💡 和暦（R8など）は自動計算されます",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            fg="gray"
+            fg="gray",
         )
         hint_label.pack(padx=15, pady=(0, 8))
 
@@ -339,20 +326,20 @@ class SetupWizard:
         folder_section = tk.LabelFrame(
             self.content_frame,
             text="📁 作業フォルダ設定",
-            font=FONTS['subheading'],
+            font=FONTS["subheading"],
             bg="white",
-            fg=COLORS['primary'],
+            fg=COLORS["primary"],
             relief=tk.GROOVE,
-            borderwidth=2
+            borderwidth=2,
         )
         folder_section.pack(fill=tk.X, padx=20, pady=10)
 
         desc_label = tk.Label(
             folder_section,
             text="教育計画ファイルが保存されているフォルダを指定してください。",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            fg="gray"
+            fg="gray",
         )
         desc_label.pack(padx=15, pady=5)
 
@@ -363,35 +350,26 @@ class SetupWizard:
         folder_label = tk.Label(
             folder_frame,
             text="フォルダ:",
-            font=FONTS['default'],
+            font=FONTS["default"],
             bg="white",
             width=10,
-            anchor=tk.W
+            anchor=tk.W,
         )
         folder_label.pack(side=tk.LEFT, padx=5)
 
         folder_entry = ttk.Entry(
-            folder_frame,
-            textvariable=self.gdrive_var,
-            font=FONTS['default'],
-            width=35
+            folder_frame, textvariable=self.gdrive_var, font=FONTS["default"], width=35
         )
         folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
         browse_button = ttk.Button(
-            folder_frame,
-            text="参照...",
-            command=self._browse_folder
+            folder_frame, text="参照...", command=self._browse_folder
         )
         browse_button.pack(side=tk.LEFT, padx=5)
 
         # 状態表示
         self.folder_status_label = tk.Label(
-            folder_section,
-            text="",
-            font=FONTS['small'],
-            bg="white",
-            fg="gray"
+            folder_section, text="", font=FONTS["small"], bg="white", fg="gray"
         )
         self.folder_status_label.pack(padx=15, pady=5)
 
@@ -401,8 +379,8 @@ class SetupWizard:
         title = tk.Label(
             self.content_frame,
             text="セットアップ完了！",
-            font=FONTS['dialog_title'],
-            bg="white"
+            font=FONTS["dialog_title"],
+            bg="white",
         )
         title.pack(pady=30)
 
@@ -410,9 +388,9 @@ class SetupWizard:
         message = tk.Label(
             self.content_frame,
             text="基本設定が完了しました。\nアプリケーションを使い始めることができます。",
-            font=FONTS['default'],
+            font=FONTS["default"],
             bg="white",
-            justify=tk.CENTER
+            justify=tk.CENTER,
         )
         message.pack(pady=20)
 
@@ -420,10 +398,10 @@ class SetupWizard:
         summary_frame = tk.LabelFrame(
             self.content_frame,
             text="設定内容",
-            font=FONTS['default_bold'],
+            font=FONTS["default_bold"],
             bg="white",
             relief=tk.GROOVE,
-            borderwidth=2
+            borderwidth=2,
         )
         summary_frame.pack(fill=tk.BOTH, expand=True, pady=20, padx=20)
 
@@ -431,9 +409,9 @@ class SetupWizard:
         year_label = tk.Label(
             summary_frame,
             text=f"年度: {self.year_var.get()}",
-            font=FONTS['default'],
+            font=FONTS["default"],
             bg="white",
-            anchor=tk.W
+            anchor=tk.W,
         )
         year_label.pack(fill=tk.X, padx=20, pady=5)
 
@@ -442,9 +420,9 @@ class SetupWizard:
         folder_label = tk.Label(
             summary_frame,
             text=f"作業フォルダ: {folder_text}",
-            font=FONTS['default'],
+            font=FONTS["default"],
             bg="white",
-            anchor=tk.W
+            anchor=tk.W,
         )
         folder_label.pack(fill=tk.X, padx=20, pady=5)
 
@@ -452,20 +430,24 @@ class SetupWizard:
         auto_section = tk.Label(
             self.content_frame,
             text="✨ 自動設定済み",
-            font=FONTS['heading'],
+            font=FONTS["heading"],
             bg="white",
-            fg=COLORS['success']
+            fg=COLORS["success"],
         )
         auto_section.pack(pady=(20, 10))
 
         # Ghostscript
-        gs_text = f"検出: {self.gs_var.get()}" if self.gs_var.get() else "未検出（後で設定可能）"
+        gs_text = (
+            f"検出: {self.gs_var.get()}"
+            if self.gs_var.get()
+            else "未検出（後で設定可能）"
+        )
         gs_label = tk.Label(
             self.content_frame,
             text=f"• PDF圧縮機能 (Ghostscript): {gs_text}",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            anchor=tk.W
+            anchor=tk.W,
         )
         gs_label.pack(fill=tk.X, padx=40, pady=2)
 
@@ -473,9 +455,9 @@ class SetupWizard:
         temp_label = tk.Label(
             self.content_frame,
             text="• 一時フォルダ: デフォルト (temp_pdfs)",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            anchor=tk.W
+            anchor=tk.W,
         )
         temp_label.pack(fill=tk.X, padx=40, pady=2)
 
@@ -483,9 +465,9 @@ class SetupWizard:
         excel_label = tk.Label(
             self.content_frame,
             text="• Excel自動転記: 設定タブで後から設定可能",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            anchor=tk.W
+            anchor=tk.W,
         )
         excel_label.pack(fill=tk.X, padx=40, pady=2)
 
@@ -493,9 +475,9 @@ class SetupWizard:
         next_steps = tk.Label(
             self.content_frame,
             text="設定は「⚙️ 設定」タブからいつでも変更できます。",
-            font=FONTS['small'],
+            font=FONTS["small"],
             bg="white",
-            fg="gray"
+            fg="gray",
         )
         next_steps.pack(pady=20)
 
@@ -542,7 +524,7 @@ class SetupWizard:
             "セットアップのキャンセル",
             "セットアップをキャンセルしますか？\n\n"
             "後から「⚙️ 設定」タブで設定を行うこともできます。",
-            parent=self.window
+            parent=self.window,
         )
         if result:
             self.window.destroy()
@@ -562,9 +544,7 @@ class SetupWizard:
 
             if not year:
                 messagebox.showerror(
-                    "入力エラー",
-                    "年度（西暦）を入力してください",
-                    parent=self.window
+                    "入力エラー", "年度（西暦）を入力してください", parent=self.window
                 )
                 return False
 
@@ -573,7 +553,7 @@ class SetupWizard:
                 messagebox.showerror(
                     "入力エラー",
                     "年度は4桁の西暦で入力してください（例: 2026）",
-                    parent=self.window
+                    parent=self.window,
                 )
                 return False
 
@@ -587,21 +567,18 @@ class SetupWizard:
                     "確認",
                     "作業フォルダが設定されていません。\n\n"
                     "後から設定することもできますが、続行しますか？",
-                    parent=self.window
+                    parent=self.window,
                 )
                 return result
 
             # パスの検証
             is_valid, error_msg, _ = PathValidator.validate_directory(
-                folder,
-                must_exist=False
+                folder, must_exist=False
             )
 
             if not is_valid:
                 messagebox.showerror(
-                    "パスエラー",
-                    f"無効なパスです:\n{error_msg}",
-                    parent=self.window
+                    "パスエラー", f"無効なパスです:\n{error_msg}", parent=self.window
                 )
                 return False
 
@@ -613,15 +590,12 @@ class SetupWizard:
         initial_dir = PathValidator.get_safe_initial_dir(self.gdrive_var.get())
 
         folder = filedialog.askdirectory(
-            parent=self.window,
-            title="作業フォルダを選択",
-            initialdir=str(initial_dir)
+            parent=self.window, title="作業フォルダを選択", initialdir=str(initial_dir)
         )
 
         if folder:
             self.gdrive_var.set(folder)
             self._update_folder_status()
-
 
     def _update_folder_status(self) -> None:
         """フォルダ状態を更新"""
@@ -629,13 +603,11 @@ class SetupWizard:
         if folder:
             if Path(folder).exists():
                 self.folder_status_label.config(
-                    text="✓ フォルダが見つかりました",
-                    fg="green"
+                    text="✓ フォルダが見つかりました", fg="green"
                 )
             else:
                 self.folder_status_label.config(
-                    text="⚠ フォルダが見つかりません",
-                    fg="orange"
+                    text="⚠ フォルダが見つかりません", fg="orange"
                 )
         else:
             self.folder_status_label.config(text="", fg="gray")
@@ -647,26 +619,21 @@ class SetupWizard:
             if gs_path:
                 self.gs_var.set(gs_path)
                 # ステップ4のUIが作成されている場合のみ更新
-                if hasattr(self, 'gs_status_label'):
+                if hasattr(self, "gs_status_label"):
                     self.gs_status_label.config(
-                        text="✓ Ghostscriptが見つかりました",
-                        fg="green"
+                        text="✓ Ghostscriptが見つかりました", fg="green"
                     )
                 logger.info(f"Ghostscriptを自動検出: {gs_path}")
             else:
-                if hasattr(self, 'gs_status_label'):
+                if hasattr(self, "gs_status_label"):
                     self.gs_status_label.config(
-                        text="⚠ Ghostscriptが見つかりませんでした",
-                        fg="orange"
+                        text="⚠ Ghostscriptが見つかりませんでした", fg="orange"
                     )
                 logger.warning("Ghostscriptが見つかりませんでした")
         except Exception as e:
             logger.error(f"Ghostscript検出エラー: {e}", exc_info=True)
-            if hasattr(self, 'gs_status_label'):
-                self.gs_status_label.config(
-                    text="❌ 検出に失敗しました",
-                    fg="red"
-                )
+            if hasattr(self, "gs_status_label"):
+                self.gs_status_label.config(text="❌ 検出に失敗しました", fg="red")
 
     def _finish(self) -> None:
         """セットアップを完了して設定を保存"""
@@ -676,18 +643,22 @@ class SetupWizard:
             year_short = calculate_year_short(year)
 
             # 設定を保存
-            self.config.set('year', value=year)
-            self.config.set('year_short', value=year_short)
-            self.config.set('base_paths', 'google_drive', value=self.gdrive_var.get().strip())
-            self.config.set('base_paths', 'local_temp', value=self.local_temp_var.get().strip())
+            self.config.set("year", value=year)
+            self.config.set("year_short", value=year_short)
+            self.config.set(
+                "base_paths", "google_drive", value=self.gdrive_var.get().strip()
+            )
+            self.config.set(
+                "base_paths", "local_temp", value=self.local_temp_var.get().strip()
+            )
 
             # v3.5.0: Excelファイル設定は削除（セッション内管理に変更）
 
             # Ghostscript設定
             if self.gs_var.get():
-                self.config.set('ghostscript', 'executable', value=self.gs_var.get())
+                self.config.set("ghostscript", "executable", value=self.gs_var.get())
             else:
-                self.config.set('ghostscript', 'executable', value="")
+                self.config.set("ghostscript", "executable", value="")
 
             self.config.save_config()
 
@@ -703,7 +674,5 @@ class SetupWizard:
         except Exception as e:
             logger.error(f"設定保存エラー: {e}", exc_info=True)
             messagebox.showerror(
-                "エラー",
-                f"設定の保存に失敗しました:\n{e}",
-                parent=self.window
+                "エラー", f"設定の保存に失敗しました:\n{e}", parent=self.window
             )
