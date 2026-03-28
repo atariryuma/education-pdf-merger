@@ -251,7 +251,7 @@ class PDFMergeOrchestrator:
 
             # 5. 最終的にマージ（表紙 + 目次 + 残り）
             self._progress_callback(5, total_steps, "最終PDFをマージ中...")
-            final_list = [cover_pdf, toc_pdf, remainder_pdf]
+            final_list = [p for p in [cover_pdf, toc_pdf, remainder_pdf] if p is not None]
             self.processor.merge_pdfs(final_list, output_pdf)
             self._check_cancel()
 
@@ -275,7 +275,7 @@ class PDFMergeOrchestrator:
             # .pdfファイルを変換せず元パスをそのまま返すため）。
             # _is_temp_fileフィルタにより、一時ディレクトリ内のファイルのみ削除する。
             all_content_pdfs = content_pdfs or self.collector.get_collected_pdfs()
-            files_to_cleanup = [temp_merged, toc_pdf, cover_pdf, remainder_pdf]
+            files_to_cleanup = [p for p in [temp_merged, toc_pdf, cover_pdf, remainder_pdf] if p is not None]
             files_to_cleanup.extend(
                 p for p in all_content_pdfs if self._is_temp_file(p)
             )
