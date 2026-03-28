@@ -177,6 +177,9 @@ class IchitaroConverter:
                         logger.error("一太郎ファイルを開けませんでした")
                         result = None
                     else:
+                        # ステップ2.5: 予期しないダイアログを閉じる
+                        self._dismiss_unexpected_dialogs(app)
+
                         # ステップ3: 印刷→保存操作
                         logger.debug("ステップ3: 印刷→保存操作")
                         self._execute_print_sequence(app, output_path_norm)
@@ -356,6 +359,38 @@ class IchitaroConverter:
 
         except Exception as e:
             logger.warning(f"一太郎の終了に失敗しました: {e}")
+
+    def _dismiss_unexpected_dialogs(self, app: Application) -> None:
+        """
+        一太郎がファイルを開いた直後に表示される予期しないダイアログを閉じる。
+
+        フォント確認、PDFビューア設定、その他のポップアップを
+        Enterキーまたは閉じるボタンで自動的に処理する。
+        """
+        import time
+
+        # 少し待ってからダイアログを探す
+        time.sleep(1.0)
+
+        for attempt in range(5):  # 最大5回チェック（連続ダイアログ対応）
+            try:
+                top = app.top_window()
+                # メインウィンドウ（一太郎本体）なら終了
+                if "一太郎" in top.window_text() and ".jtd" in top.window_text().lower():
+                    logger.debug("メインウィンドウを確認、予期しないダイアログなし")
+                    return
+
+                # メインウィンドウ以外のダイアログが前面にある
+                title = top.window_text()
+                logger.info(f"予期しないダイアログを検出: 「{title}」 → Enterで閉じます")
+                send_keys("{ENTER}")
+                time.sleep(0.5)
+
+            except Exception as e:
+                logger.debug(f"ダイアログチェック中にエラー（無視）: {e}")
+                return
+
+        logger.warning("予期しないダイアログを5回処理しましたが、まだ残っている可能性があります")
 
     def _execute_print_sequence(self, app: Application, output_path: str) -> bool:
         """
