@@ -477,6 +477,17 @@ class IchitaroConverter:
                 )
                 self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
 
+                # 部数を1に強制設定（select()操作で部数が変わることがある）
+                try:
+                    copies_edit = print_dialog.child_window(
+                        auto_id="1298", control_type="Edit"
+                    )
+                    copies_edit.set_edit_text("1")
+                    logger.info("部数を1に設定")
+                except Exception:
+                    # 部数フィールドが見つからない場合は無視
+                    pass
+
                 # 印刷ボタン（OK）をクリックして印刷実行
                 # send_keys("{ENTER}")だと、ダイアログが閉じた後に
                 # 2回目のEnterが文書本体に改行として入力されるバグがあるため、
