@@ -124,6 +124,7 @@ class SettingsTab(BaseTab):
         gs_btn_frame.grid(row=0, column=2, padx=(3, 10), pady=PAD_Y)
         tk.Button(gs_btn_frame, text="📄", command=self._browse_gs_file, width=3).pack(side="left", padx=1)
         tk.Button(gs_btn_frame, text="🔍 自動検出", command=self._auto_detect_ghostscript, font=FONTS['tiny']).pack(side="left", padx=1)
+        tk.Button(gs_btn_frame, text="⬇ インストール", command=self._install_ghostscript, font=FONTS['tiny']).pack(side="left", padx=1)
 
         # Ghostscriptステータス表示
         self.gs_status_label = tk.Label(tool_frame, text="", fg="gray", font=FONTS['tiny'])
@@ -363,6 +364,46 @@ class SettingsTab(BaseTab):
                 pass
 
         thread = threading.Thread(target=detect_task, daemon=True)
+        thread.start()
+
+    def _install_ghostscript(self) -> None:
+        """Ghostscriptをダウンロードしてインストール"""
+        if self.gs_var.get().strip():
+            result = messagebox.askyesno(
+                "確認", "Ghostscriptは既に設定されています。\n再インストールしますか？"
+            )
+            if not result:
+                return
+
+        self.gs_status_label.config(text="⬇ ダウンロード中...", fg="blue")
+        self.update_status("Ghostscriptをダウンロード中...")
+
+        def install_task() -> None:
+            from infrastructure.ghostscript import GhostscriptInstaller
+
+            success, message, gs_path = GhostscriptInstaller.download_and_install(
+                progress_callback=lambda msg: self.tab.after(
+                    0, lambda m=msg: self.gs_status_label.config(text=m, fg="blue")
+                )
+            )
+
+            def update_ui() -> None:
+                if success and gs_path:
+                    self.gs_var.set(gs_path)
+                    self._update_gs_status_sync()
+                    self.update_status(f"Ghostscriptインストール完了: {gs_path}")
+                    messagebox.showinfo("完了", message)
+                else:
+                    self._update_gs_status_sync()
+                    self.update_status("Ghostscriptインストール失敗")
+                    messagebox.showerror("エラー", message)
+
+            try:
+                self.tab.after(0, update_ui)
+            except tk.TclError:
+                pass
+
+        thread = threading.Thread(target=install_task, daemon=True)
         thread.start()
 
     def _check_gs_path(self, gs_path: str, verified: Optional[bool] = None) -> tuple:

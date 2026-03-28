@@ -1,16 +1,11 @@
-; 教育計画PDFマージシステム v3.5.8 - Inno Setup Script
+; 教育計画PDFマージシステム - Inno Setup Script
 ; Inno Setup 6.0+ required
-;
-; Version 3.5.8 (2026-02-06) - Google Sheets削除とコード品質向上
-; - Google Sheets機能を完全削除（シンプル化、依存関係削減）
-; - コード品質の大幅向上（10項目のリファクタリング）
-; - 総合評価: 7.5/10 → 8.0/10 に向上
 
 #define MyAppName "教育計画PDFマージシステム"
 #define MyAppVersion "3.5.8"
 #define MyAppPublisher "教育機関向けPDFツール"
 #define MyAppExeName "教育計画PDFマージシステム.exe"
-#define MyAppURL "https://github.com/your-repo"
+#define MyAppURL "https://github.com/atariryuma/education-pdf-merger"
 
 [Setup]
 ; アプリケーション情報
@@ -205,7 +200,7 @@ begin
 end;
 
 [Messages]
-WelcomeLabel1=教育計画PDFマージシステム v3.5.7 へようこそ
-WelcomeLabel2=このプログラムは、教育計画や行事計画のPDFファイルを効率的にマージするツールです。%n%n【v3.5.7の修正】%n• 転記処理のCOM接続エラーを修正%n• populate_event_names()が正しくターゲットファイルのみに接続%n• 「参照ファイルが開かれていません」エラーを解消%n%n【主な機能】%n• 初回セットアップウィザード（5ステップガイド）%n• Ghostscript自動検出機能%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像ファイルのPDF変換%n• 一太郎文書のPDF変換%n• Excel自動転記機能（行事名による検索と転記）%n%nセットアップを続行するには「次へ」をクリックしてください。
+WelcomeLabel1=教育計画PDFマージシステム v{#MyAppVersion} へようこそ
+WelcomeLabel2=教育計画や行事計画のドキュメントをPDF化して統合するツールです。%n%n【主な機能】%n• Office文書（Word/Excel/PowerPoint）のPDF変換%n• 画像・一太郎文書のPDF変換%n• 目次・ブックマーク付きPDF統合%n• Excel自動転記機能%n• 初回セットアップウィザード%n%nセットアップを続行するには「次へ」をクリックしてください。
 
-FinishedLabel=教育計画PDFマージシステム v3.5.7のインストールが完了しました。%n%n【v3.5.7の修正点】%n• 転記処理のCOM接続エラーを修正しました%n• populate_event_names()メソッドが正しく動作するようになりました%n• 初回セットアップウィザードが自動的に表示されます%n• Ghostscriptが自動検出されるため手動設定不要です%n%n【必須環境】%n• Microsoft Office（Word/Excel/PowerPoint）が必要です%n• 一太郎ファイルを変換する場合は一太郎が必要です%n%n【詳細情報】%nドキュメントフォルダに変更履歴（CHANGELOG.txt）があります。
+FinishedLabel=教育計画PDFマージシステム v{#MyAppVersion} のインストールが完了しました。%n%n初回起動時にセットアップウィザードが表示されます。%nGhostscriptは自動検出されるため手動設定は不要です。%n%n【必須環境】%n• Microsoft Office（Word/Excel/PowerPoint）%n• 一太郎（.jtdファイルを変換する場合のみ）

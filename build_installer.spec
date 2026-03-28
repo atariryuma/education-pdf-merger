@@ -86,6 +86,9 @@ hiddenimports = [
     'pywinauto',
     'pywinauto.controls',
     'pywinauto.keyboard',
+    'comtypes',
+    'comtypes.client',
+    'comtypes.stream',
     'PyPDF2',
     'fitz',  # PyMuPDF
     'reportlab',

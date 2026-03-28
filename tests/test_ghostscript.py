@@ -166,8 +166,7 @@ class TestGetInstallInstructions:
     def test_returns_instructions(self):
         """インストール手順を返す"""
         instructions = GhostscriptDetector.get_install_instructions()
-        assert "ghostscript.com" in instructions
-        assert "ダウンロード" in instructions
+        assert "インストール" in instructions
 
 
 @pytest.mark.unit

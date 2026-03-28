@@ -11,7 +11,7 @@ try:
 except ImportError:
     winreg = None  # type: ignore[assignment]
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Callable, Optional, List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -300,18 +300,115 @@ class GhostscriptDetector:
     @classmethod
     def get_install_instructions(cls) -> str:
         """インストール手順を取得"""
-        download_url = "https://ghostscript.com/releases/gsdnld.html"
-        return f"""Ghostscriptがインストールされていません。
+        return ("Ghostscriptが見つかりませんでした。\n\n"
+                "設定タブの「⬇ インストール」ボタンで自動インストールできます。")
 
-【インストール手順】
-1. 以下のURLからGhostscriptをダウンロード:
-   {download_url}
 
-2. 「AGPL Release」から最新版をダウンロード
-   - 64bit Windows: Ghostscript X.XX.X for Windows (64 bit)
-   - 32bit Windows: Ghostscript X.XX.X for Windows (32 bit)
+class GhostscriptInstaller:
+    """Ghostscriptの自動ダウンロード・インストール"""
 
-3. ダウンロードしたインストーラーを実行
+    # GitHub APIからリリース情報を取得
+    GITHUB_API_URL = "https://api.github.com/repos/ArtifexSoftware/ghostpdl-downloads/releases/latest"
 
-4. インストール完了後、このアプリを再起動するか
-   設定タブで「自動検出」ボタンを押してください"""
+    # フォールバック: 既知の安定版URL
+    FALLBACK_URL_64 = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe"
+    FALLBACK_URL_32 = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w32.exe"
+
+    @classmethod
+    def download_and_install(
+        cls,
+        progress_callback: Optional[Callable] = None
+    ) -> tuple:
+        """
+        Ghostscriptをダウンロードしてサイレントインストール
+
+        Args:
+            progress_callback: 進捗メッセージ用コールバック
+
+        Returns:
+            (success: bool, message: str, gs_path: Optional[str])
+        """
+        import platform
+        import tempfile
+        import urllib.request
+        import urllib.error
+
+        is_64bit = platform.machine().endswith('64')
+
+        # ダウンロードURLを決定
+        download_url = cls._get_download_url(is_64bit)
+        if not download_url:
+            download_url = cls.FALLBACK_URL_64 if is_64bit else cls.FALLBACK_URL_32
+
+        if progress_callback:
+            progress_callback("⬇ ダウンロード中...")
+
+        # 一時ファイルにダウンロード
+        try:
+            installer_path = os.path.join(tempfile.gettempdir(), "gs_installer.exe")
+            urllib.request.urlretrieve(download_url, installer_path)
+            logger.info(f"Ghostscriptインストーラーをダウンロード: {installer_path}")
+        except (urllib.error.URLError, OSError) as e:
+            logger.error(f"ダウンロード失敗: {e}")
+            return False, f"ダウンロードに失敗しました。\n\nインターネット接続を確認してください。\n詳細: {e}", None
+
+        if progress_callback:
+            progress_callback("📦 インストール中...")
+
+        # サイレントインストール実行
+        try:
+            result = subprocess.run(
+                [installer_path, "/S"],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode != 0:
+                logger.error(f"インストーラー終了コード: {result.returncode}")
+                return False, f"インストールに失敗しました（終了コード: {result.returncode}）", None
+        except subprocess.TimeoutExpired:
+            return False, "インストールがタイムアウトしました（120秒）", None
+        except OSError as e:
+            return False, f"インストーラーの実行に失敗しました: {e}", None
+        finally:
+            # インストーラーを削除
+            try:
+                os.remove(installer_path)
+            except OSError:
+                pass
+
+        if progress_callback:
+            progress_callback("🔍 検出中...")
+
+        # インストール後に自動検出
+        gs_path = GhostscriptDetector.detect()
+        if gs_path and GhostscriptDetector.verify(gs_path):
+            return True, f"Ghostscriptのインストールが完了しました。\n\nパス: {gs_path}", gs_path
+        else:
+            return False, "インストールは完了しましたが、Ghostscriptが検出できませんでした。\n再起動後に自動検出を試してください。", None
+
+    @classmethod
+    def _get_download_url(cls, is_64bit: bool) -> Optional[str]:
+        """GitHub APIから最新リリースのダウンロードURLを取得"""
+        import urllib.request
+        import urllib.error
+        import json
+
+        try:
+            req = urllib.request.Request(
+                cls.GITHUB_API_URL,
+                headers={"User-Agent": "PDFMergeSystem"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode())
+
+            suffix = "w64.exe" if is_64bit else "w32.exe"
+            for asset in data.get("assets", []):
+                name = asset.get("name", "")
+                if name.endswith(suffix) and "gs" in name.lower():
+                    url = asset.get("browser_download_url")
+                    if url:
+                        logger.info(f"最新Ghostscript URL: {url}")
+                        return url
+        except (urllib.error.URLError, json.JSONDecodeError, OSError) as e:
+            logger.warning(f"GitHub APIからURL取得失敗（フォールバック使用）: {e}")
+
+        return None
