@@ -37,6 +37,8 @@ jobs:
 
     - name: セキュリティチェック (bandit)
       run: bandit -r . -f screen --skip B101,B601
+      env:
+        PYTHONIOENCODING: utf-8
 
   # === ジョブ2: テスト ===
   test:
