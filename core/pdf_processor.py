@@ -184,7 +184,7 @@ class PDFProcessor:
                 if doc.is_repaired:
                     logger.warning(f"PDFが修復されました: {pdf_path}")
 
-                return page_count  # type: ignore[return-value]
+                return page_count
         except Exception as e:
             logger.error(f"ページ数の取得に失敗しました: {pdf_path} - {e}")
             raise PDFProcessingError(
