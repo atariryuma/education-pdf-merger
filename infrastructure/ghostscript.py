@@ -404,7 +404,7 @@ class GhostscriptInstaller:
             for asset in data.get("assets", []):
                 name = asset.get("name", "")
                 if name.endswith(suffix) and "gs" in name.lower():
-                    url = asset.get("browser_download_url")
+                    url: str = asset.get("browser_download_url", "")
                     if url:
                         logger.info(f"最新Ghostscript URL: {url}")
                         return url
