@@ -16,8 +16,9 @@ from core.pdf_processor import PDFProcessor  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _mock_pdfmetrics():
-    """全テストでpdfmetricsをモック（フォント登録の副作用を防止）"""
-    with patch('core.pdf_processor.pdfmetrics'):
+    """全テストでpdfmetricsとTTFontをモック（フォント登録の副作用を防止）"""
+    with patch('core.pdf_processor.pdfmetrics'), \
+         patch('core.pdf_processor.TTFont'):
         yield
 
 
