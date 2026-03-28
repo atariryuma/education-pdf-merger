@@ -415,6 +415,47 @@ class IchitaroConverter:
 
         logger.warning("予期しないダイアログを10回処理しましたが、まだ残っている可能性があります")
 
+    @staticmethod
+    def _set_default_printer(printer_name: str) -> Optional[str]:
+        """
+        Windowsのデフォルトプリンターを変更し、元のプリンター名を返す。
+
+        Args:
+            printer_name: 設定するプリンター名
+
+        Returns:
+            変更前のデフォルトプリンター名（変更失敗時はNone）
+        """
+        import subprocess
+
+        # 現在のデフォルトプリンターを取得
+        original = None
+        try:
+            result = subprocess.run(
+                ["powershell", "-Command", "(Get-CimInstance Win32_Printer | Where-Object {$_.Default}).Name"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                original = result.stdout.strip()
+                logger.info(f"現在のデフォルトプリンター: {original}")
+        except Exception as e:
+            logger.warning(f"デフォルトプリンター取得失敗: {e}")
+
+        # デフォルトプリンターを変更
+        try:
+            result = subprocess.run(
+                ["rundll32", "printui.dll,PrintUIEntry", "/y", "/n", printer_name],
+                capture_output=True, timeout=10
+            )
+            if result.returncode == 0:
+                logger.info(f"デフォルトプリンターを変更: {printer_name}")
+            else:
+                logger.warning(f"デフォルトプリンター変更失敗（終了コード: {result.returncode}）")
+        except Exception as e:
+            logger.error(f"デフォルトプリンター変更エラー: {e}")
+
+        return original
+
     def _execute_print_sequence(self, app: Application, output_path: str) -> bool:
         """
         印刷シーケンスを実行（ベストプラクティス版）
@@ -433,119 +474,25 @@ class IchitaroConverter:
             CancelledError: キャンセルされた場合
             Exception: プリンター選択に失敗した場合
         """
-        # Ctrl+P で印刷ダイアログを開く
-        logger.info("印刷ダイアログを開く (Ctrl+P)")
-        send_keys("^p")
-        logger.info("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
-        wait_time = IchitaroWaitTimes.CTRL_P_WAIT
-        self._wait_with_cancel_check(wait_time)
-        logger.info(
-            f"{PDFConversionConstants.LOG_MARK_SUCCESS} 待機完了、印刷ダイアログが開いているはず"
-        )
+        # デフォルトプリンターをMicrosoft Print to PDFに切り替え
+        # 印刷ダイアログのComboBox操作を回避し、部数変更問題を防止
+        original_printer = self._set_default_printer("Microsoft Print to PDF")
 
-        # Microsoft Print to PDFをプリンター名で直接選択
-        logger.info("Microsoft Print to PDFを選択中...")
-
-        # 印刷ダイアログの全コントロールをダンプ（問題解析用）
         try:
-            main_win = app.top_window()
-            logger.info(f"トップウィンドウ: 「{main_win.window_text()}」")
-            print_dlg = main_win.child_window(title="印刷")
-            logger.info("=== 印刷ダイアログ内のコントロール一覧 ===")
-            for ctrl in print_dlg.children():
-                try:
-                    info = ctrl.element_info
-                    val = ""
-                    try:
-                        val = f", value='{ctrl.get_value()}'"
-                    except Exception:
-                        pass
-                    logger.info(
-                        f"  [{info.control_type}] auto_id={info.automation_id}, "
-                        f"title='{ctrl.window_text()}'{val}"
-                    )
-                except Exception:
-                    pass
-            logger.info("=== ダンプ終了 ===")
-        except Exception as e:
-            logger.info(f"印刷ダイアログのダンプ失敗（まだ開いていない可能性）: {e}")
+            # Ctrl+P で印刷ダイアログを開く
+            logger.info("印刷ダイアログを開く (Ctrl+P)")
+            send_keys("^p")
+            logger.info("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
+            self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_P_WAIT)
 
-        # リトライ機構：低スペックPCでダイアログの準備が遅い場合に対応
-        max_retries = PDFConversionConstants.PRINTER_SELECT_MAX_RETRIES
-        retry_delay = PDFConversionConstants.PRINTER_SELECT_RETRY_DELAY
-
-        for attempt in range(max_retries):
-            try:
-                main_window = app.top_window()
-                # control_typeを指定せずタイトルのみで検索（一太郎のダイアログ型に依存しない）
-                print_dialog = main_window.child_window(title="印刷")
-                printer_combo = print_dialog.child_window(
-                    auto_id="1297", control_type="ComboBox"
-                )
-
-                # pywinautoの高レベルAPIでプリンターを選択
-                printer_combo.select("Microsoft Print to PDF")
-                logger.info(
-                    f"{PDFConversionConstants.LOG_MARK_SUCCESS} select()メソッドで'Microsoft Print to PDF'を選択"
-                )
-                self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
-
-                # プリンター選択後の状態をダンプ
-                try:
-                    logger.info("=== プリンター選択後のコントロール状態 ===")
-                    for ctrl in print_dialog.children():
-                        try:
-                            info = ctrl.element_info
-                            val = ""
-                            try:
-                                val = f", value='{ctrl.get_value()}'"
-                            except Exception:
-                                pass
-                            logger.info(
-                                f"  [{info.control_type}] auto_id={info.automation_id}, "
-                                f"title='{ctrl.window_text()}'{val}"
-                            )
-                        except Exception:
-                            pass
-                    logger.info("=== ダンプ終了 ===")
-                except Exception:
-                    pass
-
-                # 印刷ボタン（OK）をクリックして印刷実行
-                # send_keys("{ENTER}")だと、ダイアログが閉じた後に
-                # 2回目のEnterが文書本体に改行として入力されるバグがあるため、
-                # pywinautoのclick()で確実にボタンを操作する
-                try:
-                    ok_button = print_dialog.child_window(
-                        title="OK", control_type="Button"
-                    )
-                    ok_button.click()
-                    logger.info("印刷ボタン（OK）をクリックして印刷実行")
-                except Exception as click_error:
-                    # クリック失敗時はEnterキーにフォールバック（1回のみ）
-                    logger.warning(
-                        f"OKボタンのクリックに失敗、Enterキーで代替: {click_error}"
-                    )
-                    send_keys("{ENTER}")
-
-                self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
-                break
-
-            except Exception as select_error:
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        f"プリンター選択失敗（試行 {attempt + 1}/{max_retries}）: {select_error}"
-                    )
-                    logger.info(f"{retry_delay}秒待機後、再試行します...")
-                    self._wait_with_cancel_check(retry_delay)
-                else:
-                    logger.error(
-                        f"プリンター選択が{max_retries}回失敗しました: {select_error}"
-                    )
-                    raise PDFConversionError(
-                        f"Microsoft Print to PDFの選択に失敗しました: {select_error}",
-                        original_error=select_error,
-                    ) from select_error
+            # デフォルトプリンターが選択済みなので、そのままOKを押す
+            logger.info("デフォルトプリンター方式: そのままOKを押して印刷実行")
+            send_keys("{ENTER}")
+            self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
+        finally:
+            # デフォルトプリンターを元に戻す
+            if original_printer:
+                self._set_default_printer(original_printer)
 
         if self.is_cancelled():
             raise CancelledError("一太郎変換がキャンセルされました")
