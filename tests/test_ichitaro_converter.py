@@ -370,7 +370,7 @@ class TestIchitaroConverter:
         result = converter._wait_for_output_file(
             str(output_path),
             "test.jtd",
-            save_wait=0.1
+            save_wait=0.1  # type: ignore[arg-type]
         )
 
         assert result is None
