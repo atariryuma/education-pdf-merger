@@ -152,7 +152,7 @@ def setup_logging(log_dir: Optional[str] = None, level: int = logging.INFO, app_
     if use_json:
         formatter = StructuredFormatter(datefmt='%Y-%m-%d %H:%M:%S')
     else:
-        formatter = logging.Formatter(
+        formatter = logging.Formatter(  # type: ignore[assignment]
             '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
