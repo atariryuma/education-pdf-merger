@@ -163,13 +163,16 @@ class IchitaroConverter:
                 main_window = None
                 result = None
 
+                # ステップ0: デフォルトプリンターを変更（一太郎起動前に実行）
+                original_printer = self._set_default_printer(
+                    "Microsoft Print to PDF"
+                )
+
                 try:
                     # ステップ1: 事前クリーンアップ
-                    logger.debug("ステップ1: 事前クリーンアップ")
                     self._cleanup_ichitaro_windows()
 
                     # ステップ2: 一太郎でファイルを開く
-                    logger.debug("ステップ2: 一太郎でファイルを開く")
                     app, main_window = self._open_ichitaro_file(
                         file_path_norm, max_wait
                     )
@@ -178,19 +181,19 @@ class IchitaroConverter:
                         result = None
                     else:
                         # ステップ3: 印刷→保存操作
-                        logger.debug("ステップ3: 印刷→保存操作")
                         self._execute_print_sequence(app, output_path_norm)
 
                         # ステップ4: PDF作成完了を待つ
-                        logger.debug("ステップ4: PDF作成完了を待つ")
                         result = self._wait_for_output_file(
                             output_path_norm, file_path_norm, save_wait
                         )
 
                 finally:
                     # ステップ5: 一太郎を正常終了
-                    logger.debug("ステップ5: 一太郎を正常終了")
                     self._close_ichitaro(app, main_window)
+                    # ステップ6: デフォルトプリンターを復元
+                    if original_printer:
+                        self._set_default_printer(original_printer)
 
                 # 最終確認
                 if result and os.path.exists(output_path_norm):
@@ -560,25 +563,16 @@ class IchitaroConverter:
             CancelledError: キャンセルされた場合
             Exception: プリンター選択に失敗した場合
         """
-        # デフォルトプリンターをMicrosoft Print to PDFに切り替え
-        # 印刷ダイアログのComboBox操作を回避し、部数変更問題を防止
-        original_printer = self._set_default_printer("Microsoft Print to PDF")
+        # Ctrl+P で印刷ダイアログを開く（デフォルトプリンターは事前に変更済み）
+        logger.info("印刷ダイアログを開く (Ctrl+P)")
+        send_keys("^p")
+        logger.debug("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
+        self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_P_WAIT)
 
-        try:
-            # Ctrl+P で印刷ダイアログを開く
-            logger.info("印刷ダイアログを開く (Ctrl+P)")
-            send_keys("^p")
-            logger.debug("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
-            self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_P_WAIT)
-
-            # デフォルトプリンターが選択済みなので、そのままOKを押す
-            logger.info("デフォルトプリンター方式: そのままOKを押して印刷実行")
-            send_keys("{ENTER}")
-            self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
-        finally:
-            # デフォルトプリンターを元に戻す
-            if original_printer:
-                self._set_default_printer(original_printer)
+        # デフォルトプリンターが選択済みなので、そのままOKを押す
+        logger.info("そのままOKを押して印刷実行")
+        send_keys("{ENTER}")
+        self._wait_with_cancel_check(IchitaroWaitTimes.ENTER_INTERVAL)
 
         if self.is_cancelled():
             raise CancelledError("一太郎変換がキャンセルされました")
