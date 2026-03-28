@@ -177,9 +177,6 @@ class IchitaroConverter:
                         logger.error("一太郎ファイルを開けませんでした")
                         result = None
                     else:
-                        # ステップ2.5: 予期しないダイアログを閉じる
-                        self._dismiss_unexpected_dialogs(app)
-
                         # ステップ3: 印刷→保存操作
                         logger.debug("ステップ3: 印刷→保存操作")
                         self._execute_print_sequence(app, output_path_norm)
@@ -306,6 +303,11 @@ class IchitaroConverter:
             logger.info(
                 f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎への接続成功: {main_window.window_text()}"
             )
+
+            # 接続直後に予期しないダイアログを閉じる
+            self._dismiss_unexpected_dialogs(app)
+
+            main_window = app.top_window()  # ダイアログ処理後に再取得
             main_window.set_focus()
             return app, main_window
 
@@ -365,26 +367,47 @@ class IchitaroConverter:
         一太郎がファイルを開いた直後に表示される予期しないダイアログを閉じる。
 
         フォント確認、PDFビューア設定、その他のポップアップを
-        Enterキーまたは閉じるボタンで自動的に処理する。
+        Enterキーで自動的に処理する。子ウィンドウ（モーダルダイアログ）も検出する。
         """
         import time
 
-        # 少し待ってからダイアログを探す
         time.sleep(1.0)
 
-        for attempt in range(5):  # 最大5回チェック（連続ダイアログ対応）
+        for _ in range(5):  # 最大5回チェック（連続ダイアログ対応）
             try:
                 top = app.top_window()
-                # メインウィンドウ（一太郎本体）なら終了
-                if "一太郎" in top.window_text() and ".jtd" in top.window_text().lower():
-                    logger.debug("メインウィンドウを確認、予期しないダイアログなし")
-                    return
-
-                # メインウィンドウ以外のダイアログが前面にある
                 title = top.window_text()
-                logger.info(f"予期しないダイアログを検出: 「{title}」 → Enterで閉じます")
-                send_keys("{ENTER}")
-                time.sleep(0.5)
+                logger.info(f"ダイアログチェック: トップウィンドウ=「{title}」")
+
+                # 子ウィンドウ（モーダルダイアログ）をチェック
+                try:
+                    modal_dialogs = [
+                        c for c in top.children()
+                        if c.element_info.control_type == "Window"
+                        and c.window_text()
+                        and c.window_text() != "印刷"  # 印刷ダイアログは除外
+                    ]
+                    if modal_dialogs:
+                        dlg_title = modal_dialogs[0].window_text()
+                        logger.info(
+                            f"モーダルダイアログを検出: 「{dlg_title}」 → Enterで閉じます"
+                        )
+                        send_keys("{ENTER}")
+                        time.sleep(0.5)
+                        continue
+                except Exception:
+                    pass
+
+                # トップウィンドウ自体がメインウィンドウ以外のダイアログ
+                if "一太郎" not in title:
+                    logger.info(f"予期しないダイアログを検出: 「{title}」 → Enterで閉じます")
+                    send_keys("{ENTER}")
+                    time.sleep(0.5)
+                    continue
+
+                # メインウィンドウが前面 → ダイアログなし
+                logger.debug("予期しないダイアログなし")
+                return
 
             except Exception as e:
                 logger.debug(f"ダイアログチェック中にエラー（無視）: {e}")
@@ -422,6 +445,17 @@ class IchitaroConverter:
 
         # Microsoft Print to PDFをプリンター名で直接選択
         logger.info("Microsoft Print to PDFを選択中...")
+
+        # 現在のウィンドウ状態をログ出力（デバッグ用）
+        try:
+            top = app.top_window()
+            logger.info(f"トップウィンドウ: 「{top.window_text()}」")
+            children = top.children()
+            child_titles = [c.window_text() for c in children[:10] if c.window_text()]
+            if child_titles:
+                logger.info(f"子ウィンドウ: {child_titles}")
+        except Exception as e:
+            logger.debug(f"ウィンドウ状態取得失敗: {e}")
 
         # リトライ機構：低スペックPCでダイアログの準備が遅い場合に対応
         max_retries = PDFConversionConstants.PRINTER_SELECT_MAX_RETRIES
