@@ -464,9 +464,8 @@ class IchitaroConverter:
         for attempt in range(max_retries):
             try:
                 main_window = app.top_window()
-                print_dialog = main_window.child_window(
-                    title="印刷", control_type="Window"
-                )
+                # control_typeを指定せずタイトルのみで検索（一太郎のダイアログ型に依存しない）
+                print_dialog = main_window.child_window(title="印刷")
                 printer_combo = print_dialog.child_window(
                     auto_id="1297", control_type="ComboBox"
                 )
