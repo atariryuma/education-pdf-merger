@@ -18,7 +18,7 @@ class PDFMergeError(Exception):
         message: str,
         *,
         original_error: Optional[Exception] = None,
-        **kwargs
+        **kwargs: object
     ) -> None:
         """
         Args:
