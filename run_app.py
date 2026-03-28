@@ -16,7 +16,7 @@ from types import TracebackType
 # 参照: https://github.com/pywinauto/pywinauto/issues/517
 # 参照: https://bugs.python.org/issue34029
 # COINIT_APARTMENTTHREADED (STA) を使用してtkinter.filedialogのフリーズを防止
-sys.coinit_flags = 2  # COINIT_APARTMENTTHREADED
+sys.coinit_flags = 2  # type: ignore[attr-defined]  # COINIT_APARTMENTTHREADED
 
 # tkinter の可用性チェック（モジュールトップで実行）
 try:
