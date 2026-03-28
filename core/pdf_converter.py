@@ -75,7 +75,7 @@ class PDFConverter:
             from core.pdf_processor import PDFProcessor
             self._pdf_processor = PDFProcessor(config)
         else:
-            self._pdf_processor = None
+            self._pdf_processor = None  # type: ignore[assignment]
 
         # 各変換器を初期化
         self.office_converter = OfficeConverter(temp_dir)
@@ -166,7 +166,7 @@ class PDFConverter:
                 return None
 
             if self._pdf_processor is None:
-                logger.error(f"区切りページ生成エラー ({folder_name}): PDFProcessorが設定されていません")
+                logger.error(f"区切りページ生成エラー ({folder_name}): PDFProcessorが設定されていません")  # type: ignore[unreachable]
                 return None
 
             # フォルダ名をセキュアにサニタイズ（PathValidator使用）
