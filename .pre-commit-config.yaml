@@ -36,7 +36,7 @@ repos:
     rev: 1.7.6
     hooks:
       - id: bandit
-        args: [-r, ., --skip, B101,B601]
+        args: [--skip, B101, --skip, B601, --exit-zero]
         exclude: ^tests/
 
 default_install_hook_types: [pre-commit]

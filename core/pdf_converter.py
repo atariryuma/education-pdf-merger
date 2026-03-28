@@ -38,7 +38,7 @@ class PDFConverter:
         cancel_check: Optional[Callable[[], bool]] = None,
         dialog_callback: Optional[Callable[[str, bool], None]] = None,
         config: Optional["ConfigLoader"] = None,
-        pdf_processor: Optional["PDFProcessor"] = None
+        pdf_processor: Optional["PDFProcessor"] = None,
     ) -> None:
         """
         Args:
@@ -54,12 +54,12 @@ class PDFConverter:
 
         # 一太郎設定の初期化
         default_ichitaro_settings = {
-            'ichitaro_ready_timeout': 30,
-            'max_retries': 3,
-            'down_arrow_count': 5,
-            'save_wait_seconds': 20,
-            'dialog_wait_seconds': 3,
-            'action_wait_seconds': 2,
+            "ichitaro_ready_timeout": 30,
+            "max_retries": 3,
+            "down_arrow_count": 5,
+            "save_wait_seconds": 20,
+            "dialog_wait_seconds": 3,
+            "action_wait_seconds": 2,
         }
         if ichitaro_settings is None:
             self.ichitaro_settings = default_ichitaro_settings.copy()
@@ -69,13 +69,13 @@ class PDFConverter:
             self.ichitaro_settings.update(ichitaro_settings)
 
         # PDFProcessorの初期化（依存性注入優先、なければconfigから作成）
+        self._pdf_processor: Optional[Any] = None
         if pdf_processor is not None:
             self._pdf_processor = pdf_processor
         elif config is not None:
             from core.pdf_processor import PDFProcessor
+
             self._pdf_processor = PDFProcessor(config)
-        else:
-            self._pdf_processor = None  # type: ignore[assignment]
 
         # 各変換器を初期化
         self.office_converter = OfficeConverter(temp_dir)
@@ -83,7 +83,7 @@ class PDFConverter:
         self.ichitaro_converter = IchitaroConverter(
             ichitaro_settings=self.ichitaro_settings,
             cancel_check=cancel_check,
-            dialog_callback=dialog_callback
+            dialog_callback=dialog_callback,
         )
 
     @staticmethod
@@ -96,9 +96,11 @@ class PDFConverter:
         base_name = os.path.basename(file_path)
         ext = os.path.splitext(file_path)[1].lower()
         # 一時ファイルのパターン: ~$, .$, .$$$など
-        return '~$' in base_name or ext.startswith('.$') or base_name.endswith('.$$$')
+        return "~$" in base_name or ext.startswith(".$") or base_name.endswith(".$$$")
 
-    def convert(self, file_path: str, output_path: Optional[str] = None) -> Optional[str]:
+    def convert(
+        self, file_path: str, output_path: Optional[str] = None
+    ) -> Optional[str]:
         """
         ファイルをPDFに変換
 
@@ -133,7 +135,7 @@ class PDFConverter:
         if ext in self.OFFICE_EXTENSIONS:
             logger.info(f"Officeファイルを変換: {file_path}")
             return self.office_converter.convert(file_path, output_path)
-        elif ext == '.pdf':
+        elif ext == ".pdf":
             logger.debug(f"PDFファイル: {file_path}")
             return file_path if os.path.exists(file_path) else None
         elif ext in self.IMAGE_EXTENSIONS:
@@ -162,21 +164,27 @@ class PDFConverter:
         try:
             # ConfigLoaderまたはPDFProcessorが設定されていない場合はエラー
             if self.config is None:
-                logger.error(f"区切りページ生成エラー ({folder_name}): ConfigLoaderが設定されていません")
+                logger.error(
+                    f"区切りページ生成エラー ({folder_name}): ConfigLoaderが設定されていません"
+                )
                 return None
 
-            if self._pdf_processor is None:
-                logger.error(f"区切りページ生成エラー ({folder_name}): PDFProcessorが設定されていません")  # type: ignore[unreachable]
+            if self._pdf_processor is None:  # 防御的チェック
+                logger.error(
+                    f"区切りページ生成エラー ({folder_name}): PDFProcessorが設定されていません"
+                )
                 return None
 
             # フォルダ名をセキュアにサニタイズ（PathValidator使用）
             safe_folder_name = PathValidator.sanitize_filename(
                 folder_name,
-                replacement='_',
-                default_name=PDFConversionConstants.DEFAULT_SEPARATOR_NAME
+                replacement="_",
+                default_name=PDFConversionConstants.DEFAULT_SEPARATOR_NAME,
             )
 
-            output_pdf = os.path.join(self.temp_dir, f"separator_{safe_folder_name}.pdf")
+            output_pdf = os.path.join(
+                self.temp_dir, f"separator_{safe_folder_name}.pdf"
+            )
 
             # PDFProcessorで生成（依存性注入により初期化済み）
             return self._pdf_processor.create_separator_pdf(folder_name, output_pdf)
@@ -187,6 +195,5 @@ class PDFConverter:
         except Exception as e:
             logger.exception(f"区切りページ生成エラー ({folder_name}): {e}")
             raise PDFConversionError(
-                f"区切りページ生成エラー ({folder_name})",
-                original_error=e
+                f"区切りページ生成エラー ({folder_name})", original_error=e
             ) from e
