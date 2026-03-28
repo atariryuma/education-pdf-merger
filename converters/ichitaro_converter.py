@@ -373,7 +373,7 @@ class IchitaroConverter:
 
         time.sleep(1.0)
 
-        for _ in range(5):  # 最大5回チェック（連続ダイアログ対応）
+        for _ in range(10):  # 最大10回チェック（連続ダイアログ対応）
             try:
                 top = app.top_window()
                 title = top.window_text()
@@ -413,7 +413,7 @@ class IchitaroConverter:
                 logger.debug(f"ダイアログチェック中にエラー（無視）: {e}")
                 return
 
-        logger.warning("予期しないダイアログを5回処理しましたが、まだ残っている可能性があります")
+        logger.warning("予期しないダイアログを10回処理しましたが、まだ残っている可能性があります")
 
     def _execute_print_sequence(self, app: Application, output_path: str) -> bool:
         """
@@ -481,6 +481,19 @@ class IchitaroConverter:
                     f"{PDFConversionConstants.LOG_MARK_SUCCESS} 'Microsoft Print to PDF'を選択"
                 )
                 self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
+
+                # 部数を1に強制リセット（プリンター選択操作が部数を変えることがある）
+                try:
+                    for edit in print_dialog.children(control_type="Edit"):
+                        try:
+                            val = edit.get_value()
+                            if val and val.strip().isdigit() and int(val.strip()) != 1:
+                                logger.info(f"部数フィールドを検出: 値={val} → 1にリセット")
+                                edit.set_edit_text("1")
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
 
                 # 印刷ボタン（OK）をクリックして印刷実行
                 # send_keys("{ENTER}")だと、ダイアログが閉じた後に
