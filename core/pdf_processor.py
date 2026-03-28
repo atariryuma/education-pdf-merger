@@ -184,7 +184,7 @@ class PDFProcessor:
                 if doc.is_repaired:
                     logger.warning(f"PDFが修復されました: {pdf_path}")
 
-                return page_count
+                return page_count  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"ページ数の取得に失敗しました: {pdf_path} - {e}")
             raise PDFProcessingError(
@@ -386,7 +386,7 @@ class PDFProcessor:
                         remainder_doc.insert_pdf(doc, from_page=1, to_page=doc.page_count - 1)
                         remainder_doc.save(remainder_pdf)
                 else:
-                    remainder_pdf = None
+                    remainder_pdf = None  # type: ignore[assignment]
 
             logger.debug(f"PDFを分割しました: 表紙={cover_pdf}, 残り={remainder_pdf}")
             return cover_pdf, remainder_pdf
