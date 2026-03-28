@@ -364,16 +364,16 @@ class IchitaroConverter:
 
     def _dismiss_unexpected_dialogs(self, app: Application) -> None:
         """
-        一太郎がファイルを開いた直後に表示される予期しないダイアログを閉じる。
+        予期しないダイアログを自動で閉じる。
 
-        フォント確認、PDFビューア設定、その他のポップアップを
-        Enterキーで自動的に処理する。子ウィンドウ（モーダルダイアログ）も検出する。
+        フォント確認、PDFビューア設定、ページ番号確認などのポップアップを処理。
+        「いいえ」ボタンがあればそちらを優先（ページ番号確認ダイアログ対応）。
         """
         import time
 
         time.sleep(1.0)
 
-        for _ in range(10):  # 最大10回チェック（連続ダイアログ対応）
+        for _ in range(10):
             try:
                 top = app.top_window()
                 title = top.window_text()
@@ -382,25 +382,24 @@ class IchitaroConverter:
                 # 子ウィンドウ（モーダルダイアログ）をチェック
                 try:
                     modal_dialogs = [
-                        c for c in top.children()
+                        c
+                        for c in top.children()
                         if c.element_info.control_type == "Window"
                         and c.window_text()
-                        and c.window_text() != "印刷"  # 印刷ダイアログは除外
+                        and c.window_text() != "印刷"
                     ]
                     if modal_dialogs:
-                        dlg_title = modal_dialogs[0].window_text()
-                        logger.info(
-                            f"モーダルダイアログを検出: 「{dlg_title}」 → Enterで閉じます"
-                        )
-                        send_keys("{ENTER}")
+                        dlg = modal_dialogs[0]
+                        dlg_title = dlg.window_text()
+                        self._close_dialog(dlg, dlg_title)
                         time.sleep(0.5)
                         continue
                 except Exception:
                     pass
 
-                # トップウィンドウ自体がメインウィンドウ以外のダイアログ
+                # トップウィンドウ自体がダイアログ（一太郎本体でない場合）
                 if "一太郎" not in title:
-                    logger.info(f"予期しないダイアログを検出: 「{title}」 → Enterで閉じます")
+                    logger.info(f"予期しないダイアログを検出: 「{title}」")
                     send_keys("{ENTER}")
                     time.sleep(0.5)
                     continue
@@ -413,7 +412,40 @@ class IchitaroConverter:
                 logger.debug(f"ダイアログチェック中にエラー（無視）: {e}")
                 return
 
-        logger.warning("予期しないダイアログを10回処理しましたが、まだ残っている可能性があります")
+        logger.warning(
+            "予期しないダイアログを10回処理しましたが、まだ残っている可能性があります"
+        )
+
+    def _close_dialog(self, dlg: Any, dlg_title: str) -> None:
+        """
+        ダイアログを適切な方法で閉じる。
+
+        「いいえ」ボタンがあれば押す（ページ番号確認など）、
+        なければ「OK」またはEnterで閉じる。
+        """
+        # 「いいえ」ボタンを探す（ページ番号確認ダイアログ等）
+        try:
+            no_button = dlg.child_window(title_re="いいえ.*", control_type="Button")
+            if no_button.exists(timeout=0.5):
+                no_button.click()
+                logger.info(f"ダイアログ「{dlg_title}」→「いいえ」をクリック")
+                return
+        except Exception:
+            pass
+
+        # 「OK」ボタンを探す
+        try:
+            ok_button = dlg.child_window(title="OK", control_type="Button")
+            if ok_button.exists(timeout=0.5):
+                ok_button.click()
+                logger.info(f"ダイアログ「{dlg_title}」→「OK」をクリック")
+                return
+        except Exception:
+            pass
+
+        # どちらも見つからなければEnterで閉じる
+        logger.info(f"ダイアログ「{dlg_title}」→ Enterで閉じます")
+        send_keys("{ENTER}")
 
     @staticmethod
     def _set_default_printer(printer_name: str) -> Optional[str]:
@@ -496,6 +528,10 @@ class IchitaroConverter:
 
         if self.is_cancelled():
             raise CancelledError("一太郎変換がキャンセルされました")
+
+        # 印刷実行後の予期しないダイアログを処理
+        # （例: 「1ページだけの文書にページ番号を付けて印刷しようとしています」）
+        self._dismiss_unexpected_dialogs(app)
 
         # 保存ダイアログ検出と入力
         self._handle_save_dialog(app, output_path)

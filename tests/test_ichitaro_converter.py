@@ -255,24 +255,23 @@ class TestIchitaroConverter:
         converter: IchitaroConverter,
         temp_dir: Path,
     ):
-        """印刷シーケンス成功テスト"""
+        """印刷シーケンス成功テスト（デフォルトプリンター方式）"""
         output_path = temp_dir / "output.pdf"
 
         mock_app = MagicMock()
         mock_window = MagicMock()
-        mock_dialog = MagicMock()
-        mock_combo = MagicMock()
-        mock_button = MagicMock()
-
+        mock_window.window_text.return_value = "一太郎 - [test.jtd]"
+        mock_window.children.return_value = []
         mock_app.top_window.return_value = mock_window
-        mock_window.child_window.return_value = mock_dialog
-        mock_dialog.child_window.side_effect = [mock_combo, mock_button]
 
-        with patch.object(converter, "_handle_save_dialog"):
+        with (
+            patch.object(converter, "_set_default_printer", return_value="元のプリンター"),
+            patch.object(converter, "_handle_save_dialog"),
+            patch.object(converter, "_dismiss_unexpected_dialogs"),
+        ):
             result = converter._execute_print_sequence(mock_app, str(output_path))
 
         assert result is True
-        mock_combo.select.assert_called_once_with("Microsoft Print to PDF")
 
     @patch("converters.ichitaro_converter.send_keys")
     @patch("time.sleep")
