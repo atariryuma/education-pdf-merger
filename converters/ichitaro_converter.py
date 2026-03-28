@@ -416,6 +416,53 @@ class IchitaroConverter:
             "予期しないダイアログを10回処理しましたが、まだ残っている可能性があります"
         )
 
+    def _dismiss_post_print_dialogs(self, app: Application) -> None:
+        """
+        印刷実行直後に表示される確認ダイアログを処理。
+
+        「1ページだけの文書にページ番号を付けて印刷」等のダイアログを検出し、
+        「いいえ」で閉じる。待機なしで即座にチェック。
+        """
+        import time
+
+        for _ in range(3):
+            try:
+                top = app.top_window()
+                title = top.window_text()
+
+                # 保存ダイアログ（#32770）なら処理済み→抜ける
+                try:
+                    if top.class_name() == "#32770":
+                        logger.debug("保存ダイアログを検出、ダイアログチェック終了")
+                        return
+                except Exception:
+                    pass
+
+                # 子ウィンドウのモーダルダイアログをチェック
+                try:
+                    modal_dialogs = [
+                        c
+                        for c in top.children()
+                        if c.element_info.control_type == "Window"
+                        and c.window_text()
+                        and c.window_text() != "印刷"
+                    ]
+                    if modal_dialogs:
+                        dlg = modal_dialogs[0]
+                        dlg_title = dlg.window_text()
+                        logger.info(f"印刷後ダイアログを検出: 「{dlg_title}」")
+                        self._close_dialog(dlg, dlg_title)
+                        time.sleep(0.5)
+                        continue
+                except Exception:
+                    pass
+
+                # ダイアログなし
+                return
+
+            except Exception:
+                return
+
     def _close_dialog(self, dlg: Any, dlg_title: str) -> None:
         """
         ダイアログを適切な方法で閉じる。
@@ -531,7 +578,7 @@ class IchitaroConverter:
 
         # 印刷実行後の予期しないダイアログを処理
         # （例: 「1ページだけの文書にページ番号を付けて印刷しようとしています」）
-        self._dismiss_unexpected_dialogs(app)
+        self._dismiss_post_print_dialogs(app)
 
         # 保存ダイアログ検出と入力
         self._handle_save_dialog(app, output_path)
