@@ -3,7 +3,7 @@ PathValidator のユニットテスト
 
 パス検証、サニタイズ、セキュリティチェックをテスト
 """
-import os
+
 import pytest
 from pathlib import Path
 
