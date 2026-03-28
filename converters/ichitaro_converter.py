@@ -446,16 +446,29 @@ class IchitaroConverter:
         # Microsoft Print to PDFをプリンター名で直接選択
         logger.info("Microsoft Print to PDFを選択中...")
 
-        # 現在のウィンドウ状態をログ出力（デバッグ用）
+        # 印刷ダイアログの全コントロールをダンプ（問題解析用）
         try:
-            top = app.top_window()
-            logger.info(f"トップウィンドウ: 「{top.window_text()}」")
-            children = top.children()
-            child_titles = [c.window_text() for c in children[:10] if c.window_text()]
-            if child_titles:
-                logger.info(f"子ウィンドウ: {child_titles}")
+            main_win = app.top_window()
+            logger.info(f"トップウィンドウ: 「{main_win.window_text()}」")
+            print_dlg = main_win.child_window(title="印刷")
+            logger.info("=== 印刷ダイアログ内のコントロール一覧 ===")
+            for ctrl in print_dlg.children():
+                try:
+                    info = ctrl.element_info
+                    val = ""
+                    try:
+                        val = f", value='{ctrl.get_value()}'"
+                    except Exception:
+                        pass
+                    logger.info(
+                        f"  [{info.control_type}] auto_id={info.automation_id}, "
+                        f"title='{ctrl.window_text()}'{val}"
+                    )
+                except Exception:
+                    pass
+            logger.info("=== ダンプ終了 ===")
         except Exception as e:
-            logger.debug(f"ウィンドウ状態取得失敗: {e}")
+            logger.info(f"印刷ダイアログのダンプ失敗（まだ開いていない可能性）: {e}")
 
         # リトライ機構：低スペックPCでダイアログの準備が遅い場合に対応
         max_retries = PDFConversionConstants.PRINTER_SELECT_MAX_RETRIES
@@ -476,6 +489,27 @@ class IchitaroConverter:
                     f"{PDFConversionConstants.LOG_MARK_SUCCESS} select()メソッドで'Microsoft Print to PDF'を選択"
                 )
                 self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
+
+                # プリンター選択後の状態をダンプ
+                try:
+                    logger.info("=== プリンター選択後のコントロール状態 ===")
+                    for ctrl in print_dialog.children():
+                        try:
+                            info = ctrl.element_info
+                            val = ""
+                            try:
+                                val = f", value='{ctrl.get_value()}'"
+                            except Exception:
+                                pass
+                            logger.info(
+                                f"  [{info.control_type}] auto_id={info.automation_id}, "
+                                f"title='{ctrl.window_text()}'{val}"
+                            )
+                        except Exception:
+                            pass
+                    logger.info("=== ダンプ終了 ===")
+                except Exception:
+                    pass
 
                 # 印刷ボタン（OK）をクリックして印刷実行
                 # send_keys("{ENTER}")だと、ダイアログが閉じた後に
