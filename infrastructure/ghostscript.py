@@ -351,6 +351,7 @@ class GhostscriptInstaller:
         if not download_url:
             download_url = cls.FALLBACK_URL_64 if is_64bit else cls.FALLBACK_URL_32
 
+        logger.info(f"Ghostscriptダウンロード開始: {download_url}")
         if progress_callback:
             progress_callback("⬇ ダウンロード中...")
 
@@ -358,7 +359,7 @@ class GhostscriptInstaller:
         try:
             installer_path = os.path.join(tempfile.gettempdir(), "gs_installer.exe")
             urllib.request.urlretrieve(download_url, installer_path)
-            logger.info(f"Ghostscriptインストーラーをダウンロード: {installer_path}")
+            logger.info(f"ダウンロード完了: {installer_path}")
         except (urllib.error.URLError, OSError) as e:
             logger.error(f"ダウンロード失敗: {e}")
             return (
@@ -367,32 +368,61 @@ class GhostscriptInstaller:
                 None,
             )
 
+        logger.info("Ghostscriptインストール開始（管理者権限でUACプロンプト表示）")
         if progress_callback:
-            progress_callback("📦 インストール中...")
+            progress_callback("📦 インストール中（管理者権限が必要です）...")
 
-        # サイレントインストール実行
+        # ShellExecuteで管理者権限付き実行（UACプロンプトが表示される）
+        import ctypes
+
         try:
-            result = subprocess.run(
-                [installer_path, "/S"], capture_output=True, text=True, timeout=120
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", installer_path, "/S", None, 0
             )
-            if result.returncode != 0:
-                logger.error(f"インストーラー終了コード: {result.returncode}")
+            # ShellExecuteW: 32以下はエラー
+            if ret <= 32:
+                logger.error(f"ShellExecute失敗: 戻り値={ret}")
                 return (
                     False,
-                    f"インストールに失敗しました（終了コード: {result.returncode}）",
+                    "インストールに失敗しました。\n管理者権限が必要です。",
                     None,
                 )
-        except subprocess.TimeoutExpired:
-            return False, "インストールがタイムアウトしました（120秒）", None
+
+            # インストーラーの完了を待つ（プロセス名で監視）
+            logger.info("インストーラー実行中、完了を待機...")
+            if progress_callback:
+                progress_callback("📦 インストール中（完了を待機）...")
+
+            import time
+
+            for i in range(60):  # 最大60秒待機
+                time.sleep(2)
+                # インストーラープロセスが終了したか確認
+                check = subprocess.run(
+                    ["tasklist", "/FI", "IMAGENAME eq gs_installer.exe", "/NH"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if "gs_installer.exe" not in check.stdout:
+                    logger.info(f"インストーラー終了を検出（{(i + 1) * 2}秒後）")
+                    break
+            else:
+                logger.warning("インストーラー完了待機タイムアウト（120秒）")
+
         except OSError as e:
             return False, f"インストーラーの実行に失敗しました: {e}", None
         finally:
-            # インストーラーを削除
+            # インストーラーを削除（少し待ってから）
+            import time
+
+            time.sleep(2)
             try:
                 os.remove(installer_path)
             except OSError:
                 pass
 
+        logger.info("Ghostscriptインストール完了、自動検出を実行")
         if progress_callback:
             progress_callback("🔍 検出中...")
 
