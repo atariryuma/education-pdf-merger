@@ -336,16 +336,8 @@ class FolderStructureDetector:
             )
         elif education_score > event_score:
             plan_type = PlanType.EDUCATION
-            logger.info(
-                f"教育計画と判定: スコア差={score_diff:.1f}, "
-                f"確信度={confidence:.2f}"
-            )
         else:
             plan_type = PlanType.EVENT
-            logger.info(
-                f"行事計画と判定: スコア差={score_diff:.1f}, "
-                f"確信度={confidence:.2f}"
-            )
 
         return DetectionResult(
             plan_type=plan_type, confidence=confidence, evidence=evidence, issues=issues

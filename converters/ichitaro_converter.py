@@ -155,7 +155,7 @@ class IchitaroConverter:
                 max_wait = self.ichitaro_settings.get("ichitaro_ready_timeout", 30)
                 save_wait = self.ichitaro_settings.get("save_wait_seconds", 20)
 
-                logger.info(
+                logger.debug(
                     f"設定値 - 接続タイムアウト: {max_wait}秒, 保存待機: {save_wait}秒"
                 )
 
@@ -286,7 +286,7 @@ class IchitaroConverter:
 
             # 一太郎起動待機（キャンセル可能）
             wait_time = IchitaroWaitTimes.STARTUP_WAIT
-            logger.info(f"一太郎の起動を待機中（{wait_time}秒）...")
+            logger.debug(f"一太郎の起動を待機中（{wait_time}秒）...")
             self._wait_with_cancel_check(wait_time)
 
             # ファイル名ベースのウィンドウ検索
@@ -449,6 +449,10 @@ class IchitaroConverter:
                     if modal_dialogs:
                         dlg = modal_dialogs[0]
                         dlg_title = dlg.window_text()
+                        # 保存ダイアログは _handle_save_dialog で処理するのでスキップ
+                        if "保存" in dlg_title:
+                            logger.debug(f"保存ダイアログを検出、ダイアログチェック終了: 「{dlg_title}」")
+                            return
                         logger.info(f"印刷後ダイアログを検出: 「{dlg_title}」")
                         self._close_dialog(dlg, dlg_title)
                         time.sleep(0.5)
@@ -520,6 +524,10 @@ class IchitaroConverter:
             logger.warning(f"デフォルトプリンター取得失敗: {e}")
 
         # デフォルトプリンターを変更
+        if original and original == printer_name:
+            logger.debug(f"デフォルトプリンターは既に {printer_name} です（変更不要）")
+            return original
+
         try:
             result = subprocess.run(
                 ["rundll32", "printui.dll,PrintUIEntry", "/y", "/n", printer_name],
@@ -560,7 +568,7 @@ class IchitaroConverter:
             # Ctrl+P で印刷ダイアログを開く
             logger.info("印刷ダイアログを開く (Ctrl+P)")
             send_keys("^p")
-            logger.info("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
+            logger.debug("Ctrl+P送信完了、印刷ダイアログの表示を待機中...")
             self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_P_WAIT)
 
             # デフォルトプリンターが選択済みなので、そのままOKを押す
@@ -691,9 +699,7 @@ class IchitaroConverter:
         self._wait_with_cancel_check(IchitaroWaitTimes.KEYBOARD_PREP_WAIT)
 
         # キーボード操作でファイル名入力
-        logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
         logger.info("保存ダイアログへキーボード操作で直接入力")
-        logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
 
         # クリップボード経由でファイルパスを貼り付け（send_keysでは日本語特殊文字が消える）
         logger.info(f"ファイルパスを入力（クリップボード経由）: {output_path}")
@@ -797,7 +803,7 @@ class IchitaroConverter:
             CancelledError: キャンセルされた場合
         """
         try:
-            logger.info("一太郎ウィンドウのクリーンアップを開始...")
+            logger.debug("一太郎ウィンドウのクリーンアップを開始...")
             timeout = IchitaroWaitTimes.CLEANUP_TIMEOUT
             app = Application(backend="uia").connect(
                 title_re=".*一太郎.*", timeout=timeout
@@ -813,4 +819,4 @@ class IchitaroConverter:
         except CancelledError:
             raise
         except Exception:
-            logger.info("一太郎プロセスなし（クリーンアップ不要）")
+            logger.debug("一太郎プロセスなし（クリーンアップ不要）")

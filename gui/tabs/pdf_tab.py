@@ -115,7 +115,7 @@ class PDFTab(BaseTab):
         input_btn_frame.grid(row=0, column=2, padx=(5, 0), pady=6)
 
         def on_input_select_click():
-            logger.info("入力ディレクトリ参照ボタンがクリックされました")
+            logger.debug("入力ディレクトリ参照ボタンがクリックされました")
             self._select_input_dir()
 
         input_select_btn = tk.Button(
@@ -239,12 +239,12 @@ class PDFTab(BaseTab):
     def _select_input_dir(self) -> None:
         """入力ディレクトリを選択（pathlibベース）"""
         try:
-            logger.info("ディレクトリ選択ダイアログを開きます")
+            logger.debug("ディレクトリ選択ダイアログを開きます")
 
             # tkinterの標準ダイアログを使用（sys.coinit_flagsでフリーズ解決済み）
             directory = filedialog.askdirectory(title="入力ディレクトリを選択")
 
-            logger.info(
+            logger.debug(
                 f"ダイアログから戻りました: {directory if directory else 'キャンセル'}"
             )
 
@@ -270,7 +270,7 @@ class PDFTab(BaseTab):
     def _select_output_file(self) -> None:
         """出力ファイルを選択（pathlibベース）"""
         try:
-            logger.info("出力ファイル選択ダイアログを開きます")
+            logger.debug("出力ファイル選択ダイアログを開きます")
 
             # デフォルトの出力先をデスクトップに設定
             desktop_path = Path.home() / "Desktop"
@@ -289,7 +289,7 @@ class PDFTab(BaseTab):
                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
             )
 
-            logger.info(
+            logger.debug(
                 f"ダイアログから戻りました: {file_path if file_path else 'キャンセル'}"
             )
 
@@ -324,14 +324,14 @@ class PDFTab(BaseTab):
 
     def _run_pdf_merge(self) -> None:
         """PDF統合を実行（pathlibベース、2025年ベストプラクティス準拠）"""
-        logger.info("PDF統合実行ボタンがクリックされました")
+        logger.debug("PDF統合実行ボタンがクリックされました")
 
         # 入力値の取得
         input_dir_str = self.input_dir_var.get()
         output_file_str = self.output_file_var.get()
         plan_type = self.plan_type_var.get()
 
-        logger.info(
+        logger.debug(
             f"入力値: input_dir={input_dir_str}, output_file={output_file_str}, plan_type={plan_type}"
         )
 
@@ -357,7 +357,7 @@ class PDFTab(BaseTab):
         if not output_file_path:
             return
 
-        logger.info(f"パス検証完了 - 入力: {input_dir_path}, 出力: {output_file_path}")
+        logger.debug(f"パス検証完了 - 入力: {input_dir_path}, 出力: {output_file_path}")
 
         # キャンセルフラグをリセット
         self._cancel_event.clear()
