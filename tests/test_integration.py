@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Generator
 import pytest
 
+from infrastructure.config_loader import ConfigLoader
+from core.pdf_converter import PDFConverter
+from core.pdf_processor import PDFProcessor
+from core.document_collector import DocumentCollector
+from core.pdf_merge_orchestrator import PDFMergeOrchestrator
+
 
 def _has_win32com() -> bool:
     """Check if win32com.client is available."""
@@ -20,11 +26,6 @@ def _has_win32com() -> bool:
         return False
 
 
-from infrastructure.config_loader import ConfigLoader
-from core.pdf_converter import PDFConverter
-from core.pdf_processor import PDFProcessor
-from core.document_collector import DocumentCollector
-from core.pdf_merge_orchestrator import PDFMergeOrchestrator
 
 
 @pytest.fixture
