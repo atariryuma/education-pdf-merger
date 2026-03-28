@@ -470,23 +470,17 @@ class IchitaroConverter:
                     auto_id="1297", control_type="ComboBox"
                 )
 
-                # pywinautoの高レベルAPIでプリンターを選択
-                printer_combo.select("Microsoft Print to PDF")
+                # ComboBoxにフォーカスしてプリンター名を直接設定
+                # select()はキー操作で部数フィールドに影響するため使わない
+                try:
+                    printer_combo.set_edit_text("Microsoft Print to PDF")
+                except Exception:
+                    # set_edit_textが使えない場合はselect()にフォールバック
+                    printer_combo.select("Microsoft Print to PDF")
                 logger.info(
-                    f"{PDFConversionConstants.LOG_MARK_SUCCESS} select()メソッドで'Microsoft Print to PDF'を選択"
+                    f"{PDFConversionConstants.LOG_MARK_SUCCESS} 'Microsoft Print to PDF'を選択"
                 )
                 self._wait_with_cancel_check(IchitaroWaitTimes.PRINTER_SELECT_WAIT)
-
-                # 部数を1に強制設定（select()操作で部数が変わることがある）
-                try:
-                    copies_edit = print_dialog.child_window(
-                        auto_id="1298", control_type="Edit"
-                    )
-                    copies_edit.set_edit_text("1")
-                    logger.info("部数を1に設定")
-                except Exception:
-                    # 部数フィールドが見つからない場合は無視
-                    pass
 
                 # 印刷ボタン（OK）をクリックして印刷実行
                 # send_keys("{ENTER}")だと、ダイアログが閉じた後に
@@ -643,14 +637,20 @@ class IchitaroConverter:
         logger.info("保存ダイアログへキーボード操作で直接入力")
         logger.info(PDFConversionConstants.LOG_SEPARATOR_MAJOR)
 
-        logger.info("Ctrl+Aで全選択...")
-        send_keys("^a")
-        self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_A_WAIT)
+        # クリップボード経由でファイルパスを貼り付け（send_keysでは日本語特殊文字が消える）
+        logger.info(f"ファイルパスを入力（クリップボード経由）: {output_path}")
+        import tkinter as _tk
 
-        logger.info(f"ファイルパスを入力: {output_path}")
-        escaped_path = self._escape_for_send_keys(output_path)
-        logger.info(f"エスケープ済みパス: {escaped_path}")
-        send_keys(escaped_path, pause=0.02, with_spaces=True)
+        _root = _tk.Tk()
+        _root.withdraw()
+        _root.clipboard_clear()
+        _root.clipboard_append(output_path)
+        _root.update()
+        _root.destroy()
+
+        send_keys("^a")  # 全選択
+        self._wait_with_cancel_check(IchitaroWaitTimes.CTRL_A_WAIT)
+        send_keys("^v")  # 貼り付け
         self._wait_with_cancel_check(IchitaroWaitTimes.FILE_INPUT_WAIT)
 
         logger.info("Enterキーで保存実行...")
