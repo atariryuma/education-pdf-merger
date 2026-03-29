@@ -45,8 +45,6 @@ Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\config.json"; DestDir: "{app}"; Flags: confirmoverwrite
 
 
-; Ghostscript検出用スクリプト（インストール後に削除）- オプション
-; Source: "dist\post_install.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: FileExists('..\dist\post_install.exe')
 
 [Dirs]
 ; ログ用ディレクトリ
@@ -77,8 +75,6 @@ Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem"
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
-var
-  GhostscriptFound: Boolean;
 
 // プロセスが実行中かチェック
 function IsAppRunning(): Boolean;
@@ -151,46 +147,6 @@ begin
   end;
 end;
 
-var
-  GhostscriptPath: AnsiString;
-
-function GetPostInstallResult(): Boolean;
-var
-  OutputFile: String;
-begin
-  Result := False;
-  GhostscriptFound := False;
-  OutputFile := ExpandConstant('{tmp}\gs_result.txt');
-
-  // post_install.exeの出力を確認
-  if FileExists(OutputFile) then
-  begin
-    if LoadStringFromFile(OutputFile, GhostscriptPath) then
-    begin
-      if Pos('OK:', GhostscriptPath) = 1 then
-      begin
-        GhostscriptFound := True;
-        Result := True;
-      end;
-    end;
-  end;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    GetPostInstallResult();
-  end;
-end;
-
-function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo,
-  MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
-begin
-  Result := MemoDirInfo + NewLine + NewLine;
-  Result := Result + 'インストール後にGhostscriptを自動検出します。' + NewLine;
-  Result := Result + 'PDF圧縮機能を使用するにはGhostscriptが必要です。';
-end;
 
 [Messages]
 WelcomeLabel1=教育計画PDFマージシステム v{#MyAppVersion} へようこそ
