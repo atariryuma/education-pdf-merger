@@ -139,8 +139,8 @@ class IchitaroConverter:
                 file_path_norm = os.path.normpath(file_path)
                 output_path_norm = os.path.normpath(output_path)
 
-                logger.info(f"入力ファイル: {file_path_norm}")
-                logger.info(f"出力ファイル: {output_path_norm}")
+                logger.debug(f"入力ファイル: {file_path_norm}")
+                logger.debug(f"出力ファイル: {output_path_norm}")
 
                 # 既存の出力ファイルを削除（TOCTOU脆弱性回避）
                 try:
@@ -344,18 +344,12 @@ class IchitaroConverter:
         try:
             # 印刷処理完了を待つ
             wait_time = IchitaroWaitTimes.PRINT_COMPLETE_WAIT
-            logger.info(f"印刷処理の完全終了を待機中（{wait_time}秒）...")
+            logger.debug(f"印刷処理の完全終了を待機中（{wait_time}秒）...")
             self._wait_with_cancel_check(wait_time)
 
             # 一太郎を強制終了（保存確認ダイアログを回避）
-            logger.info("一太郎プロセスを終了中（app.kill()）...")
-            window_title = main_window.window_text()
-            logger.info(f"対象ウィンドウ: {window_title}")
-
             app.kill()
-            logger.info(
-                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 一太郎プロセスを終了しました"
-            )
+            logger.debug(f"一太郎プロセスを終了しました: {main_window.window_text()}")
 
             # プロセス終了の確認待機
             wait_time = IchitaroWaitTimes.WINDOW_CLOSE_WAIT
@@ -522,7 +516,7 @@ class IchitaroConverter:
             )
             if result.returncode == 0 and result.stdout.strip():
                 original = result.stdout.strip()
-                logger.info(f"現在のデフォルトプリンター: {original}")
+                logger.debug(f"現在のデフォルトプリンター: {original}")
         except Exception as e:
             logger.warning(f"デフォルトプリンター取得失敗: {e}")
 
@@ -537,7 +531,7 @@ class IchitaroConverter:
                 capture_output=True, timeout=10
             )
             if result.returncode == 0:
-                logger.info(f"デフォルトプリンターを変更: {printer_name}")
+                logger.debug(f"デフォルトプリンターを変更: {printer_name}")
             else:
                 logger.warning(f"デフォルトプリンター変更失敗（終了コード: {result.returncode}）")
         except Exception as e:
@@ -604,9 +598,8 @@ class IchitaroConverter:
                     class_name = top.class_name()
                     if class_name == "#32770" or "JSTARO" not in class_name.upper():
                         logger.info(
-                            f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（top_window, {dialog_elapsed:.1f}秒経過）"
+                            f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（{dialog_elapsed:.1f}秒）"
                         )
-                        logger.info(f"  クラス名: {class_name}")
                         return True
             except Exception as e:
                 logger.debug(f"top_window検出エラー: {e}")
@@ -630,9 +623,8 @@ class IchitaroConverter:
                     for dlg in dialog_windows:
                         if dlg.exists(timeout=0):
                             logger.info(
-                                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（#32770, {dialog_elapsed:.1f}秒経過）"
+                                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ検出（{dialog_elapsed:.1f}秒）"
                             )
-                            logger.info(f"  タイトル: {dlg.window_text()}")
                             return True
             except Exception as e:
                 logger.debug(f"#32770検出試行エラー: {e}")
@@ -680,20 +672,13 @@ class IchitaroConverter:
             if dialog_elapsed >= 4.0 and dialog_elapsed % 2.0 < dialog_wait_interval:
                 logger.info(f"待機中... {dialog_elapsed:.1f}秒 / {dialog_timeout}秒")
 
-        if dialog_found:
-            logger.info(
-                f"{PDFConversionConstants.LOG_MARK_SUCCESS} 保存ダイアログ確認済み"
-            )
-        else:
+        if not dialog_found:
             logger.info(
                 f"{PDFConversionConstants.LOG_MARK_SUCCESS} {dialog_elapsed:.1f}秒待機完了（ダイアログ検出なし、キーボード操作で続行）"
             )
 
         # キーボード入力の準備のため追加待機
         self._wait_with_cancel_check(IchitaroWaitTimes.KEYBOARD_PREP_WAIT)
-
-        # キーボード操作でファイル名入力
-        logger.info("保存ダイアログへキーボード操作で直接入力")
 
         # クリップボード経由でファイルパスを貼り付け（send_keysでは日本語特殊文字が消える）
         logger.info(f"ファイルパスを入力（クリップボード経由）: {output_path}")
