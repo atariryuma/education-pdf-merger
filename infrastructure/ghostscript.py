@@ -153,9 +153,9 @@ class GhostscriptDetector:
                                     root, f"{key_path}\\{version}"
                                 ) as ver_key:
                                     try:
-                                        gs_dll = winreg.QueryValueEx(
-                                            ver_key, "GS_DLL"
-                                        )[0]
+                                        gs_dll = winreg.QueryValueEx(ver_key, "GS_DLL")[
+                                            0
+                                        ]
                                         if Path(gs_dll).exists():
                                             dll_dir = Path(gs_dll).parent
                                             for exe_name in cls.GS_EXECUTABLES:
@@ -169,9 +169,9 @@ class GhostscriptDetector:
                                         pass
 
                                     try:
-                                        gs_lib = winreg.QueryValueEx(
-                                            ver_key, "GS_LIB"
-                                        )[0]
+                                        gs_lib = winreg.QueryValueEx(ver_key, "GS_LIB")[
+                                            0
+                                        ]
                                         lib_dir = Path(gs_lib)
                                         if lib_dir.exists():
                                             bin_dir = lib_dir.parent / "bin"
@@ -193,15 +193,11 @@ class GhostscriptDetector:
             except FileNotFoundError:
                 continue
             except OSError as e:
-                logger.debug(
-                    f"レジストリキー {root}\\{key_path} の読み取りに失敗: {e}"
-                )
+                logger.debug(f"レジストリキー {root}\\{key_path} の読み取りに失敗: {e}")
                 continue
 
         if found_versions:
-            found_versions.sort(
-                reverse=True, key=lambda x: cls._parse_version(x[0])
-            )
+            found_versions.sort(reverse=True, key=lambda x: cls._parse_version(x[0]))
             logger.debug(
                 f"レジストリから検出されたGhostscriptバージョン: "
                 f"{[v[0] for v in found_versions]}"

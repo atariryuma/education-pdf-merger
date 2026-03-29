@@ -164,9 +164,7 @@ class IchitaroConverter:
                 result = None
 
                 # ステップ0: デフォルトプリンターを変更（一太郎起動前に実行）
-                original_printer = self._set_default_printer(
-                    "Microsoft Print to PDF"
-                )
+                original_printer = self._set_default_printer("Microsoft Print to PDF")
 
                 try:
                     # ステップ1: 事前クリーンアップ
@@ -424,7 +422,6 @@ class IchitaroConverter:
         for _ in range(3):
             try:
                 top = app.top_window()
-                title = top.window_text()
 
                 # 保存ダイアログ（#32770）なら処理済み→抜ける
                 try:
@@ -448,7 +445,9 @@ class IchitaroConverter:
                         dlg_title = dlg.window_text()
                         # 保存ダイアログは _handle_save_dialog で処理するのでスキップ
                         if "保存" in dlg_title:
-                            logger.debug(f"保存ダイアログを検出、ダイアログチェック終了: 「{dlg_title}」")
+                            logger.debug(
+                                f"保存ダイアログを検出、ダイアログチェック終了: 「{dlg_title}」"
+                            )
                             return
                         logger.info(f"印刷後ダイアログを検出: 「{dlg_title}」")
                         self._close_dialog(dlg, dlg_title)
@@ -511,8 +510,14 @@ class IchitaroConverter:
         original = None
         try:
             result = subprocess.run(
-                ["powershell", "-Command", "(Get-CimInstance Win32_Printer | Where-Object {$_.Default}).Name"],
-                capture_output=True, text=True, timeout=10
+                [
+                    "powershell",
+                    "-Command",
+                    "(Get-CimInstance Win32_Printer | Where-Object {$_.Default}).Name",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0 and result.stdout.strip():
                 original = result.stdout.strip()
@@ -528,12 +533,16 @@ class IchitaroConverter:
         try:
             result = subprocess.run(
                 ["rundll32", "printui.dll,PrintUIEntry", "/y", "/n", printer_name],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 logger.debug(f"デフォルトプリンターを変更: {printer_name}")
             else:
-                logger.warning(f"デフォルトプリンター変更失敗（終了コード: {result.returncode}）")
+                logger.warning(
+                    f"デフォルトプリンター変更失敗（終了コード: {result.returncode}）"
+                )
         except Exception as e:
             logger.error(f"デフォルトプリンター変更エラー: {e}")
 

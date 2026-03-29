@@ -427,7 +427,7 @@ class SettingsTab(BaseTab):
             "ブラウザでダウンロードページを開きました。\n\n"
             "1. ページから最新版をダウンロード\n"
             "2. ダウンロードしたインストーラーを実行\n"
-            "3. 完了後「🔍 自動検出」ボタンを押してください"
+            "3. 完了後「🔍 自動検出」ボタンを押してください",
         )
 
     def _check_gs_path(self, gs_path: str, verified: Optional[bool] = None) -> tuple:

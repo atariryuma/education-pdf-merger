@@ -265,7 +265,9 @@ class TestIchitaroConverter:
         mock_app.top_window.return_value = mock_window
 
         with (
-            patch.object(converter, "_set_default_printer", return_value="元のプリンター"),
+            patch.object(
+                converter, "_set_default_printer", return_value="元のプリンター"
+            ),
             patch.object(converter, "_handle_save_dialog"),
             patch.object(converter, "_dismiss_unexpected_dialogs"),
         ):
