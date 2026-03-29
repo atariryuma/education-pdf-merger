@@ -528,7 +528,7 @@ class IchitaroConverter:
         try:
             result = subprocess.run(
                 ["rundll32", "printui.dll,PrintUIEntry", "/y", "/n", printer_name],
-                capture_output=True, timeout=10
+                capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
                 logger.debug(f"デフォルトプリンターを変更: {printer_name}")
