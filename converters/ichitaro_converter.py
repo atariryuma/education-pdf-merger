@@ -251,7 +251,10 @@ class IchitaroConverter:
             logger.exception(
                 f"{PDFConversionConstants.LOG_MARK_FAILURE} 一太郎変換で予期しないエラー: {e}"
             )
-            return None
+            raise PDFConversionError(
+                f"一太郎変換で予期しないエラー: {e}",
+                original_error=e,
+            ) from e
 
         finally:
             # ダイアログ非表示（ファイル変換の最後に1回だけ）
