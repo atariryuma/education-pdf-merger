@@ -44,9 +44,6 @@ Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; 設定ファイル（dist/にコピーされたもの）
 Source: "..\dist\config.json"; DestDir: "{app}"; Flags: confirmoverwrite
 
-; ドキュメント（v3.5.0）
-Source: "..\CHANGELOG.md"; DestDir: "{app}\docs"; DestName: "CHANGELOG.txt"; Flags: ignoreversion
-Source: "..\README.md"; DestDir: "{app}\docs"; DestName: "README.txt"; Flags: ignoreversion
 
 ; Ghostscript検出用スクリプト（インストール後に削除）- オプション
 ; Source: "dist\post_install.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: FileExists('..\dist\post_install.exe')
@@ -60,8 +57,6 @@ Name: "{localappdata}\PDFMergeSystem\temp"; Permissions: users-modify
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\設定ファイル"; Filename: "{app}\config.json"
-Name: "{group}\ドキュメント"; Filename: "{app}\docs"
-Name: "{group}\変更履歴"; Filename: "{app}\docs\CHANGELOG.txt"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
@@ -80,8 +75,6 @@ Type: filesandordirs; Name: "{localappdata}\PDFMergeSystem"
 [Run]
 ; アプリ起動
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-; ドキュメントフォルダを開く
-Filename: "{app}\docs"; Description: "リリースノートを表示"; Flags: postinstall skipifsilent shellexec unchecked
 
 [Code]
 var
