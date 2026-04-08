@@ -216,3 +216,81 @@ class TestProcessRootFile:
         assert len(toc_entries) == 1
         assert toc_entries[0][0] == "概要"  # サニタイズ済み名前
         assert toc_entries[0][1] == PDFConstants.HEADING_LEVEL_SUB
+
+
+@pytest.mark.unit
+class TestCoverPageCounting:
+    """表紙ページ数カウントのテスト"""
+
+    def test_single_page_cover_does_not_shift_pages(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
+        """1ページの表紙はcurrent_pageを変更しない"""
+        cover_file = os.path.join(temp_dir, "表紙.docx")
+        with open(cover_file, 'w') as f:
+            f.write("cover")
+
+        mock_converter.convert.return_value = "/tmp/cover.pdf"
+        mock_processor.get_page_count.return_value = 1
+
+        content_pdfs: list = []
+        result = collector._process_cover_file(cover_file, content_pdfs, 3)
+
+        # CONTENT_START_PAGE(3)は表紙1ページを前提としているため変化なし
+        assert result == 3
+        assert len(content_pdfs) == 1
+        assert collector.get_cover_pages() == 1
+
+    def test_multi_page_cover_adjusts_offset(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
+        """複数ページの表紙は差分のみcurrent_pageに加算"""
+        cover_file = os.path.join(temp_dir, "表紙.docx")
+        with open(cover_file, 'w') as f:
+            f.write("cover")
+
+        mock_converter.convert.return_value = "/tmp/cover.pdf"
+        mock_processor.get_page_count.return_value = 3  # 3ページの表紙
+
+        content_pdfs: list = []
+        result = collector._process_cover_file(cover_file, content_pdfs, 3)
+
+        # 3ページ表紙: 超過分 = 3 - 1 = 2を加算
+        assert result == 5  # 3 + 2
+        assert collector.get_cover_pages() == 3
+
+    def test_cover_pages_default(self, mock_converter, mock_processor):
+        """表紙未処理時のデフォルトページ数"""
+        collector = DocumentCollector(mock_converter, mock_processor)
+        assert collector.get_cover_pages() == PDFConstants.COVER_PAGE_COUNT
+
+
+@pytest.mark.unit
+class TestSeparatorPageCounting:
+    """区切りページの実ページ数計測テスト"""
+
+    def test_separator_uses_measured_page_count(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
+        """区切りページの実際のページ数がcurrent_pageに反映される"""
+        sub_dir = os.path.join(temp_dir, "01 セクション")
+        os.makedirs(sub_dir)
+        test_file = os.path.join(sub_dir, "test.docx")
+        with open(test_file, 'w') as f:
+            f.write("dummy")
+
+        mock_converter.convert.return_value = "/tmp/converted.pdf"
+        mock_converter.create_separator_page.return_value = "/tmp/separator.pdf"
+        # 区切りページが2ページの場合をシミュレート
+        mock_processor.get_page_count.return_value = 2
+
+        toc_entries: list = []
+        content_pdfs: list = []
+        result = collector._process_subfolder(
+            sub_dir, "01 セクション", True,
+            toc_entries, content_pdfs, 3
+        )
+
+        # 区切り2ページ + ファイル2ページ = 4ページ進む
+        assert result == 7  # 3 + 2(separator) + 2(file)
+        assert toc_entries[0][2] == 3  # 区切りページの開始ページ

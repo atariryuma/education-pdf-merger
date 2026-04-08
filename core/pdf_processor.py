@@ -390,13 +390,16 @@ class PDFProcessor:
         logger.info(f"区切りページを生成: {title}")
         return output_path
 
-    def split_pdf(self, pdf_path: str, output_dir: str) -> Tuple[str, Optional[str]]:
+    def split_pdf(
+        self, pdf_path: str, output_dir: str, cover_pages: int = PDFConstants.COVER_PAGE_COUNT
+    ) -> Tuple[str, Optional[str]]:
         """
         PDFを表紙と残りのページに分割
 
         Args:
             pdf_path: 分割対象のPDFパス
             output_dir: 出力先ディレクトリ
+            cover_pages: 表紙として分割するページ数（デフォルト: 1）
 
         Returns:
             tuple: (表紙PDFパス, 残りのPDFパス)
@@ -409,21 +412,25 @@ class PDFProcessor:
             remainder_pdf = os.path.join(output_dir, "remainder.pdf")
 
             with fitz.open(pdf_path) as doc:
-                # 表紙（1ページ目）
+                # 表紙（指定ページ数分）
+                actual_cover_pages = min(cover_pages, doc.page_count)
                 with fitz.open() as cover_doc:
-                    cover_doc.insert_pdf(doc, from_page=0, to_page=0)
+                    cover_doc.insert_pdf(doc, from_page=0, to_page=actual_cover_pages - 1)
                     cover_doc.save(cover_pdf)
 
-                if doc.page_count > 1:
+                if doc.page_count > actual_cover_pages:
                     with fitz.open() as remainder_doc:
                         remainder_doc.insert_pdf(
-                            doc, from_page=1, to_page=doc.page_count - 1
+                            doc, from_page=actual_cover_pages, to_page=doc.page_count - 1
                         )
                         remainder_doc.save(remainder_pdf)
                 else:
                     remainder_pdf = None  # type: ignore[assignment]
 
-            logger.debug(f"PDFを分割しました: 表紙={cover_pdf}, 残り={remainder_pdf}")
+            logger.debug(
+                "PDFを分割しました: 表紙=%s (%dページ), 残り=%s",
+                cover_pdf, actual_cover_pages, remainder_pdf
+            )
             return cover_pdf, remainder_pdf
 
         except Exception as e:

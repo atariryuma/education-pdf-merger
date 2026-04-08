@@ -115,6 +115,24 @@ class PDFMergeOrchestrator:
             adjusted_entries.append((title, level, max(1, page + page_offset)))
         return adjusted_entries
 
+    @staticmethod
+    def _validate_toc_entries(
+        toc_entries: List[Tuple[str, int, int]], total_pages: int
+    ) -> None:
+        """
+        目次エントリのページ番号が最終PDFの有効範囲内か検証する
+
+        Args:
+            toc_entries: 目次エントリ [(title, level, page), ...]
+            total_pages: 最終PDFの総ページ数
+        """
+        for title, _level, page in toc_entries:
+            if page < 1 or page > total_pages:
+                logger.warning(
+                    "目次エントリ '%s' のページ番号 %d が有効範囲外です (1-%d)",
+                    title, page, total_pages
+                )
+
     def _compress_output(self, output_pdf: str) -> None:
         """
         Ghostscriptで最終PDFを圧縮
@@ -152,6 +170,8 @@ class PDFMergeOrchestrator:
         else:
             logger.warning("PDF圧縮に失敗しました。圧縮前のファイルを使用します")
 
+    _MAX_TOC_ITERATIONS = 5
+
     def _create_stable_toc_pdf(
         self, base_toc_entries: List[Tuple[str, int, int]], toc_pdf: str
     ) -> List[Tuple[str, int, int]]:
@@ -159,7 +179,7 @@ class PDFMergeOrchestrator:
         実際の目次ページ数に合わせて、目次エントリを補正しながら目次PDFを作成する
 
         Note:
-            DocumentCollector は「表紙1 + 目次1」前提でページ番号を採番するため、
+            DocumentCollector は「表紙N + 目次1」前提でページ番号を採番するため、
             目次が複数ページにわたる場合は補正が必要。
         """
         assumed_toc_pages = PDFConstants.TOC_PAGE_COUNT
@@ -167,7 +187,7 @@ class PDFMergeOrchestrator:
         adjusted_toc_entries = list(base_toc_entries)
 
         # 目次ページ数が変化しなくなるまで再計算
-        for _ in range(3):
+        for iteration in range(self._MAX_TOC_ITERATIONS):
             page_offset = current_toc_pages - assumed_toc_pages
             adjusted_toc_entries = self._offset_toc_entries(
                 base_toc_entries, page_offset
@@ -180,10 +200,11 @@ class PDFMergeOrchestrator:
             if measured_toc_pages == current_toc_pages:
                 if page_offset != 0:
                     logger.info(
-                        "目次ページ数補正: assumed=%s, actual=%s, offset=%s",
+                        "目次ページ数補正: assumed=%s, actual=%s, offset=%s (収束: %d回)",
                         assumed_toc_pages,
                         measured_toc_pages,
                         page_offset,
+                        iteration + 1
                     )
                 return adjusted_toc_entries
 
@@ -254,10 +275,11 @@ class PDFMergeOrchestrator:
             adjusted_toc_entries = self._create_stable_toc_pdf(toc_entries, toc_pdf)
             self._check_cancel()
 
-            # 4. 表紙と残りのページに分割
+            # 4. 表紙と残りのページに分割（実際の表紙ページ数を使用）
             self._progress_callback(4, total_steps, "表紙とコンテンツを分割中...")
+            cover_pages = self.collector.get_cover_pages()
             cover_pdf, remainder_pdf = self.processor.split_pdf(
-                temp_merged, self.temp_dir
+                temp_merged, self.temp_dir, cover_pages
             )
             self._check_cancel()
 
@@ -272,7 +294,7 @@ class PDFMergeOrchestrator:
             # 6. ページ番号を追加（表紙は除外）・しおり設定
             self._progress_callback(6, total_steps, "ページ番号としおりを追加中...")
             self.processor.add_page_numbers(
-                output_pdf, exclude_first_pages=PDFConstants.COVER_PAGE_COUNT
+                output_pdf, exclude_first_pages=cover_pages
             )
             self.processor.set_pdf_outlines(output_pdf, adjusted_toc_entries)
             self._check_cancel()
@@ -282,7 +304,10 @@ class PDFMergeOrchestrator:
                 self._progress_callback(7, total_steps, "PDFを圧縮中...")
                 self._compress_output(output_pdf)
 
+            # 最終検証: 目次エントリのページ番号が有効範囲内か確認
             total_pages = self.processor.get_page_count(output_pdf)
+            self._validate_toc_entries(adjusted_toc_entries, total_pages)
+
             logger.info(f"PDFの作成が完了しました: {output_pdf}")
             logger.info(f"  目次エントリ数: {len(adjusted_toc_entries)}")
             logger.info(f"  総ページ数: {total_pages}")

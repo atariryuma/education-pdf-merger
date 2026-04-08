@@ -39,10 +39,15 @@ class DocumentCollector:
         self.processor = pdf_processor
         self._cancel_check = cancel_check or (lambda: False)
         self._collected_pdfs: List[str] = []
+        self._cover_pages: int = PDFConstants.COVER_PAGE_COUNT
 
     def get_collected_pdfs(self) -> List[str]:
         """収集済みPDFのリストを返す（部分的な失敗回復用）"""
         return list(self._collected_pdfs)
+
+    def get_cover_pages(self) -> int:
+        """表紙の実際のページ数を返す"""
+        return self._cover_pages
 
     def is_cancelled(self) -> bool:
         """キャンセルされたかどうかを確認"""
@@ -82,11 +87,46 @@ class DocumentCollector:
             logger.warning(f"変換スキップ: {file_name}")
         return current_page
 
+    def _add_separator(
+        self,
+        heading: str,
+        level: int,
+        toc_entries: List[Tuple[str, int, int]],
+        content_pdfs: List[str],
+        current_page: int,
+    ) -> int:
+        """
+        区切りページを生成してコンテンツに追加し、目次エントリを登録する
+
+        Args:
+            heading: 区切りページの見出し
+            level: 目次レベル（HEADING_LEVEL_MAIN / HEADING_LEVEL_SUB）
+            toc_entries: 目次エントリのリスト（破壊的に更新される）
+            content_pdfs: PDFパスのリスト（破壊的に更新される）
+            current_page: 現在のページ番号
+
+        Returns:
+            int: 更新後のページ番号
+        """
+        sep_pdf = self.converter.create_separator_page(heading)
+        if sep_pdf:
+            sep_pages = self.processor.get_page_count(sep_pdf)
+            content_pdfs.append(sep_pdf)
+            toc_entries.append((heading, level, current_page))
+            current_page += sep_pages
+        else:
+            logger.warning(f"区切りページの生成に失敗しました: {heading}")
+            toc_entries.append((heading, level, current_page))
+        return current_page
+
     def _process_cover_file(
         self, file_path: str, content_pdfs: List[str], current_page: int
     ) -> int:
         """
         表紙ファイルを処理
+
+        CONTENT_START_PAGEは「表紙1ページ＋目次1ページ」前提の固定値なので、
+        表紙が複数ページの場合は超過分だけ current_page を補正する。
 
         Args:
             file_path: 表紙ファイルのパス
@@ -96,8 +136,26 @@ class DocumentCollector:
         Returns:
             int: 更新後のページ番号
         """
-        logger.info(f"表紙ファイルを処理中: {os.path.basename(file_path)}")
-        return self._convert_and_add_pdf(file_path, content_pdfs, current_page)
+        file_name = os.path.basename(file_path)
+        logger.info(f"表紙ファイルを処理中: {file_name}")
+        converted_pdf = self.converter.convert(file_path)
+        if converted_pdf:
+            cover_pages = self.processor.get_page_count(converted_pdf)
+            content_pdfs.append(converted_pdf)
+            self._cover_pages = cover_pages
+            # CONTENT_START_PAGEは表紙1ページを前提としているため、
+            # 超過分のみcurrent_pageに加算する
+            extra = cover_pages - PDFConstants.COVER_PAGE_COUNT
+            if extra > 0:
+                current_page += extra
+                logger.info(
+                    "表紙が%dページ: ページオフセット+%d",
+                    cover_pages, extra
+                )
+            logger.info(f"表紙変換成功: {file_name} ({cover_pages}ページ)")
+        else:
+            logger.warning(f"表紙変換スキップ: {file_name}")
+        return current_page
 
     def _process_subfolder(
         self,
@@ -144,15 +202,11 @@ class DocumentCollector:
             return current_page
 
         if create_separator:
-            # サブフォルダにも区切りページを作成
             logger.info(f"区切りページを作成: {sub_heading}")
-            sep_pdf = self.converter.create_separator_page(sub_heading)
-            if sep_pdf:
-                content_pdfs.append(sep_pdf)
-                toc_entries.append(
-                    (sub_heading, PDFConstants.HEADING_LEVEL_SUB, current_page)
-                )
-                current_page += 1
+            current_page = self._add_separator(
+                sub_heading, PDFConstants.HEADING_LEVEL_SUB,
+                toc_entries, content_pdfs, current_page
+            )
         else:
             # 区切りページなしで目次にのみ登録
             toc_entries.append(
@@ -199,15 +253,10 @@ class DocumentCollector:
 
         # 大見出し用の区切りページを作成
         logger.info(f"大見出し区切りページを作成: {heading}")
-        sep_pdf = self.converter.create_separator_page(heading)
-        if sep_pdf:
-            content_pdfs.append(sep_pdf)
-            toc_entries.append((heading, PDFConstants.HEADING_LEVEL_MAIN, current_page))
-            current_page += 1
-        else:
-            logger.warning(f"区切りページの生成に失敗しました: {heading}")
-            # 区切りページなしでも目次には登録
-            toc_entries.append((heading, PDFConstants.HEADING_LEVEL_MAIN, current_page))
+        current_page = self._add_separator(
+            heading, PDFConstants.HEADING_LEVEL_MAIN,
+            toc_entries, content_pdfs, current_page
+        )
 
         # サブディレクトリの処理
         subitems = sorted(os.listdir(dir_path))
@@ -278,6 +327,7 @@ class DocumentCollector:
         """
         toc_entries: List[Tuple[str, int, int]] = []
         self._collected_pdfs = []
+        self._cover_pages = PDFConstants.COVER_PAGE_COUNT
         content_pdfs = (
             self._collected_pdfs
         )  # 同一リスト参照: 例外時に部分結果を回収可能にする

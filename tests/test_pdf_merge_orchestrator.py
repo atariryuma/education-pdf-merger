@@ -21,6 +21,7 @@ def mock_deps(temp_dir):
     converter = MagicMock()
     processor = MagicMock()
     collector = MagicMock()
+    collector.get_cover_pages.return_value = 1
 
     return config, converter, processor, collector
 
@@ -97,10 +98,12 @@ class TestCreateMergedPDF:
         assert processor.merge_pdfs.call_count == 2  # Step2とStep5
         # Step 3: 目次生成
         processor.create_toc_pdf.assert_called_once()
-        # Step 4: 分割
+        # Step 4: 分割（実際の表紙ページ数を渡す）
         processor.split_pdf.assert_called_once()
-        # Step 6: ページ番号
-        processor.add_page_numbers.assert_called_once()
+        # Step 6: ページ番号（表紙ページ数分除外）
+        processor.add_page_numbers.assert_called_once_with(
+            "/output.pdf", exclude_first_pages=1
+        )
         # Step 7: アウトライン
         processor.set_pdf_outlines.assert_called_once()
         processor.set_pdf_outlines.assert_called_with(
@@ -344,3 +347,54 @@ class TestIsTempFile:
         # Windowsでは True、他OSでは temp_dir.upper() が存在しないため結果は環境依存
         if os.name == "nt":
             assert orchestrator._is_temp_file(file_path) is True
+
+
+@pytest.mark.unit
+class TestMultiPageCover:
+    """複数ページ表紙のテスト"""
+
+    def test_multi_page_cover_passed_to_split_pdf(self, mock_deps, temp_dir):
+        """複数ページ表紙のページ数がsplit_pdfに渡される"""
+        config, converter, processor, collector = mock_deps
+        orch = PDFMergeOrchestrator(config, converter, processor, collector)
+
+        collector.collect_documents.return_value = ([("A", 1, 5)], ["/tmp/a.pdf"])
+        collector.get_cover_pages.return_value = 3  # 3ページ表紙
+        processor.split_pdf.return_value = ("/tmp/cover.pdf", "/tmp/remainder.pdf")
+        processor.create_toc_pdf.return_value = 1
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=10
+        )
+
+        orch.create_merged_pdf("/target", "/output.pdf")
+
+        # split_pdfに表紙ページ数3が渡される
+        split_args = processor.split_pdf.call_args[0]
+        assert split_args[2] == 3
+        # add_page_numbersに表紙ページ数3が渡される
+        processor.add_page_numbers.assert_called_once_with(
+            "/output.pdf", exclude_first_pages=3
+        )
+
+
+@pytest.mark.unit
+class TestValidateTocEntries:
+    """目次エントリ検証のテスト"""
+
+    def test_valid_entries_no_warning(self, orchestrator, caplog):
+        """有効範囲内のエントリでは警告なし"""
+        import logging
+        with caplog.at_level(logging.WARNING):
+            PDFMergeOrchestrator._validate_toc_entries(
+                [("A", 1, 3), ("B", 2, 5)], total_pages=10
+            )
+        assert "有効範囲外" not in caplog.text
+
+    def test_out_of_range_entry_warns(self, orchestrator, caplog):
+        """範囲外のエントリで警告が出る"""
+        import logging
+        with caplog.at_level(logging.WARNING):
+            PDFMergeOrchestrator._validate_toc_entries(
+                [("A", 1, 15)], total_pages=10
+            )
+        assert "有効範囲外" in caplog.text
