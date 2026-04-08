@@ -2,7 +2,7 @@
 chcp 65001 > nul
 echo ========================================
 echo 教育計画PDFマージシステム ビルドスクリプト
-echo Version 3.5.8 - Google Sheets削除とコード品質向上
+echo Version 3.6.0 - 複数ページ表紙対応・コード品質改善
 echo ========================================
 echo.
 
@@ -56,9 +56,10 @@ if exist "dist\教育計画PDFマージシステム.exe" (
 
     echo.
     echo ビルド情報:
-    echo   - バージョン: 3.5.8
-    echo   - Google Sheets機能削除
-    echo   - コード品質の大幅向上（10項目のリファクタリング）
+    echo   - バージョン: 3.6.0
+    echo   - 複数ページ表紙対応
+    echo   - 区切りページ実ページ数計測
+    echo   - 目次エントリ有効範囲検証
     echo.
     for %%F in ("dist\教育計画PDFマージシステム.exe") do (
         echo   - ファイルサイズ: %%~zF bytes

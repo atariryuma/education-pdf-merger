@@ -1,5 +1,34 @@
 # 変更履歴
 
+## [3.6.0] - 2026-04-08
+
+### ✨ 新機能 (Features)
+
+1. **複数ページ表紙対応** ([document_collector.py](document_collector.py), [pdf_merge_orchestrator.py](pdf_merge_orchestrator.py), [pdf_processor.py](pdf_processor.py))
+   - 表紙が複数ページの場合にページ番号オフセットを自動補正
+   - `split_pdf()` が可変表紙ページ数に対応
+   - ページ番号追加時に実際の表紙ページ数分を除外
+
+2. **区切りページの実ページ数計測** ([document_collector.py](document_collector.py))
+   - 区切りページのページ数をハードコード(1)から実測値に変更
+   - 目次のページ番号がより正確に
+
+3. **目次エントリの有効範囲検証** ([pdf_merge_orchestrator.py](pdf_merge_orchestrator.py))
+   - 最終PDF生成後に目次のページ番号が有効範囲内か検証
+   - 範囲外のエントリは警告ログを出力
+
+### 🔧 改善 (Improvements)
+
+1. **区切りページ処理の重複コード統合** ([document_collector.py](document_collector.py))
+   - `_process_subfolder` と `_process_directory` の共通処理を `_add_separator()` に抽出
+
+2. **`get_page_count` 二重呼び出しの排除** ([pdf_merge_orchestrator.py](pdf_merge_orchestrator.py))
+   - 圧縮前後で2回呼んでいた処理を1回に最適化
+
+3. **目次ページ数補正ループの改善** ([pdf_merge_orchestrator.py](pdf_merge_orchestrator.py))
+   - 最大反復回数を定数化 (`_MAX_TOC_ITERATIONS = 5`)
+   - 収束回数をログに出力
+
 ## [3.5.8] - 2026-02-06
 
 ### 🔧 改善 (Improvements)
