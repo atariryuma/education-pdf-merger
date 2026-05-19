@@ -260,9 +260,61 @@ class TestCoverPageCounting:
         assert collector.get_cover_pages() == 3
 
     def test_cover_pages_default(self, mock_converter, mock_processor):
-        """表紙未処理時のデフォルトページ数"""
+        """表紙未処理時のデフォルトページ数は0（表紙なしを示す）"""
         collector = DocumentCollector(mock_converter, mock_processor)
-        assert collector.get_cover_pages() == PDFConstants.COVER_PAGE_COUNT
+        assert collector.get_cover_pages() == 0
+
+
+@pytest.mark.unit
+class TestCoverOrdering:
+    """表紙ファイルの処理順序のテスト（Unicode順に依存しないこと）"""
+
+    def test_cover_processed_first_even_if_sorted_last(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
+        """表紙ファイル名がソートで最後でも、最初に処理されてcontent_pdfsの先頭に置かれる"""
+        # 数字フォルダ（ソートで先）と表紙ファイル（Unicode順で後）を配置
+        os.makedirs(os.path.join(temp_dir, "01_行事"))
+        test_file = os.path.join(temp_dir, "01_行事", "doc.docx")
+        with open(test_file, 'w') as f:
+            f.write("dummy")
+        cover_file = os.path.join(temp_dir, "表紙.docx")
+        with open(cover_file, 'w') as f:
+            f.write("cover")
+
+        mock_converter.convert.return_value = "/tmp/converted.pdf"
+        mock_converter.create_separator_page.return_value = "/tmp/sep.pdf"
+        mock_processor.get_page_count.return_value = 1
+
+        toc_entries, content_pdfs = collector.collect_documents(temp_dir)
+
+        # content_pdfsの先頭が表紙
+        assert len(content_pdfs) >= 1
+        # 表紙ファイル変換結果が先頭に来ているはず
+        assert collector.get_cover_pages() == 1
+        # 最初のTOCエントリは表紙ページ数+目次後の位置
+        # 1ページ表紙 + 1ページ目次 → コンテンツは3ページ目から
+        assert toc_entries[0][2] == PDFConstants.CONTENT_START_PAGE
+
+    def test_no_cover_starts_content_at_page_2(
+        self, collector, temp_dir, mock_converter, mock_processor
+    ):
+        """表紙ファイルが無い場合、コンテンツは目次の次の2ページ目から開始"""
+        os.makedirs(os.path.join(temp_dir, "01_行事"))
+        test_file = os.path.join(temp_dir, "01_行事", "doc.docx")
+        with open(test_file, 'w') as f:
+            f.write("dummy")
+
+        mock_converter.convert.return_value = "/tmp/converted.pdf"
+        mock_converter.create_separator_page.return_value = "/tmp/sep.pdf"
+        mock_processor.get_page_count.return_value = 1
+
+        toc_entries, content_pdfs = collector.collect_documents(temp_dir)
+
+        # 表紙なし: _cover_pages = 0
+        assert collector.get_cover_pages() == 0
+        # 最初のTOCエントリ: 目次(1ページ)の次 = 2
+        assert toc_entries[0][2] == 1 + PDFConstants.TOC_PAGE_COUNT
 
 
 @pytest.mark.unit

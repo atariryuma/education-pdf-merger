@@ -276,11 +276,18 @@ class PDFMergeOrchestrator:
             self._check_cancel()
 
             # 4. 表紙と残りのページに分割（実際の表紙ページ数を使用）
+            # 表紙が無い場合(cover_pages=0)は分割をスキップしてコンテンツの先頭が
+            # 誤って表紙扱いされるのを防ぐ
             self._progress_callback(4, total_steps, "表紙とコンテンツを分割中...")
             cover_pages = self.collector.get_cover_pages()
-            cover_pdf, remainder_pdf = self.processor.split_pdf(
-                temp_merged, self.temp_dir, cover_pages
-            )
+            if cover_pages > 0:
+                cover_pdf, remainder_pdf = self.processor.split_pdf(
+                    temp_merged, self.temp_dir, cover_pages
+                )
+            else:
+                cover_pdf = None
+                remainder_pdf = temp_merged
+                logger.info("表紙なし: split_pdfをスキップしてコンテンツ全体を使用")
             self._check_cancel()
 
             # 5. 最終的にマージ（表紙 + 目次 + 残り）

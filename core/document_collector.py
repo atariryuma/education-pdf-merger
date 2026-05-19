@@ -39,14 +39,19 @@ class DocumentCollector:
         self.processor = pdf_processor
         self._cancel_check = cancel_check or (lambda: False)
         self._collected_pdfs: List[str] = []
-        self._cover_pages: int = PDFConstants.COVER_PAGE_COUNT
+        self._cover_pages: int = 0
 
     def get_collected_pdfs(self) -> List[str]:
         """収集済みPDFのリストを返す（部分的な失敗回復用）"""
         return list(self._collected_pdfs)
 
     def get_cover_pages(self) -> int:
-        """表紙の実際のページ数を返す"""
+        """
+        表紙の実際のページ数を返す
+
+        Returns:
+            int: 表紙ページ数。表紙ファイルが処理されなかった場合は0。
+        """
         return self._cover_pages
 
     def is_cancelled(self) -> bool:
@@ -327,11 +332,10 @@ class DocumentCollector:
         """
         toc_entries: List[Tuple[str, int, int]] = []
         self._collected_pdfs = []
-        self._cover_pages = PDFConstants.COVER_PAGE_COUNT
+        self._cover_pages = 0
         content_pdfs = (
             self._collected_pdfs
         )  # 同一リスト参照: 例外時に部分結果を回収可能にする
-        current_page = PDFConstants.CONTENT_START_PAGE
 
         all_items = sorted(os.listdir(target_dir))
         # 一時ファイル（~$, .$td, .$$$等）を収集段階で除外
@@ -344,22 +348,41 @@ class DocumentCollector:
         logger.info(f"ドキュメント収集を開始: {target_dir}")
         logger.info(f"処理対象アイテム数: {total_items}")
 
-        for idx, item in enumerate(items, 1):
+        # 表紙ファイルとそれ以外を分離（Unicode順では「表紙」が数字の後に来るため
+        # 並び順に依存せず、表紙を必ず最初に処理する）
+        cover_items = [
+            item for item in items
+            if os.path.isfile(os.path.join(target_dir, item))
+            and item.startswith(PDFConstants.COVER_FILE_KEYWORD)
+        ]
+        other_items = [item for item in items if item not in cover_items]
+
+        # 表紙を先に処理（content_pdfsの先頭に置くため）
+        cover_current = PDFConstants.CONTENT_START_PAGE  # 表紙+目次後のコンテンツ開始ページ
+        for item in cover_items:
+            if self.is_cancelled():
+                raise CancelledError("ドキュメント収集がキャンセルされました")
+            item_path = os.path.join(target_dir, item)
+            logger.info(f"--- 表紙処理: {item} ---")
+            cover_current = self._process_cover_file(
+                item_path, content_pdfs, cover_current
+            )
+
+        # 表紙が無い場合: 目次のみが先頭になるのでコンテンツ開始は2ページ目
+        if self._cover_pages == 0:
+            current_page = 1 + PDFConstants.TOC_PAGE_COUNT
+            logger.info("表紙ファイルなし: コンテンツ開始ページを %d に調整", current_page)
+        else:
+            current_page = cover_current
+
+        # 表紙以外のアイテムを処理
+        for idx, item in enumerate(other_items, 1):
             if self.is_cancelled():
                 logger.info("ドキュメント収集がキャンセルされました")
                 raise CancelledError("ドキュメント収集がキャンセルされました")
 
             item_path = os.path.join(target_dir, item)
-            logger.info(f"--- 処理中 [{idx}/{total_items}]: {item} ---")
-
-            # 表紙ファイルの処理（ファイル名の先頭にキーワードが含まれるもの）
-            if os.path.isfile(item_path) and item.startswith(
-                PDFConstants.COVER_FILE_KEYWORD
-            ):
-                current_page = self._process_cover_file(
-                    item_path, content_pdfs, current_page
-                )
-                continue
+            logger.info(f"--- 処理中 [{idx}/{len(other_items)}]: {item} ---")
 
             # ディレクトリの処理
             if os.path.isdir(item_path):

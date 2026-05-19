@@ -378,6 +378,32 @@ class TestMultiPageCover:
 
 
 @pytest.mark.unit
+class TestNoCoverScenario:
+    """表紙ファイルが無い場合のテスト"""
+
+    def test_no_cover_skips_split(self, mock_deps, temp_dir):
+        """cover_pages=0の場合、split_pdfは呼ばれない"""
+        config, converter, processor, collector = mock_deps
+        orch = PDFMergeOrchestrator(config, converter, processor, collector)
+
+        collector.collect_documents.return_value = ([("A", 1, 2)], ["/tmp/a.pdf"])
+        collector.get_cover_pages.return_value = 0  # 表紙なし
+        processor.create_toc_pdf.return_value = 1
+        processor.get_page_count.side_effect = _page_count_side_effect(
+            config.get_temp_dir.return_value, toc_pages=1, default_pages=10
+        )
+
+        orch.create_merged_pdf("/target", "/output.pdf")
+
+        # split_pdfは呼ばれない
+        processor.split_pdf.assert_not_called()
+        # add_page_numbersはexclude_first_pages=0で呼ばれる
+        processor.add_page_numbers.assert_called_once_with(
+            "/output.pdf", exclude_first_pages=0
+        )
+
+
+@pytest.mark.unit
 class TestValidateTocEntries:
     """目次エントリ検証のテスト"""
 
