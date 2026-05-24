@@ -1,315 +1,230 @@
 # 教育計画PDFマージシステム
 
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)](https://www.microsoft.com/windows)
 
-教育計画・行事計画関連のドキュメントをPDFに変換・マージするWindowsアプリケーション。Word、Excel、PowerPoint、一太郎、画像などの複数形式に対応し、自動的に目次とブックマークを生成します。
+教育計画・行事計画関連のドキュメント（Word／Excel／PowerPoint／一太郎／画像／PDF）を、目次・しおり付きの単一PDFに統合する Windows デスクトップアプリ。Excel自動転記機能も搭載。
 
-## ✨ 主な機能
+## 主な機能
 
-### PDF変換・マージ
-- 📄 **複数形式対応**: Word (.doc/.docx)、Excel (.xls/.xlsx)、PowerPoint (.ppt/.pptx)、一太郎 (.jtd)、画像 (.jpg/.png/.bmp/.tiff)、PDF
-- 📑 **自動目次生成**: ディレクトリ構造から階層的な目次を自動作成
-- 🔖 **PDFブックマーク**: クリック可能なしおり（アウトライン）を自動設定
-- 🔢 **ページ番号付加**: 表紙を除いて自動的にページ番号を挿入
-- 🗜️ **PDF圧縮**: Ghostscriptによる自動圧縮でファイルサイズを最大70%削減
-- 📋 **区切りページ**: フォルダごとに見出しページを自動挿入
+### PDF統合
+
+- **複数形式対応**: Word (.doc/.docx)、Excel (.xls/.xlsx)、PowerPoint (.ppt/.pptx)、一太郎 (.jtd)、画像 (.jpg/.png 等)、PDF
+- **目次自動生成**: ディレクトリ構造から階層目次を自動作成
+- **しおり付加**: クリック可能なPDFアウトラインを自動設定
+- **ページ番号**: 表紙を除いて自動付与（複数ページ表紙にも対応）
+- **Ghostscript圧縮**: PDFサイズを最大70%削減
+- **区切りページ**: フォルダごとに見出しページを自動挿入
 
 ### Excel処理
-- 🔄 **自動データ反映**: 年間行事計画から様式4へのデータ自動転記
-- 🧮 **時数自動計算**: 学年別の行事時数・欠時数を自動カウント
-- 🗑️ **不要シート削除**: PDCAファイルから指定シートを一括削除
 
-### ファイル管理
-- 🏷️ **ファイル名整理**: PDCA優先の自動連番付与
-- 📂 **超長パス対応**: 260文字を超えるパスのファイルを強制削除
+- **データ自動転記**: 年間行事計画から様式4へのデータ転記
+- **時数自動計算**: 学年別の行事時数を自動カウント
+- **行事名管理**: 設定画面で行事名を編集・保存
 
-## 📦 インストール
+## インストール
 
 ### 前提条件
 
-- **Python 3.8以上** - [ダウンロード](https://www.python.org/downloads/)
-- **Microsoft Office** - Word、Excel、PowerPointのインストールが必要
-- **Ghostscript** - [ダウンロード](https://ghostscript.com/releases/gsdnld.html)
-- **一太郎** (オプション) - .jtdファイルを扱う場合のみ
+- **Python 3.9以上** — [ダウンロード](https://www.python.org/downloads/)
+- **Microsoft Office** — Word／Excel／PowerPoint が必要
+- **Ghostscript** — [ダウンロード](https://ghostscript.com/releases/gsdnld.html)
+- **一太郎**（任意） — `.jtd` ファイルを扱う場合のみ
 
-### 方法1: pipでインストール（開発者向け）
+### 方法1: インストーラー（推奨）
 
-```bash
-# 依存関係をインストール
-pip install -r requirements.txt
-
-# または開発用の依存関係も含めてインストール
-pip install -r requirements-dev.txt
-```
-
-### 方法2: インストーラーを使用（推奨）
-
-1. 最新の `PDFMergeSystem_Setup_x.x.exe` をダウンロード
+1. `PDFMergeSystem_Setup_x.x.x.exe` をダウンロード
 2. インストーラーを実行
-3. デスクトップアイコンから起動
+3. スタートメニューまたはデスクトップアイコンから起動
 
-## 🚀 使い方
+### 方法2: ソースから実行（開発者向け）
 
-### GUIアプリケーション（推奨）
-
-```bash
-python run_app.py
-```
-
-または、インストーラー版の場合はデスクトップアイコンをダブルクリック。
-
-#### 基本的な流れ
-
-1. **「PDF統合」タブ**
-   - 入力ディレクトリを選択（変換したいファイルがあるフォルダ）
-   - 出力PDFファイル名を指定
-   - 教育計画 or 行事計画を選択
-   - 「PDF統合を実行」ボタンをクリック
-
-2. **「Excel処理」タブ**
-   - 対象のExcelファイルを開いた状態で実行
-   - 「Excelデータ更新を実行」ボタンをクリック
-
-3. **「設定」タブ**
-   - 年度を更新（例: 2026）※和暦は自動計算されます
-   - パス設定を確認・変更
-   - 「💾 設定を保存」ボタンで保存
-
-### コマンドライン（上級者向け）
-
-```bash
-# 教育計画PDFの作成
-python convert_and_merge.py
-```
-
-**注意**: 以前のバージョンにあった以下のスクリプトは削除されました（GUIアプリに統合）:
-- `convert_and_merge_event.py` - 行事計画PDF作成（GUIの「PDF統合」タブで実行可能）
-- `update_excel_files.py` - Excelデータ更新（GUIの「Excel処理」タブで実行可能）
-- `rename_file.py` - ファイル名整理（GUIの「ファイル管理」タブで実行可能）
-- `delete.py` - 不要シート削除（GUIの「ファイル管理」タブで実行可能）
-- `force_delete.py` - 長いパスの削除ユーティリティ（不要になったため削除）
-
-## ⚙️ 設定
-
-### config.json の編集
-
-プロジェクトルートの `config.json` で以下の設定が可能です：
-
-```json
-{
-  "year": "2025",
-  "year_short": "R7",
-  "base_paths": {
-    "google_drive": "ドライブのルートパス",
-    "network": "ネットワークパス",
-    "local_temp": "一時ファイル保存先"
-  },
-  "ghostscript": {
-    "executable": "Ghostscript実行ファイルパス"
-  }
-}
-```
-
-**主な設定項目:**
-
-| 項目 | 説明 |
-|------|------|
-| `year` | 年度（西暦） |
-| `year_short` | 年度（略称・自動計算） |
-| `base_paths.google_drive` | ドライブのルートパス |
-| `base_paths.network` | ネットワークパス |
-| `ghostscript.executable` | Ghostscript実行ファイルパス |
-
-GUIアプリの「設定」タブから直接編集することも可能です。
-
-## 📁 プロジェクト構成
-
-```
-pdf-merge-system/
-├── config.json                 # 設定ファイル
-├── pyproject.toml              # プロジェクトメタデータ
-├── requirements.txt            # 依存関係
-├── requirements-dev.txt        # 開発用依存関係
-│
-├── run_app.py                  # GUIアプリケーション起動
-│
-├── core/                       # コアビジネスロジック
-│   ├── pdf_merge_orchestrator.py  # 全体フロー制御
-│   ├── document_collector.py      # ドキュメント収集・目次生成
-│   ├── pdf_converter.py           # PDF変換エンジン
-│   ├── pdf_processor.py           # PDF処理（マージ、圧縮など）
-│   ├── update_excel_files.py      # Excel転記処理
-│   └── folder_structure_detector.py # フォルダ構造検出
-│
-├── infrastructure/             # インフラ層
-│   ├── config_loader.py           # 設定読み込み
-│   ├── config_validator.py        # 設定バリデーション
-│   ├── path_validator.py          # パス検証
-│   ├── ghostscript.py             # Ghostscript検出・圧縮
-│   ├── logging_config.py          # ロギング設定
-│   └── year_utils.py              # 年度・和暦変換
-│
-├── converters/                 # ファイル変換器
-│   ├── office_converter.py        # Word/Excel/PPT変換
-│   ├── image_converter.py         # 画像変換
-│   └── ichitaro_converter.py      # 一太郎変換
-│
-├── shared/                     # 共通モジュール
-│   ├── constants.py               # 定数定義
-│   └── exceptions.py              # 例外クラス
-│
-├── gui/                        # GUIモジュール
-├── tests/                      # テストコード
-├── installer/                  # インストーラー設定
-└── temp_pdfs/                  # 一時ファイル
-```
-
-## 🏗️ アーキテクチャ
-
-### 処理フロー
-
-```
-設定読み込み (config.json)
-    ↓
-ディレクトリ探索 & ファイル収集
-    ↓
-各ファイルをPDFに変換
- ├─ Office文書 → Win32 COM
- ├─ 一太郎 → pywinauto
- ├─ 画像 → reportlab
- └─ PDF → パススルー
-    ↓
-一時的にマージ
-    ↓
-目次PDFを生成
-    ↓
-表紙・目次・本文を結合
-    ↓
-ページ番号を追加
-    ↓
-しおり（アウトライン）を設定
-    ↓
-Ghostscriptで圧縮
-    ↓
-最終PDF完成 ✓
-```
-
-### モジュール構成
-
-- **config_loader.py**: 設定ファイルの読み込みとパス構築
-- **pdf_converter.py**: 各種形式からPDFへの変換
-- **pdf_processor.py**: PDFのマージ、圧縮、ページ番号追加、ブックマーク設定
-- **document_collector.py**: ディレクトリ探索と目次生成、全体の処理フロー制御
-
-## 🔧 開発
-
-### セットアップ
-
-```bash
+```bat
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements-dev.txt
-
-# pre-commitフックのインストール
 pre-commit install
+python run_app.py
 ```
 
-### テスト・品質チェック
+## 使い方
 
-```bash
-# テスト実行
-pytest
+GUIアプリを起動:
 
-# 品質チェック（pre-commitで自動実行）
-ruff check . --fix      # リント・フォーマット
-mypy .                  # 型チェック
-bandit -r .             # セキュリティチェック
+```bat
+python run_app.py
 ```
+
+### PDF統合タブ
+
+1. 入力ディレクトリを選択（変換したいファイルがあるフォルダ）
+2. 出力PDFファイル名を指定
+3. 「PDF統合を実行」をクリック
+
+### Excel処理タブ
+
+1. 対象のExcelファイルを開いた状態で実行
+2. 「Excelデータ更新を実行」をクリック
+
+### 設定タブ
+
+- 年度の更新（西暦を入力すると和暦は自動計算）
+- パス設定・行事名の編集・Ghostscript の検出
+
+## 設定ファイル
+
+設定は2層で管理:
+
+- `config.json`（プロジェクト同梱、デフォルト値）
+- `%LOCALAPPDATA%\PDFMergeSystem\user_config.json`（ユーザー個別設定）
+
+`ConfigLoader` が2層をディープマージ。GUIの「設定」タブから編集可能。
+
+## プロジェクト構成
+
+```text
+education-pdf-merger/
+├─ run_app.py                    アプリケーション起動エントリポイント
+├─ build.bat                     EXEビルドスクリプト
+├─ build_installer.spec          PyInstaller設定
+├─ config.json                   デフォルト設定
+├─ pyproject.toml                プロジェクトメタデータ（バージョン管理の単一の真実）
+├─ requirements.txt              本番依存
+├─ requirements-dev.txt          開発依存
+│
+├─ core/                         ビジネスロジック層
+│   ├─ pdf_merge_orchestrator.py    7ステップのPDF統合フロー制御
+│   ├─ document_collector.py        ディレクトリ走査・目次生成
+│   ├─ pdf_converter.py             変換ファサード（converters/ に委譲）
+│   ├─ pdf_processor.py             PDF操作（マージ・TOC・しおり）
+│   ├─ update_excel_files.py        Excel転記（COM、キャッシュ、あいまい検索）
+│   └─ folder_structure_detector.py 教育/行事プラン自動判定
+│
+├─ converters/                   各形式 → PDF 変換
+│   ├─ office_converter.py          Word/Excel/PPT（COM）
+│   ├─ image_converter.py           画像（Pillow）
+│   └─ ichitaro_converter.py        一太郎（pywinauto UI自動化）
+│
+├─ infrastructure/               設定・ユーティリティ
+│   ├─ config_loader.py             2層設定の読み込み
+│   ├─ config_validator.py          設定の検証
+│   ├─ path_validator.py            パス検証・サニタイズ
+│   ├─ ghostscript.py               GS検出・検証
+│   ├─ logging_config.py            ロギング設定
+│   ├─ year_utils.py                和暦・年度変換
+│   └─ com_utils.py                 pythoncom 初期化のコンテキストマネージャ
+│
+├─ shared/                       全層共通
+│   ├─ constants.py                 定数クラス群
+│   └─ exceptions.py                例外階層（PDFMergeError）
+│
+├─ gui/                          tkinter GUI
+│   ├─ app.py                       メインウィンドウ
+│   ├─ styles.py                    色・フォント・スタイル定数
+│   ├─ utils.py                     GUI共通ユーティリティ
+│   ├─ setup_wizard.py              初回セットアップ
+│   ├─ event_names_editor.py        行事名編集ダイアログ
+│   └─ tabs/                        BaseTab、PDFTab、ExcelTab、SettingsTab
+│
+├─ tests/                        335件のテスト（pytest、@pytest.mark.unit）
+└─ installer/                    Inno Setup によるインストーラー
+```
+
+## アーキテクチャ
+
+### 処理フロー
+
+```text
+1. ドキュメント収集 → 各形式をPDFに変換
+2. 一時マージ
+3. 目次PDF生成
+4. 表紙とコンテンツに分割
+5. 表紙 + 目次 + コンテンツを最終マージ
+6. ページ番号付加・しおり設定
+7. Ghostscript圧縮（オプション）
+```
+
+`core/pdf_merge_orchestrator.py` の `create_merged_pdf()` が全体を制御。
+
+### レイヤー構造
+
+```text
+gui/  →  core/  →  converters/, infrastructure/  →  shared/
+```
+
+- `gui/` は `core/` と `infrastructure/` を呼び出すが、`converters/` を直接呼ばない
+- `shared/` はどの層からも参照される（定数・例外）
+
+## 開発
+
+### テスト
+
+```bat
+pytest                                              # 全テスト（335件）
+pytest -m unit                                      # ユニットテストのみ
+pytest tests/test_pdf_processor_ops.py -v           # 単一ファイル
+```
+
+### 品質チェック
+
+```bat
+pre-commit run --all-files                          # ruff + mypy + bandit 一括
+```
+
+`--no-verify` は絶対に使用しない。pre-commit フックを必ず通すこと。
 
 ### ビルド
 
-```bash
-# EXE生成
-pyinstaller build_installer.spec --clean
-
-# インストーラー作成
-cd installer && build_installer.bat
+```bat
+build.bat                                           # EXE生成
+cd installer && build_installer.bat                 # インストーラー生成（Inno Setup 6必要）
 ```
 
 ### コーディング規約
 
-詳細は [.claude/claude.md](.claude/claude.md) を参照。
+- 型ヒント必須（`mypy.ini` で `core/shared/infrastructure/converters` は厳密、`gui` は緩和）
+- 例外: `shared.exceptions` のカスタム例外を使い、`original_error` で例外チェーン
+- パス検証: `PathValidator` を使用、GUI層では `BaseTab.validate_path()`
+- COM操作: バックグラウンドスレッドでは `infrastructure.com_utils.com_apartment(sta=True)` で囲む
+- PDF操作: `pypdf>=4.0.0` を使用（PyPDF2は非推奨）
 
-**重要な原則**:
+詳細は [.claude/CLAUDE.md](.claude/CLAUDE.md) を参照。
 
-- 型ヒント必須
-- カスタム例外とチェーン使用
-- Google Style docstring
-- DRY原則（共通メソッドに抽出）
+### コミット規約
 
-## 📄 ライセンス
+```text
+種別: 簡潔な説明
 
-MIT License - 詳細は [LICENSE](LICENSE) をご覧ください。
+詳細（任意、複数行可）
 
-## ⚠️ トラブルシューティング
+Co-Authored-By: ...
+```
 
-### エラー: "config.json not found"
-**原因**: 設定ファイルが見つからない
-**解決**: `config.json` がスクリプトと同じディレクトリにあることを確認
+種別: `Feature`, `Fix`, `Refactor`, `Docs`, `Test`, `Chore`, `Build`
 
-### エラー: "Invalid JSON"
-**原因**: config.jsonの構文エラー
-**解決**: [JSONLint](https://jsonlint.com/) で検証、カンマや引用符を確認
+## ライセンス
 
-### PDF変換が失敗する
-**原因**: Office/一太郎/Ghostscriptがインストールされていない
-**解決**: 必要なソフトウェアをインストール、パスを確認
+MIT License — 詳細は [LICENSE](LICENSE) 参照。
 
-### 一太郎変換が途中で止まる
-**原因**: UIオートメーションのタイミング問題
-**解決**: `config.json` の一太郎設定でタイミングを調整
+## トラブルシューティング
 
-### Excelスクリプトが動かない
-**原因**: ファイルが開かれていない、ファイル名不一致
-**解決**: 対象Excelファイルを開く、ファイル名を確認
+| 症状 | 原因 / 対策 |
+| --- | --- |
+| `config.json not found` | プロジェクトルートに `config.json` が無い → 同梱版をコピー |
+| PDF変換失敗 | Office／一太郎／Ghostscript 未インストール → 必要なソフトをインストール |
+| 一太郎変換が止まる | UI自動化のタイミング問題 → `config.json` の `ichitaro` セクションで調整 |
+| Excelスクリプトが動かない | 対象Excelが開かれていない／シート名不一致 → ファイル名・シート名を確認 |
+| 変換が遅い | Ghostscript圧縮に時間がかかる → 圧縮スキップ、または小さいファイルで検証 |
 
-### 変換が遅い
-**原因**: Ghostscript圧縮は時間がかかる
-**対策**: 小さいファイルで試す、圧縮をスキップ（開発時）
-
-## 📚 参考資料
+## 参考資料
 
 - [pypdf ドキュメント](https://pypdf.readthedocs.io/)
+- [PyMuPDF (fitz) ドキュメント](https://pymupdf.readthedocs.io/)
 - [ReportLab ユーザーガイド](https://www.reportlab.com/docs/reportlab-userguide.pdf)
 - [pywin32 ドキュメント](https://github.com/mhammond/pywin32)
 - [pywinauto ドキュメント](https://pywinauto.readthedocs.io/)
+- [Inno Setup 公式](https://jrsoftware.org/isinfo.php)
 
-## 📝 変更履歴
+## 変更履歴
 
-詳細は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
-
-### v3.2 (2025-12-15)
-- ✨ ベストプラクティスに準拠（pyproject.toml、.gitignore追加）
-- 🚀 一太郎変換処理を40%高速化（22秒 → 12-15秒）
-- 🎯 pywinauto ベストプラクティス適用（window.close()、app.kill()）
-- 🧹 プロジェクトクリーンアップ（不要ファイル削除、~115MB削減）
-
-### v3.0 (2025-11-26)
-- 🎨 GUIアプリケーション追加
-- ⚙️ 設定タブで年度情報を直接編集可能に
-- 🔄 設定の保存・再読み込み機能
-
-### v2.0 (2025-11)
-- 🏗️ モジュール化によるリファクタリング
-- 📦 設定ファイル方式の導入
-- 🔧 年度更新の簡素化
-
-## 🙋 サポート
-
-問題が発生した場合は、以下の情報を含めてご報告ください。
-
-- エラーメッセージ（完全な内容）
-- 実行したコマンド
-- `config.json` の内容（機密情報は削除）
-- Python、Office、Ghostscriptのバージョン
+詳細は [CHANGELOG.md](CHANGELOG.md) を参照。

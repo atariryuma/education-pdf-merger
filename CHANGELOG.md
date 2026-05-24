@@ -1,5 +1,48 @@
 # 変更履歴
 
+## [3.7.1] - 2026-05-24
+
+### 🐛 バグ修正
+
+- **excel_tab.py の NameError バグ修正**: v3.7.0 のリファクタで `pythoncom` 参照を削除した際、`_auto_detect_files` の早期リターンチェックに削除済み参照が残っていた問題を修正
+
+### ♻️ GUI重複コード徹底削減
+
+- **`gui.utils.attach_placeholder()` 新設**: Entryのプレースホルダー表示+FocusIn/FocusOut切替を1関数に集約
+- **`BaseTab` にダイアログヘルパー追加** (3メソッド):
+  - `ask_folder(title, initial_dir)`: フォルダ選択+検証+例外ハンドリング
+  - `ask_file_open(title, filetypes, initial_dir, allowed_extensions)`: 既存ファイル選択
+  - `ask_file_save(title, filetypes, initial_dir, initial_file, default_extension, allowed_extensions)`: 保存先選択
+- **`BaseTab.poll_thread()` 追加**: バックグラウンドスレッドの完了/タイムアウトを非ブロッキングで監視
+- **3つのタブを新ヘルパー利用に書き換え**:
+  - `pdf_tab.py`: `_select_input_dir`/`_select_output_file`、プレースホルダー実装、未使用`filedialog`削除
+  - `excel_tab.py`: `_select_file`、`_auto_detect_files`のポーリング、未使用`filedialog`削除
+  - `settings_tab.py`: `_browse_folder`、`_browse_gs_file`、`_test_ichitaro_conversion`、未使用`filedialog`削除
+- **削減効果**: 約160行の重複ロジックを削減
+
+### 🧹 環境クリーンアップ
+
+- **`installer/innosetup_installer.exe` 削除** (9.7MB): Inno Setupのダウンロード本体で、READMEには記載なし。`.gitignore`で除外済みのローカル成果物
+- **`installer/README_INSTALLER.md` 全面刷新**: v3.4.0時点の古い情報を最新化、バージョンアップ手順を明記
+- **`README.md` 全面書き直し**:
+  - 存在しないCLIスクリプト（`convert_and_merge.py`等）の記述を削除
+  - Python 3.8 → 3.9 (pyproject.tomlに合わせる)
+  - PyPDF2 → pypdf を反映
+  - プロジェクト構成図を実態に合わせて更新
+  - Markdown lint 警告を全解消（見出し前後の空行、コード言語指定等）
+  - 古い変更履歴セクションを削除（`CHANGELOG.md` への一元化）
+
+### 🧪 テスト追加
+
+- `tests/test_com_utils.py`: `com_apartment()`の単体テスト（STA/MTA/例外/Uninitialize失敗時）
+- `tests/test_gui_utils.py`: `attach_placeholder()`の単体テスト
+- `tests/test_base_tab.py`: `ask_folder`/`ask_file_open`/`ask_file_save`/`poll_thread`/`run_in_thread`の単体テスト
+
+### ✅ 検証
+
+- **全353テスト通過**（18テスト新規追加）
+- **EXE再ビルド成功 + GUI起動スモークテスト通過**
+
 ## [3.7.0] - 2026-05-24
 
 ### ♻️ リファクタリング・依存関係刷新
@@ -586,6 +629,7 @@ self._connect_to_target_only()  # ターゲットファイルのみを開く
 ### 🎯 主要変更: PDF変換モジュールの大規模リファクタリング
 
 #### ✨ 追加 (Added)
+
 - **converters/ モジュールディレクトリの新規作成**
   - `converters/office_converter.py` (233行) - Word/Excel/PowerPoint変換
   - `converters/image_converter.py` (48行) - 画像ファイル変換
@@ -598,6 +642,7 @@ self._connect_to_target_only()  # ターゲットファイルのみを開く
   - `BUILD_INSTRUCTIONS.md` - 詳細なビルド手順書
 
 #### 🔄 変更 (Changed)
+
 - **pdf_converter.py の大幅な簡素化**
   - 行数: 978行 → 151行 (-84.6%)
   - 役割: モノリシック → ファサードパターン
@@ -616,6 +661,7 @@ self._connect_to_target_only()  # ターゲットファイルのみを開く
   - ビルド情報表示の拡張
 
 #### 📈 改善 (Improved)
+
 - **コード品質の大幅向上**
   - 単一責任の原則（SRP）に完全準拠
   - 100% docstring カバレッジ達成
@@ -627,10 +673,12 @@ self._connect_to_target_only()  # ターゲットファイルのみを開く
   - 最大ファイルサイズ: 978行 → 612行 (-37%)
 
 #### 🐛 修正 (Fixed)
+
 - **重大なバグ修正**: GUIログ統合の漏れ
   - converters モジュールのログがGUIに表示されない問題を修正
 
 #### 📊 技術的詳細
+
 - 総コード行数: 8,147行 → 8,236行 (+89行, +1.1%)
 - PDF変換モジュール: 978行 → 1,054行 (+76行)
 - 統合テスト: 全テストパス（5/5）

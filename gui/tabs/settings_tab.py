@@ -7,7 +7,7 @@ import logging
 import os
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 from typing import Any, Callable, Optional, TYPE_CHECKING
 from pathlib import Path
 
@@ -261,73 +261,44 @@ class SettingsTab(BaseTab):
         self.event_names_editor.reload_event_names()
 
     def _browse_folder(self, var: tk.StringVar) -> None:
-        """フォルダを参照（PathValidatorベース）"""
-        try:
-            current_path_str = var.get().strip()
-            initial_dir = PathValidator.get_safe_initial_dir(
-                current_path_str, Path.home()
-            )
+        """フォルダを参照"""
+        current_path_str = var.get().strip()
+        initial_dir = str(
+            PathValidator.get_safe_initial_dir(current_path_str, Path.home())
+        )
+        validated_path = self.ask_folder(title="フォルダを選択", initial_dir=initial_dir)
+        if validated_path:
+            var.set(str(validated_path))
+            self.update_status(f"フォルダを選択: {validated_path.name}")
 
-            directory = filedialog.askdirectory(
-                title="フォルダを選択", initialdir=str(initial_dir)
+    def _get_gs_initial_dir(self) -> str:
+        """Ghostscript選択ダイアログの初期ディレクトリを決定（ネットワークパスを避ける）"""
+        current_path = self.gs_var.get().strip()
+        if current_path:
+            # ネットワークパスは初期表示で開かない（UIフリーズの原因になりうる）
+            is_local = (
+                not current_path.startswith("\\\\")
+                and len(current_path) >= 3
+                and current_path[1] == ":"
+                and current_path[0].upper() in ("C", "D", "E")
             )
-            if directory:
-                validated_path = self.validate_path(directory, "directory")
-                if validated_path:
-                    var.set(str(validated_path))
-                    self.update_status(f"フォルダを選択: {validated_path.name}")
-        except Exception as e:
-            messagebox.showerror(
-                "参照エラー", f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}"
-            )
+            if is_local and os.path.isfile(current_path):
+                return os.path.dirname(current_path)
+        if os.path.exists("C:\\Program Files\\gs"):
+            return "C:\\Program Files\\gs"
+        return "C:\\Program Files"
 
     def _browse_gs_file(self) -> None:
-        """Ghostscript実行ファイルを参照（フリーズ防止版）"""
-        try:
-            current_path = self.gs_var.get().strip()
-            # ローカルパス（C:ドライブ）のみチェック（フリーズ防止）
-            if current_path:
-                # ネットワークパスかチェック
-                if (
-                    not current_path.startswith("\\\\")
-                    and len(current_path) >= 3
-                    and current_path[1] == ":"
-                ):
-                    drive = current_path[0].upper()
-                    if (
-                        drive in ["C", "D", "E"]
-                        and os.path.exists(current_path)
-                        and os.path.isfile(current_path)
-                    ):
-                        initial_dir = os.path.dirname(current_path)
-                    else:
-                        initial_dir = "C:\\Program Files"
-                else:
-                    initial_dir = "C:\\Program Files"
-            elif os.path.exists("C:\\Program Files\\gs"):
-                initial_dir = "C:\\Program Files\\gs"
-            else:
-                initial_dir = "C:\\Program Files"
-
-            file_path = filedialog.askopenfilename(
-                title="Ghostscript実行ファイルを選択",
-                initialdir=initial_dir,
-                filetypes=[("実行ファイル", "*.exe"), ("すべて", "*.*")],
-            )
-            if file_path:
-                validated_path = self.validate_path(
-                    file_path, "file", error_title="パス検証エラー"
-                )
-                if not validated_path:
-                    return
-
-                self.gs_var.set(str(validated_path))
-                self._update_gs_status_sync()
-                self.update_status(f"Ghostscript: {validated_path.name}")
-        except Exception as e:
-            messagebox.showerror(
-                "参照エラー", f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}"
-            )
+        """Ghostscript実行ファイルを参照"""
+        validated_path = self.ask_file_open(
+            title="Ghostscript実行ファイルを選択",
+            initial_dir=self._get_gs_initial_dir(),
+            filetypes=[("実行ファイル", "*.exe"), ("すべて", "*.*")],
+        )
+        if validated_path:
+            self.gs_var.set(str(validated_path))
+            self._update_gs_status_sync()
+            self.update_status(f"Ghostscript: {validated_path.name}")
 
     def save_settings(self) -> None:
         """設定を保存（入力検証付き - ベストプラクティス準拠）"""
@@ -495,14 +466,13 @@ class SettingsTab(BaseTab):
 
     def _test_ichitaro_conversion(self) -> None:
         """一太郎変換をテスト"""
-
-        # jtdファイルを選択
-        file_path = filedialog.askopenfilename(
+        validated_path = self.ask_file_open(
             title="テスト用の一太郎ファイルを選択",
             filetypes=[("一太郎ファイル", "*.jtd"), ("すべて", "*.*")],
         )
-        if not file_path:
+        if not validated_path:
             return
+        file_path = str(validated_path)
 
         self.ichitaro_status_label.config(text="🔄 テスト実行中...", fg="blue")
         self.tab.update_idletasks()

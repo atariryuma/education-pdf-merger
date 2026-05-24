@@ -2,7 +2,7 @@
 chcp 65001 > nul
 echo ========================================
 echo 教育計画PDFマージシステム ビルドスクリプト
-echo Version 3.7.0 - 環境整理・依存関係刷新（pypdf移行）
+echo Version 3.7.1 - GUI重複コード徹底削減・README/インストーラー整理
 echo ========================================
 echo.
 
@@ -56,11 +56,11 @@ if exist "dist\教育計画PDFマージシステム.exe" (
 
     echo.
     echo ビルド情報:
-    echo   - バージョン: 3.7.0
-    echo   - PyPDF2 -> pypdf へ移行（非推奨パッケージ削除）
-    echo   - COM初期化を infrastructure/com_utils に集約
-    echo   - BaseTabに run_in_thread ヘルパー追加
-    echo   - 不要な型スタブ・バージョン不整合をクリーンアップ
+    echo   - バージョン: 3.7.1
+    echo   - GUI重複削減（attach_placeholder, ask_folder/file_open/file_save, poll_thread）
+    echo   - README.md / README_INSTALLER.md を全面刷新
+    echo   - 不要なinnosetup_installer.exeを削除（9.7MB）
+    echo   - excel_tab.pyのpythoncom未定義参照バグを修正
     echo.
     for %%F in ("dist\教育計画PDFマージシステム.exe") do (
         echo   - ファイルサイズ: %%~zF bytes

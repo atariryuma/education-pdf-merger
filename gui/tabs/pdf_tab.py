@@ -6,7 +6,7 @@ PDF統合機能のUIを提供
 """
 import logging
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 import threading
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
@@ -17,6 +17,7 @@ from gui.utils import (
     create_hover_button,
     thread_safe_call,
     create_tooltip,
+    attach_placeholder,
 )
 from gui.ichitaro_dialog import IchitaroConversionDialog
 from gui.styles import COLORS, FONTS
@@ -95,21 +96,7 @@ class PDFTab(BaseTab):
 
         input_entry = tk.Entry(form_frame, textvariable=self.input_dir_var, width=50)
         input_entry.grid(row=0, column=1, padx=5, pady=6, sticky="ew")
-
-        # プレースホルダー効果
-        if not self.input_dir_var.get():
-            input_entry.config(fg="gray")
-            input_entry.insert(0, _PLACEHOLDER_DIR)
-            input_entry.bind(
-                "<FocusIn>",
-                lambda e: self._clear_placeholder(input_entry, _PLACEHOLDER_DIR),
-            )
-            input_entry.bind(
-                "<FocusOut>",
-                lambda e: self._restore_placeholder(
-                    input_entry, self.input_dir_var, _PLACEHOLDER_DIR
-                ),
-            )
+        attach_placeholder(input_entry, self.input_dir_var, _PLACEHOLDER_DIR)
 
         input_btn_frame = tk.Frame(form_frame)
         input_btn_frame.grid(row=0, column=2, padx=(5, 0), pady=6)
@@ -237,80 +224,35 @@ class PDFTab(BaseTab):
         )
 
     def _select_input_dir(self) -> None:
-        """入力ディレクトリを選択（pathlibベース）"""
-        try:
-            logger.debug("ディレクトリ選択ダイアログを開きます")
-
-            # tkinterの標準ダイアログを使用（sys.coinit_flagsでフリーズ解決済み）
-            directory = filedialog.askdirectory(title="入力ディレクトリを選択")
-
-            logger.debug(
-                f"ダイアログから戻りました: {directory if directory else 'キャンセル'}"
-            )
-
-            if directory:
-                validated_path = self.validate_path(directory, "directory")
-                if validated_path:
-                    self.input_dir_var.set(str(validated_path))
-                    self.update_status(f"入力ディレクトリを選択: {validated_path.name}")
-                    logger.info(f"入力ディレクトリを選択: {validated_path}")
-
-                    # フォルダ構造の自動判定（バックグラウンドで実行してUIフリーズを防止）
-                    self._detect_and_set_plan_type_async(validated_path)
-            else:
-                logger.debug("ディレクトリ選択がキャンセルされました")
-
-        except Exception as e:
-            logger.error(f"ディレクトリ選択エラー: {e}", exc_info=True)
-            messagebox.showerror(
-                "参照エラー",
-                f"ディレクトリの参照中にエラーが発生しました。\n\n詳細: {e}",
-            )
+        """入力ディレクトリを選択"""
+        validated_path = self.ask_folder(title="入力ディレクトリを選択")
+        if validated_path:
+            self.input_dir_var.set(str(validated_path))
+            self.update_status(f"入力ディレクトリを選択: {validated_path.name}")
+            logger.info(f"入力ディレクトリを選択: {validated_path}")
+            # フォルダ構造の自動判定（バックグラウンド実行でUIフリーズ防止）
+            self._detect_and_set_plan_type_async(validated_path)
 
     def _select_output_file(self) -> None:
-        """出力ファイルを選択（pathlibベース）"""
-        try:
-            logger.debug("出力ファイル選択ダイアログを開きます")
-
-            # デフォルトの出力先をデスクトップに設定
-            desktop_path = Path.home() / "Desktop"
-            initial_dir = (
-                str(desktop_path) if desktop_path.exists() else str(Path.home())
-            )
-
-            # tkinterの標準ダイアログを使用（sys.coinit_flagsでフリーズ解決済み）
-            file_path = filedialog.asksaveasfilename(
-                title="出力ファイルを選択",
-                initialdir=initial_dir,
-                initialfile=Path(self.output_file_var.get()).name
-                if self.output_file_var.get()
-                else "",
-                defaultextension=".pdf",
-                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
-            )
-
-            logger.debug(
-                f"ダイアログから戻りました: {file_path if file_path else 'キャンセル'}"
-            )
-
-            if file_path:
-                validated_path = self.validate_path(
-                    file_path, "file", must_exist=False, allowed_extensions=[".pdf"]
-                )
-                if validated_path:
-                    self.output_file_var.set(str(validated_path))
-                    self.update_status(f"出力ファイルを選択: {validated_path.name}")
-                    logger.info(f"出力ファイルを選択: {validated_path}")
-                    self._validate_inputs()
-            else:
-                logger.debug("出力ファイル選択がキャンセルされました")
-
-        except Exception as e:
-            logger.error(f"出力ファイル選択エラー: {e}", exc_info=True)
-            messagebox.showerror(
-                "参照エラー",
-                f"出力ファイルの参照中にエラーが発生しました。\n\n詳細: {e}",
-            )
+        """出力ファイルを選択"""
+        desktop_path = Path.home() / "Desktop"
+        initial_dir = str(desktop_path) if desktop_path.exists() else str(Path.home())
+        initial_file = (
+            Path(self.output_file_var.get()).name if self.output_file_var.get() else ""
+        )
+        validated_path = self.ask_file_save(
+            title="出力ファイルを選択",
+            initial_dir=initial_dir,
+            initial_file=initial_file,
+            default_extension=".pdf",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+            allowed_extensions=[".pdf"],
+        )
+        if validated_path:
+            self.output_file_var.set(str(validated_path))
+            self.update_status(f"出力ファイルを選択: {validated_path.name}")
+            logger.info(f"出力ファイルを選択: {validated_path}")
+            self._validate_inputs()
 
     def _cancel_operation(self) -> None:
         """処理をキャンセル"""
@@ -638,20 +580,6 @@ class PDFTab(BaseTab):
 
         dialog = PlanTypeSelectionDialog(self.tab, result, on_selection)
         self.tab.wait_window(dialog)
-
-    def _clear_placeholder(self, entry: tk.Entry, placeholder: str) -> None:
-        """プレースホルダーをクリア"""
-        if entry.get() == placeholder:
-            entry.delete(0, tk.END)
-            entry.config(fg="black")
-
-    def _restore_placeholder(
-        self, entry: tk.Entry, var: tk.StringVar, placeholder: str
-    ) -> None:
-        """プレースホルダーを復元"""
-        if not var.get():
-            entry.config(fg="gray")
-            entry.insert(0, placeholder)
 
     def _schedule_validation(self) -> None:
         """検証処理をスケジュール（デバウンス処理）"""

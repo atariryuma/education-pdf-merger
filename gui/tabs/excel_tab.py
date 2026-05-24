@@ -6,7 +6,7 @@ Excel自動更新機能のUIを提供
 import logging
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 import threading
 from typing import Any, Dict, TYPE_CHECKING, Optional
 from pathlib import Path
@@ -277,7 +277,7 @@ class ExcelTab(BaseTab):
         """開いているExcelファイルを自動検出"""
         if self._detecting:
             return
-        if win32com is None or pythoncom is None:
+        if win32com is None:
             messagebox.showerror(
                 "モジュールエラー",
                 "win32comがインストールされていません。\n\n"
@@ -329,23 +329,13 @@ class ExcelTab(BaseTab):
         thread = threading.Thread(target=_detect_in_thread, daemon=True)
         thread.start()
 
-        # 非ブロッキングポーリングで完了を待つ（UIフリーズ防止）
-        poll_count = 0
-        max_polls = 50  # 50 * 200ms = 10秒タイムアウト
+        def _on_timeout() -> None:
+            logger.warning("自動検出がタイムアウトしました（10秒）")
+            self.log("❌ 自動検出がタイムアウトしました", "warning")
+            self.update_status("❌ 自動検出がタイムアウトしました")
+            self._detecting = False
 
         def _on_detect_complete() -> None:
-            nonlocal poll_count
-            if thread.is_alive():
-                poll_count += 1
-                if poll_count >= max_polls:
-                    logger.warning("自動検出がタイムアウトしました（10秒）")
-                    self.log("❌ 自動検出がタイムアウトしました", "warning")
-                    self.update_status("❌ 自動検出がタイムアウトしました")
-                    self._detecting = False
-                    return
-                self.tab.after(200, _on_detect_complete)
-                return
-
             # スレッド完了後の結果処理
             if result["error"]:
                 error_msg = result["error"][0]
@@ -424,7 +414,12 @@ class ExcelTab(BaseTab):
 
             self._detecting = False
 
-        self.tab.after(200, _on_detect_complete)
+        self.poll_thread(
+            thread,
+            on_complete=_on_detect_complete,
+            timeout_seconds=10.0,
+            on_timeout=_on_timeout,
+        )
 
     def _select_file(self, file_type: str) -> None:
         """
@@ -433,45 +428,32 @@ class ExcelTab(BaseTab):
         Args:
             file_type: "reference" または "target"
         """
-        # 初期ディレクトリを決定
-        initial_dir = Path.home() / "Downloads"  # デフォルトはダウンロードフォルダ
-
-        # 現在のファイルパスが存在する場合はそのディレクトリを使用
+        initial_dir = str(Path.home() / "Downloads")
         current_path = (
             self.ref_file_path if file_type == "reference" else self.target_file_path
         )
         if current_path and os.path.exists(current_path):
-            initial_dir = Path(current_path).parent
+            initial_dir = str(Path(current_path).parent)
 
-        file_path = filedialog.askopenfilename(
-            title="Excelファイルを選択"
-            + (" (参照元)" if file_type == "reference" else " (対象)"),
-            initialdir=str(initial_dir),
+        label_suffix = " (参照元)" if file_type == "reference" else " (対象)"
+        validated_path = self.ask_file_open(
+            title=f"Excelファイルを選択{label_suffix}",
+            initial_dir=initial_dir,
             filetypes=[("Excelファイル", "*.xlsx;*.xls"), ("すべて", "*.*")],
         )
+        if not validated_path:
+            return
 
-        if file_path:
-            validated_path = self.validate_path(
-                file_path, "file", error_title="パス検証エラー"
-            )
-            if not validated_path:
-                return
+        if file_type == "reference":
+            self.ref_file_path = str(validated_path)
+        else:
+            self.target_file_path = str(validated_path)
 
-            # ファイルパスを保存
-            if file_type == "reference":
-                self.ref_file_path = str(validated_path)
-            else:
-                self.target_file_path = str(validated_path)
-
-            # ラベルを更新
-            filename = validated_path.name
-            self._update_file_label(file_type, filename, str(validated_path))
-
-            self.log(
-                f"✅ {'参照元' if file_type == 'reference' else '対象'}ファイルを選択: {filename}",
-                "success",
-            )
-            self.update_status(f"✅ ファイルを選択: {filename}")
+        filename = validated_path.name
+        self._update_file_label(file_type, filename, str(validated_path))
+        label = "参照元" if file_type == "reference" else "対象"
+        self.log(f"✅ {label}ファイルを選択: {filename}", "success")
+        self.update_status(f"✅ ファイルを選択: {filename}")
 
     def _update_file_label(self, file_type: str, filename: str, full_path: str) -> None:
         """

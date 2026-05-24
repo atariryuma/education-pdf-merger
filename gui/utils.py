@@ -175,6 +175,40 @@ def create_hover_button(
     return button
 
 
+def attach_placeholder(
+    entry: tk.Entry, var: tk.StringVar, placeholder: str, color: str = "gray"
+) -> None:
+    """
+    Entryウィジェットにプレースホルダー機能を追加
+
+    FocusIn/FocusOut で表示を切り替える。値が既に入っている場合は何もしない。
+
+    Args:
+        entry: 対象のEntryウィジェット
+        var: バインドされているStringVar
+        placeholder: プレースホルダーテキスト
+        color: プレースホルダーの文字色
+    """
+    if var.get():
+        return  # 既に値が入っているならプレースホルダーは不要
+
+    entry.config(fg=color)
+    entry.insert(0, placeholder)
+
+    def _on_focus_in(_event: Optional[tk.Event] = None) -> None:
+        if entry.get() == placeholder:
+            entry.delete(0, tk.END)
+            entry.config(fg="black")
+
+    def _on_focus_out(_event: Optional[tk.Event] = None) -> None:
+        if not var.get():
+            entry.config(fg=color)
+            entry.insert(0, placeholder)
+
+    entry.bind("<FocusIn>", _on_focus_in)
+    entry.bind("<FocusOut>", _on_focus_out)
+
+
 def open_file_or_folder(
     path: str, on_error: Optional[Callable[[str], None]] = None
 ) -> bool:

@@ -140,7 +140,7 @@ class AppConstants:
     """アプリケーション定数"""
 
     # バージョン情報
-    VERSION = "3.7.0"
+    VERSION = "3.7.1"
     APP_NAME = "教育計画PDFマージシステム"
 
     # デフォルトタイムアウト（秒）

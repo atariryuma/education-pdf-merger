@@ -6,7 +6,7 @@
 import logging
 import threading
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, filedialog
 from pathlib import Path
 from tkinter import messagebox
 from typing import Any, List, Optional, Callable, Tuple, TYPE_CHECKING
@@ -193,6 +193,166 @@ class BaseTab:
 
         messagebox.showerror(error_title, error_msg or "パスが無効です")
         return None
+
+    def ask_folder(
+        self,
+        title: str = "フォルダを選択",
+        initial_dir: Optional[str] = None,
+    ) -> Optional[Path]:
+        """
+        フォルダ選択ダイアログを表示し、検証済みPathを返す
+
+        - 検証エラー時はメッセージダイアログを表示
+        - ダイアログのキャンセル時はNoneを返す
+        - 例外時もメッセージダイアログを表示してNoneを返す
+
+        Args:
+            title: ダイアログのタイトル
+            initial_dir: 初期表示ディレクトリ
+
+        Returns:
+            検証済みPath、またはNone
+        """
+        try:
+            kwargs: dict = {"title": title}
+            if initial_dir:
+                kwargs["initialdir"] = initial_dir
+            directory = filedialog.askdirectory(**kwargs)
+            if not directory:
+                return None
+            return self.validate_path(directory, "directory")
+        except Exception as e:
+            messagebox.showerror(
+                "参照エラー",
+                f"フォルダの参照中にエラーが発生しました。\n\n詳細: {e}",
+            )
+            return None
+
+    def ask_file_open(
+        self,
+        title: str = "ファイルを選択",
+        filetypes: Optional[List[Tuple[str, str]]] = None,
+        initial_dir: Optional[str] = None,
+        allowed_extensions: Optional[List[str]] = None,
+    ) -> Optional[Path]:
+        """
+        既存ファイル選択ダイアログを表示し、検証済みPathを返す
+
+        Args:
+            title: ダイアログのタイトル
+            filetypes: filedialog 用のファイルタイプ一覧
+            initial_dir: 初期表示ディレクトリ
+            allowed_extensions: 許可する拡張子（検証用）
+
+        Returns:
+            検証済みPath、またはNone
+        """
+        try:
+            kwargs: dict = {"title": title}
+            if filetypes:
+                kwargs["filetypes"] = filetypes
+            if initial_dir:
+                kwargs["initialdir"] = initial_dir
+            file_path = filedialog.askopenfilename(**kwargs)
+            if not file_path:
+                return None
+            return self.validate_path(
+                file_path,
+                "file",
+                must_exist=True,
+                allowed_extensions=allowed_extensions,
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "参照エラー",
+                f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}",
+            )
+            return None
+
+    def ask_file_save(
+        self,
+        title: str = "保存先を選択",
+        filetypes: Optional[List[Tuple[str, str]]] = None,
+        initial_dir: Optional[str] = None,
+        initial_file: str = "",
+        default_extension: str = "",
+        allowed_extensions: Optional[List[str]] = None,
+    ) -> Optional[Path]:
+        """
+        ファイル保存ダイアログを表示し、検証済みPathを返す
+
+        Args:
+            title: ダイアログのタイトル
+            filetypes: filedialog 用のファイルタイプ一覧
+            initial_dir: 初期表示ディレクトリ
+            initial_file: 初期ファイル名
+            default_extension: デフォルト拡張子
+            allowed_extensions: 許可する拡張子（検証用）
+
+        Returns:
+            検証済みPath、またはNone
+        """
+        try:
+            kwargs: dict = {"title": title}
+            if filetypes:
+                kwargs["filetypes"] = filetypes
+            if initial_dir:
+                kwargs["initialdir"] = initial_dir
+            if initial_file:
+                kwargs["initialfile"] = initial_file
+            if default_extension:
+                kwargs["defaultextension"] = default_extension
+            file_path = filedialog.asksaveasfilename(**kwargs)
+            if not file_path:
+                return None
+            return self.validate_path(
+                file_path,
+                "file",
+                must_exist=False,
+                allowed_extensions=allowed_extensions,
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "参照エラー",
+                f"ファイルの参照中にエラーが発生しました。\n\n詳細: {e}",
+            )
+            return None
+
+    def poll_thread(
+        self,
+        thread: threading.Thread,
+        on_complete: Callable[[], None],
+        timeout_seconds: float = 10.0,
+        poll_interval_ms: int = 200,
+        on_timeout: Optional[Callable[[], None]] = None,
+    ) -> None:
+        """
+        スレッドの完了を非ブロッキングでポーリングし、完了時にコールバックを呼ぶ
+
+        UIフリーズを避けるため、`tab.after()` で再帰的に自身をスケジュールする。
+
+        Args:
+            thread: 監視するスレッド
+            on_complete: スレッド完了時に呼ばれるコールバック
+            timeout_seconds: タイムアウト秒数
+            poll_interval_ms: ポーリング間隔（ミリ秒）
+            on_timeout: タイムアウト時のコールバック（省略時は何もしない）
+        """
+        max_polls = max(1, int((timeout_seconds * 1000) / poll_interval_ms))
+        state = {"count": 0}
+
+        def _tick() -> None:
+            if not thread.is_alive():
+                on_complete()
+                return
+            state["count"] += 1
+            if state["count"] >= max_polls:
+                if on_timeout is not None:
+                    on_timeout()
+                return
+            self.tab.after(poll_interval_ms, _tick)
+
+        self.tab.after(poll_interval_ms, _tick)
 
     def run_in_thread(
         self,
