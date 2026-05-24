@@ -7,7 +7,7 @@
 pywin32>=306
 
 # PDF処理
-PyPDF2>=3.0.0
+pypdf>=4.0.0
 pymupdf>=1.23.0
 reportlab>=4.0.0
 

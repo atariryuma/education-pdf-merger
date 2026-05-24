@@ -4,6 +4,7 @@
 全てのタブで共有される基本機能を提供
 """
 import logging
+import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from pathlib import Path
@@ -11,7 +12,7 @@ from tkinter import messagebox
 from typing import Any, List, Optional, Callable, Tuple, TYPE_CHECKING
 
 from gui.styles import COLORS, FONTS
-from gui.utils import log_message
+from gui.utils import log_message, set_button_state, thread_safe_call
 from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
@@ -192,6 +193,56 @@ class BaseTab:
 
         messagebox.showerror(error_title, error_msg or "パスが無効です")
         return None
+
+    def run_in_thread(
+        self,
+        target: Callable[[], None],
+        button: Optional[tk.Widget] = None,
+        running_status: str = "🔄 実行中...",
+        error_title: str = "実行エラー",
+        on_error: Optional[Callable[[Exception], None]] = None,
+    ) -> threading.Thread:
+        """
+        バックグラウンドスレッドで処理を実行する共通ヘルパー
+
+        - 実行前にボタンを無効化、終了後に再有効化
+        - 例外時はログ・ステータス・エラーダイアログを統一表示
+
+        Args:
+            target: 実行する関数（引数なし）
+            button: 実行中に無効化するボタン
+            running_status: 実行中ボタンに表示するテキスト
+            error_title: エラーダイアログのタイトル
+            on_error: 追加のエラーハンドラ（オプション）
+
+        Returns:
+            起動したスレッド（daemon）
+        """
+        if button is not None:
+            set_button_state(button, False, getattr(self, "status_label", None), running_status)
+
+        def _wrapper() -> None:
+            try:
+                target()
+            except Exception as e:
+                error_msg = str(e)
+                self.log(f"❌ エラー: {error_msg}", "error")
+                self.update_status("❌ エラーが発生しました")
+                thread_safe_call(
+                    self.tab,
+                    lambda: messagebox.showerror(
+                        error_title, f"エラーが発生しました。\n\n詳細:\n{error_msg}"
+                    ),
+                )
+                if on_error is not None:
+                    on_error(e)
+            finally:
+                if button is not None:
+                    set_button_state(button, True, getattr(self, "status_label", None), "")
+
+        thread = threading.Thread(target=_wrapper, daemon=True)
+        thread.start()
+        return thread
 
     def create_collapsible_section(
         self,

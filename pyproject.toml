@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf-merge-system"
-version = "3.6.1"
+version = "3.7.0"
 description = "教育計画PDFマージシステム - 各種ドキュメントをPDFに変換・マージするWindowsアプリケーション"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -29,7 +29,7 @@ classifiers = [
 
 dependencies = [
     "pywin32>=306",
-    "PyPDF2>=3.0.0",
+    "pypdf>=4.0.0",
     "pymupdf>=1.23.0",
     "reportlab>=4.0.0",
     "Pillow>=10.0.0",

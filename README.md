@@ -280,7 +280,7 @@ MIT License - 詳細は [LICENSE](LICENSE) をご覧ください。
 
 ## 📚 参考資料
 
-- [PyPDF2 ドキュメント](https://pypdf2.readthedocs.io/)
+- [pypdf ドキュメント](https://pypdf.readthedocs.io/)
 - [ReportLab ユーザーガイド](https://www.reportlab.com/docs/reportlab-userguide.pdf)
 - [pywin32 ドキュメント](https://github.com/mhammond/pywin32)
 - [pywinauto ドキュメント](https://pywinauto.readthedocs.io/)

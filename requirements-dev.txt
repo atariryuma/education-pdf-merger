@@ -1,5 +1,5 @@
 # 開発用依存関係
-# 教育計画PDFマージシステム v3.5.6
+# バージョンは pyproject.toml が単一の真実
 
 # === 本番環境の依存関係を含める ===
 -r requirements.txt
@@ -13,7 +13,6 @@ pytest-timeout>=2.2.0      # テストタイムアウト
 # === 型チェック ===
 mypy>=1.5.0
 types-Pillow>=10.0.0       # Pillowの型スタブ
-types-requests>=2.31.0     # requestsの型スタブ
 
 # === リンター・フォーマッター ===
 ruff>=0.1.0                # 高速リンター・フォーマッター
@@ -25,5 +24,4 @@ bandit[toml]>=1.7.5        # セキュリティ脆弱性検査
 pyinstaller>=6.0.0         # exe生成
 
 # === 開発ユーティリティ ===
-ipython>=8.12.0            # 対話型Shell（オプション）
 pre-commit>=3.5.0          # Git hooksフレームワーク

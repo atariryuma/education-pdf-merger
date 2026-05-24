@@ -20,8 +20,8 @@ pre-commit install
 python run_app.py
 
 # テスト
-pytest                    # 全テスト（325件）
-pytest -m unit            # ユニットテストのみ（285件）
+pytest                    # 全テスト（335件）
+pytest -m unit            # ユニットテストのみ
 pytest tests/test_pdf_converter.py::TestConvert::test_word  # 単一テスト
 
 # 品質チェック（コミット前に必ず実行）
@@ -64,7 +64,8 @@ converters/             # 各形式→PDF変換
 infrastructure/         # 設定・ユーティリティ
   ├─ config_loader.py           # 2層設定（config.json + user_config.json）
   ├─ ghostscript.py             # GS検出・検証・ダウンロード案内
-  └─ path_validator.py          # パス検証・サニタイズ・トラバーサル対策
+  ├─ path_validator.py          # パス検証・サニタイズ・トラバーサル対策
+  └─ com_utils.py               # pythoncom 初期化のコンテキストマネージャ
 shared/                 # 全層共通
   ├─ constants.py               # 定数クラス群
   └─ exceptions.py              # PDFMergeError階層（9種類、例外チェーン対応）
@@ -99,8 +100,9 @@ shared/                 # 全層共通
 - **型ヒント**: すべての関数に必須。`mypy.ini`で厳密度制御（core/shared/infrastructure/convertersは厳密、guiは緩和）
 - **例外**: `shared.exceptions` のカスタム例外を使用、`original_error`で例外チェーン
 - **パス検証**: ユーザー入力パスは`PathValidator`経由。GUI層では`BaseTab.validate_path()`を使用
-- **COM初期化**: `run_app.py`で`sys.coinit_flags = 2`（STA）が必須（tkinter.filedialogとの競合回避）
+- **COM初期化**: `run_app.py`で`sys.coinit_flags = 2`（STA）が必須（tkinter.filedialogとの競合回避）。スレッド内でCOMを扱う場合は `infrastructure.com_utils.com_apartment(sta=True|False)` を使う
 - **リソース管理**: `fitz.open()`等はコンテキストマネージャー使用。COM は finally で cleanup
+- **PDF操作**: `pypdf>=4.0.0` を使用（PyPDF2は非推奨のため使用禁止）
 
 ## 設定管理
 
@@ -121,5 +123,6 @@ Excel転記の行事名は `ConfigLoader.get_event_names()` / `save_event_names(
 ## GUI
 
 - `gui/styles.py`: COLORS, FONTS, BUTTON_STYLES を一元管理。色名リテラル（`"gray"`, `"white"`等）はハードコードOK（可読性優先）
-- `BaseTab`: ログフレーム、折りたたみセクション、パス検証ヘルパーを提供
+- `BaseTab`: ログフレーム、折りたたみセクション、パス検証、`run_in_thread()` ヘルパーを提供
 - ログウィジェットは `fill="both", expand=True` でリサイズ追従
+- バックグラウンドスレッドでCOM操作する場合は `with com_apartment(sta=True):` で囲む

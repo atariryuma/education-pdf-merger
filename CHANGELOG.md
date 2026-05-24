@@ -1,5 +1,34 @@
 # 変更履歴
 
+## [3.7.0] - 2026-05-24
+
+### ♻️ リファクタリング・依存関係刷新
+
+1. **PyPDF2 → pypdf へ移行** ([core/pdf_processor.py](core/pdf_processor.py))
+   - PyPDF2は非推奨。後継パッケージの`pypdf>=4.0.0`へ移行
+   - `PdfMerger` → `PdfWriter` API変更に対応
+   - `requirements.txt`, `pyproject.toml`, `build_installer.spec`, README を更新
+
+2. **COM初期化の共通化** ([infrastructure/com_utils.py](infrastructure/com_utils.py) 新規)
+   - `gui/tabs/excel_tab.py`の3箇所、`converters/office_converter.py`に散在していた
+     `pythoncom.CoInitializeEx` / `pythoncom.CoUninitialize` を `com_apartment()` に集約
+   - STA / MTAをパラメータで切り替え可能
+
+3. **GUI共通ヘルパー追加** ([gui/tabs/base_tab.py](gui/tabs/base_tab.py))
+   - `run_in_thread()`: バックグラウンドスレッド実行+ボタン無効化+例外ハンドリングを統一
+
+### 🧹 環境クリーンアップ
+
+1. **バージョン不整合の解消** (5ファイル)
+   - `version_info.txt`: 3.5.8 → 3.7.0
+   - `installer/build_installer.bat`: 3.5.8 → 3.7.0
+   - `requirements-dev.txt`: ヘッダーバージョン記述削除（`pyproject.toml`を単一の真実に）
+
+2. **未使用依存関係の削除**
+   - `types-requests`: requestsライブラリは未使用のため削除
+   - `requirements-dev.txt`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`, `installer/build_installer.bat` から削除
+   - `ipython`: 開発用Shellは未使用のため削除
+
 ## [3.6.1] - 2026-04-08
 
 ### 🐛 重大バグ修正 (Critical Bug Fixes)

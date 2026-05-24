@@ -13,10 +13,8 @@ from pathlib import Path
 
 try:
     import win32com.client
-    import pythoncom
 except ImportError:
     win32com = None
-    pythoncom = None
 
 from gui.tabs.base_tab import BaseTab
 from gui.styles import COLORS, FONTS
@@ -27,6 +25,7 @@ from gui.utils import (
     create_tooltip,
     thread_safe_call,
 )
+from infrastructure.com_utils import com_apartment
 from core.update_excel_files import ExcelTransfer
 
 if TYPE_CHECKING:
@@ -305,8 +304,7 @@ class ExcelTab(BaseTab):
 
         def _detect_in_thread() -> None:
             try:
-                pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
-                try:
+                with com_apartment(sta=True):
                     excel = win32com.client.Dispatch("Excel.Application")
                     for wb in excel.Workbooks:
                         full_path = wb.FullName
@@ -325,8 +323,6 @@ class ExcelTab(BaseTab):
                         ):
                             result["target"].append((filename, full_path))
                     del excel
-                finally:
-                    pythoncom.CoUninitialize()
             except Exception as e:
                 result["error"].append(str(e))
 
@@ -562,8 +558,7 @@ class ExcelTab(BaseTab):
 
         def task():
             try:
-                pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
-                try:
+                with com_apartment(sta=True):
                     set_button_state(
                         self.run_button, False, self.status_label, "🔄 実行中..."
                     )
@@ -645,8 +640,6 @@ class ExcelTab(BaseTab):
                             "内容を確認して保存してください。",
                         ),
                     )
-                finally:
-                    pythoncom.CoUninitialize()
             except Exception as e:
                 self.log(f"❌ エラー: {e}", "error")
                 set_button_state(self.run_button, True, self.status_label, "")
@@ -753,8 +746,7 @@ class ExcelTab(BaseTab):
 
         def task():
             try:
-                pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
-                try:
+                with com_apartment(sta=True):
                     # ExcelTransferインスタンス作成（COM管理はExcelTransferに任せる）
                     transfer = ExcelTransfer(
                         ref_filename="",  # 行事名読み込みでは参照ファイル不要
@@ -821,8 +813,6 @@ class ExcelTab(BaseTab):
                     set_button_state(
                         self.read_event_button, True, self.status_label, ""
                     )
-                finally:
-                    pythoncom.CoUninitialize()
 
             except Exception as e:
                 logger.error(f"行事名読み込みエラー: {e}", exc_info=True)

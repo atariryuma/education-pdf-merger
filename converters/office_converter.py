@@ -7,13 +7,12 @@ import logging
 import os
 import shutil
 import subprocess
-from contextlib import contextmanager
-from typing import Any, Optional, Generator
+from typing import Any, Optional
 
 from win32com import client
-import pythoncom
 import win32process
 
+from infrastructure.com_utils import com_apartment
 from shared.exceptions import PDFConversionError
 from shared.constants import (
     WordFormat,
@@ -38,14 +37,13 @@ class OfficeConverter:
         self.temp_dir = temp_dir
 
     @staticmethod
-    @contextmanager
-    def _com_context() -> Generator[None, None, None]:
-        """COMオブジェクト用のコンテキストマネージャー"""
-        pythoncom.CoInitialize()
-        try:
-            yield
-        finally:
-            pythoncom.CoUninitialize()
+    def _com_context() -> Any:
+        """
+        COMオブジェクト用のコンテキストマネージャー
+
+        Word/Excel/PowerPointのAutomation APIはMTA(Multi-Threaded Apartment)で動作する。
+        """
+        return com_apartment(sta=False)
 
     @staticmethod
     def _kill_office_process(

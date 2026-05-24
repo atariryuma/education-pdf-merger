@@ -28,7 +28,7 @@ repos:
     hooks:
       - id: mypy
         args: [--config-file=mypy.ini, --no-error-summary]
-        additional_dependencies: [types-Pillow, types-requests]
+        additional_dependencies: [types-Pillow]
         files: ^(core|shared|infrastructure|converters)/.*\.py$
 
   # === Bandit: セキュリティチェック ===

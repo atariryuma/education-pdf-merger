@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from typing import List, Optional, Tuple, TYPE_CHECKING, Generator
 
 import fitz  # PyMuPDF
-from PyPDF2 import PdfMerger
+from pypdf import PdfWriter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import (
@@ -114,12 +114,12 @@ class PDFProcessor:
             pdf_paths: PDFファイルパスのリスト
             output_file: 出力先ファイルパス
         """
-        merger = PdfMerger()
+        writer = PdfWriter()
         try:
             skipped_count = 0
             for pdf in pdf_paths:
                 if pdf and os.path.exists(pdf):
-                    merger.append(pdf)
+                    writer.append(pdf)
                 else:
                     skipped_count += 1
                     if pdf:
@@ -128,10 +128,11 @@ class PDFProcessor:
                         logger.warning("PDFパスがNoneまたは空です（スキップ）")
             if skipped_count > 0:
                 logger.warning(f"マージ時に{skipped_count}件のPDFをスキップしました")
-            merger.write(output_file)
+            with open(output_file, "wb") as f:
+                writer.write(f)
             logger.info(f"PDFをマージしました: {output_file}")
         finally:
-            merger.close()
+            writer.close()
 
     def compress_pdf(self, pdf_path: str) -> bool:
         """

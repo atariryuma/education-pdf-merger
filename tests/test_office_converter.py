@@ -114,14 +114,14 @@ class TestOfficeConverter:
         )
         assert OfficeConverter.OFFICE_EXTENSIONS == expected_extensions
 
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     def test_com_context_manager(self, mock_pythoncom: Mock):
-        """COMコンテキストマネージャーのテスト"""
+        """COMコンテキストマネージャーのテスト（MTA初期化）"""
         with OfficeConverter._com_context():
             mock_pythoncom.CoInitialize.assert_called_once()
         mock_pythoncom.CoUninitialize.assert_called_once()
 
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     def test_com_context_manager_with_exception(self, mock_pythoncom: Mock):
         """COMコンテキストマネージャーの例外処理テスト"""
         with pytest.raises(ValueError):
@@ -200,7 +200,7 @@ class TestOfficeConverter:
         converter._cleanup_office_app(None, None, "WINWORD.EXE", "Word")
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     @patch("os.path.exists")
     def test_convert_word_success(
         self,
@@ -229,7 +229,7 @@ class TestOfficeConverter:
         mock_doc.SaveAs2.assert_called_once()
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     @patch("converters.office_converter.shutil.copy2")
     @patch("os.path.exists")
     def test_convert_excel_success(
@@ -261,7 +261,7 @@ class TestOfficeConverter:
         mock_wb.ExportAsFixedFormat.assert_called_once()
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     @patch("os.path.exists")
     def test_convert_powerpoint_success(
         self,
@@ -290,7 +290,7 @@ class TestOfficeConverter:
         mock_pres.SaveAs.assert_called_once()
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     @patch("os.path.exists")
     def test_convert_output_not_created(
         self,
@@ -313,7 +313,7 @@ class TestOfficeConverter:
         assert result is None
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     def test_convert_raises_pdf_conversion_error(
         self,
         mock_pythoncom: Mock,
@@ -333,7 +333,7 @@ class TestOfficeConverter:
         assert exc_info.value.original_error is not None
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     def test_convert_system_exit_propagation(
         self,
         mock_pythoncom: Mock,
@@ -350,7 +350,7 @@ class TestOfficeConverter:
             converter.convert(str(mock_word_doc), str(output_path))
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     def test_convert_keyboard_interrupt_propagation(
         self,
         mock_pythoncom: Mock,
@@ -367,7 +367,7 @@ class TestOfficeConverter:
             converter.convert(str(mock_word_doc), str(output_path))
 
     @patch("converters.office_converter.client")
-    @patch("converters.office_converter.pythoncom")
+    @patch("infrastructure.com_utils.pythoncom")
     @patch("os.path.exists")
     def test_convert_removes_existing_output(
         self,

@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 """
-教育計画PDFマージシステム v3.6.1
+教育計画PDFマージシステム v3.7.0
 PyInstaller ビルド設定ファイル
 
 使用方法:
@@ -89,7 +89,7 @@ hiddenimports = [
     'comtypes',
     'comtypes.client',
     'comtypes.stream',
-    'PyPDF2',
+    'pypdf',
     'fitz',  # PyMuPDF
     'reportlab',
     'reportlab.pdfgen',
