@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 echo ========================================
-echo 教育計画PDFマージシステム v3.7.1
+echo 教育計画PDFマージシステム v3.7.2
 echo インストーラー ビルドスクリプト
 echo ========================================
 echo.
@@ -51,7 +51,7 @@ echo.
 echo ========================================
 echo [成功] インストーラーのビルドが完了しました！
 echo.
-echo 出力先: dist\installer\PDFMergeSystem_Setup_3.7.1.exe
+echo 出力先: dist\installer\PDFMergeSystem_Setup_3.7.2.exe
 echo ========================================
 echo.
 pause

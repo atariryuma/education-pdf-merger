@@ -1,7 +1,7 @@
 # 教育計画PDFマージシステム - 必要なライブラリ
 
-# Python バージョン要件: 3.9以上
-# （pathlib の is_relative_to() を使用）
+# Python バージョン要件: 3.10以上
+# （3.9はEOL（2025年10月）のためサポート終了）
 
 # Windows Office操作
 pywin32>=306

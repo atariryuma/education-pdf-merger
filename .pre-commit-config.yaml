@@ -14,6 +14,17 @@ repos:
       - id: check-merge-conflict
       - id: debug-statements
 
+  # === Windows予約名ファイル検出（nul, con, prn 等の誤作成を防ぐ） ===
+  - repo: local
+    hooks:
+      - id: no-windows-reserved-files
+        name: Windows予約名ファイルの検出
+        description: nul, con, prn 等のWindows予約名ファイルがコミットされるのを防ぐ
+        entry: python scripts/check_no_windows_reserved.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
   # === Ruff: リンター・フォーマッター ===
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.9

@@ -13,6 +13,7 @@ from typing import Any, List, Optional, Callable, Tuple, TYPE_CHECKING
 
 from gui.styles import COLORS, FONTS
 from gui.utils import log_message, set_button_state, thread_safe_call
+from infrastructure.com_utils import com_apartment
 from infrastructure.path_validator import PathValidator
 
 if TYPE_CHECKING:
@@ -361,12 +362,16 @@ class BaseTab:
         running_status: str = "🔄 実行中...",
         error_title: str = "実行エラー",
         on_error: Optional[Callable[[Exception], None]] = None,
+        on_finally: Optional[Callable[[], None]] = None,
+        com_sta: Optional[bool] = None,
     ) -> threading.Thread:
         """
         バックグラウンドスレッドで処理を実行する共通ヘルパー
 
         - 実行前にボタンを無効化、終了後に再有効化
         - 例外時はログ・ステータス・エラーダイアログを統一表示
+        - `com_sta` が指定されていれば `com_apartment` で囲んで実行
+        - `on_finally` で実行終了時の追加処理（フラグリセット等）を指定可能
 
         Args:
             target: 実行する関数（引数なし）
@@ -374,16 +379,27 @@ class BaseTab:
             running_status: 実行中ボタンに表示するテキスト
             error_title: エラーダイアログのタイトル
             on_error: 追加のエラーハンドラ（オプション）
+            on_finally: スレッド終了時に必ず呼ばれるコールバック（オプション）
+            com_sta: COMアパートメント (True=STA, False=MTA, None=囲まない)
 
         Returns:
             起動したスレッド（daemon）
         """
         if button is not None:
-            set_button_state(button, False, getattr(self, "status_label", None), running_status)
+            set_button_state(
+                button, False, getattr(self, "status_label", None), running_status
+            )
+
+        def _run_target() -> None:
+            if com_sta is None:
+                target()
+            else:
+                with com_apartment(sta=com_sta):
+                    target()
 
         def _wrapper() -> None:
             try:
-                target()
+                _run_target()
             except Exception as e:
                 error_msg = str(e)
                 self.log(f"❌ エラー: {error_msg}", "error")
@@ -398,7 +414,11 @@ class BaseTab:
                     on_error(e)
             finally:
                 if button is not None:
-                    set_button_state(button, True, getattr(self, "status_label", None), "")
+                    set_button_state(
+                        button, True, getattr(self, "status_label", None), ""
+                    )
+                if on_finally is not None:
+                    on_finally()
 
         thread = threading.Thread(target=_wrapper, daemon=True)
         thread.start()

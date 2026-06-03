@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 
 
 _PLACEHOLDER_DIR = "フォルダを選択してください..."
-_PLACEHOLDER_FILE = "ファイルを選択してください..."
 
 
 class PDFTab(BaseTab):
@@ -610,7 +609,7 @@ class PDFTab(BaseTab):
 
         # 出力ファイルの検証
         output_valid = False
-        if output_path and output_path != _PLACEHOLDER_FILE:
+        if output_path:
             output_valid, error_msg, _ = PathValidator.validate_file_path(
                 output_path, must_exist=False, allowed_extensions=[".pdf"]
             )

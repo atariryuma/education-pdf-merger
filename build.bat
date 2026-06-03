@@ -2,7 +2,7 @@
 chcp 65001 > nul
 echo ========================================
 echo 教育計画PDFマージシステム ビルドスクリプト
-echo Version 3.7.1 - GUI重複コード徹底削減・README/インストーラー整理
+echo Version 3.7.2 - Python 3.10必須化・タブのスレッド処理共通化
 echo ========================================
 echo.
 
@@ -56,11 +56,11 @@ if exist "dist\教育計画PDFマージシステム.exe" (
 
     echo.
     echo ビルド情報:
-    echo   - バージョン: 3.7.1
-    echo   - GUI重複削減（attach_placeholder, ask_folder/file_open/file_save, poll_thread）
-    echo   - README.md / README_INSTALLER.md を全面刷新
-    echo   - 不要なinnosetup_installer.exeを削除（9.7MB）
-    echo   - excel_tab.pyのpythoncom未定義参照バグを修正
+    echo   - バージョン: 3.7.2
+    echo   - Python 3.10以上必須（3.9はEOLのためサポート終了）
+    echo   - excel_tabの_run_excel_update/_read_event_names_from_excelを共通化
+    echo   - run_in_threadにcom_sta/on_finallyパラメータ追加
+    echo   - Windows予約名ファイル検出のpre-commit hook追加
     echo.
     for %%F in ("dist\教育計画PDFマージシステム.exe") do (
         echo   - ファイルサイズ: %%~zF bytes

@@ -1,5 +1,43 @@
 # 変更履歴
 
+## [3.7.2] - 2026-05-24
+
+### ⚠️ 破壊的変更
+
+- **Python 3.10以上を必須化** (3.9はEOL 2025-10のためサポート終了)
+  - `pyproject.toml`: `requires-python = ">=3.10"`
+  - `mypy.ini`: `python_version = 3.10`
+  - `.github/workflows/ci.yml`: Python 3.10
+  - `requirements.txt`, README badge を更新
+
+### ♻️ タブのスレッド処理を統一
+
+- **`BaseTab.run_in_thread()` を強化**:
+  - `com_sta` パラメータ追加: True/False で COM apartment を自動でラップ
+  - `on_finally` パラメータ追加: フラグリセット等の後始末を統一
+- **`excel_tab.py` の重複ロジックを削減** (約110行):
+  - `_run_excel_update`: 102行 → 75行（手書きのcom_apartment/set_button_state/try-except→error dialog/finally全て `run_in_thread` に集約）
+  - `_read_event_names_from_excel`: 86行 → 50行（同様に集約）
+
+### 🛡️ 環境保護
+
+- **`scripts/check_no_windows_reserved.py` 新設**: nul/con/prn/aux/com1-9/lpt1-9 等のWindows予約名ファイルを検出するpre-commit hook
+- **`.pre-commit-config.yaml`** に `no-windows-reserved-files` フックを登録
+- 過去にあった`nul`ファイル誤作成（mypy走査時にエラー）の再発を防止
+
+### 🧹 デッドコード削除
+
+- **`_PLACEHOLDER_FILE` 定数の責務漏れを修正** ([gui/tabs/pdf_tab.py](gui/tabs/pdf_tab.py))
+  - 出力ファイルエントリには placeholder を attach していないのに `_validate_inputs` で比較していた
+  - 定数と無意味な比較を削除
+
+### ✅ 検証
+
+- ruff: All checks passed
+- mypy: Success: no issues found in 58 source files
+- pytest: 352 passed
+- EXE再ビルド + GUI起動スモークテスト OK
+
 ## [3.7.1] - 2026-05-24
 
 ### 🐛 バグ修正

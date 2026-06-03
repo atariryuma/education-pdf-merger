@@ -1,6 +1,6 @@
 # 教育計画PDFマージシステム
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)](https://www.microsoft.com/windows)
 
 教育計画・行事計画関連のドキュメント（Word／Excel／PowerPoint／一太郎／画像／PDF）を、目次・しおり付きの単一PDFに統合する Windows デスクトップアプリ。Excel自動転記機能も搭載。
@@ -26,7 +26,7 @@
 
 ### 前提条件
 
-- **Python 3.9以上** — [ダウンロード](https://www.python.org/downloads/)
+- **Python 3.10以上** — [ダウンロード](https://www.python.org/downloads/)
 - **Microsoft Office** — Word／Excel／PowerPoint が必要
 - **Ghostscript** — [ダウンロード](https://ghostscript.com/releases/gsdnld.html)
 - **一太郎**（任意） — `.jtd` ファイルを扱う場合のみ

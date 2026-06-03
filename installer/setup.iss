@@ -2,7 +2,7 @@
 ; Inno Setup 6.0+ required
 
 #define MyAppName "教育計画PDFマージシステム"
-#define MyAppVersion "3.7.1"
+#define MyAppVersion "3.7.2"
 #define MyAppPublisher "教育機関向けPDFツール"
 #define MyAppExeName "教育計画PDFマージシステム.exe"
 #define MyAppURL "https://github.com/atariryuma/education-pdf-merger"

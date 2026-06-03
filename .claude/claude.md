@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 教育計画・行事計画のドキュメント（Word、Excel、PowerPoint、一太郎、画像、PDF）を目次・ブックマーク付き単一PDFに統合するWindowsデスクトップアプリ。Excel自動転記機能も搭載。
 
-**制約**: Windows専用（Win32 COM、pywinauto使用）。Office必須。一太郎変換はUI自動化。
+**制約**: Windows専用（Win32 COM、pywinauto使用）。Office必須。一太郎変換はUI自動化。Python 3.10以上が必要。
 
 ## 開発コマンド
 
@@ -123,6 +123,10 @@ Excel転記の行事名は `ConfigLoader.get_event_names()` / `save_event_names(
 ## GUI
 
 - `gui/styles.py`: COLORS, FONTS, BUTTON_STYLES を一元管理。色名リテラル（`"gray"`, `"white"`等）はハードコードOK（可読性優先）
-- `BaseTab`: ログフレーム、折りたたみセクション、パス検証、`run_in_thread()` ヘルパーを提供
+- `BaseTab` のヘルパー（タブを書くときはこれらを優先利用）:
+  - `ask_folder()` / `ask_file_open()` / `ask_file_save()`: 検証+例外+ダイアログを統一
+  - `attach_placeholder()` (gui/utils.py): Entryのプレースホルダー
+  - `poll_thread()`: バックグラウンドスレッドを非ブロッキングで監視
+  - `run_in_thread()`: スレッド実行+ボタン管理+例外ハンドリング+COM apartment 統合（`com_sta=True` でSTA、`on_finally=` で後始末）
+  - `validate_path()`: PathValidator のラッパー
 - ログウィジェットは `fill="both", expand=True` でリサイズ追従
-- バックグラウンドスレッドでCOM操作する場合は `with com_apartment(sta=True):` で囲む
