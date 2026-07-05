@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> 共通規約（日本語・コミット規約・PII保護・配信/破壊操作のゲート・環境事実）は
+> グローバル `~/.claude/CLAUDE.md` に従う。このファイルには**このプロジェクト固有の差分だけ**を書く。
+> このリポジトリの単一の真実はこの CLAUDE.md。`AGENTS.md` はここへのポインタのみ。
+
 ## プロジェクト概要
 
 教育計画・行事計画のドキュメント（Word、Excel、PowerPoint、一太郎、画像、PDF）を目次・ブックマーク付き単一PDFに統合するWindowsデスクトップアプリ。Excel自動転記機能も搭載。
@@ -33,16 +37,12 @@ pyinstaller build_installer.spec --clean --noconfirm
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss
 ```
 
-## コミットルール
+## コミットルール（プロジェクト固有）
 
-**`--no-verify` は絶対に使わない。** pre-commitフックを必ず通す。
+- コミットは `種別: 簡潔な説明` 形式。種別は `Feature`, `Fix`, `Refactor`, `Docs`, `Test`, `Chore`, `Build`。
+- このプロジェクトは pre-commit フック必須（ruff + mypy + bandit）。コミット前に必ず通す。
 
-```text
-種別: 簡潔な説明
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-```
-
-種別: `Feature`, `Fix`, `Refactor`, `Docs`, `Test`, `Chore`, `Build`
+（日本語・`--no-verify` 禁止・`Co-Authored-By` トレーラー（モデル名は固定しない）はグローバル規約に従う）
 
 ## アーキテクチャ
 
